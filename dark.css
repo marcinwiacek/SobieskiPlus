@@ -1,0 +1,14 @@
+/* (c) by Marcin Wiacek */
+
+html {
+	background-color: black; filter: invert(100%);
+}
+img, iframe {
+	filter: invert(100%);
+}
+a.dark_theme {
+	display:none;
+}
+a.light_theme {
+	display:inline;
+}

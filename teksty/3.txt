@@ -1,0 +1,19 @@
+﻿Title:Omasz3
+Author:marcin
+When:23 Apr 1999
+State:felietony
+Type:felieton
+Species:inne
+Taxonomy:Polski,Polski artykuł,x86
+
+ala ma kota
+<p>błąd
+
+<!--comment-->
+Title:so true
+Author:Anonymous (not verified)
+When:4 Jun 2010
+
+<p>comment 3
+<!--change-->
+When:24 Apr 1999
