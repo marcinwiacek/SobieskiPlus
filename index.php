@@ -3,9 +3,20 @@
 //filesystem limit for one folder
 $gMaxPerFolder=10000000;
 
+$gEntryPerPage = 10;
+
 function strncmp_startswith($haystack, $needle)
 {
     return strncmp($haystack, $needle, strlen($needle)) === 0;
+}
+
+function str_replace_first($search, $replace, $subject) 
+{
+    $pos = strpos($subject, $search);
+    if ($pos !== false) {
+        return substr_replace($subject, $replace, $pos, strlen($search));
+    }
+    return $subject;
 }
 
 function readFileContent($fileName)
@@ -45,7 +56,6 @@ abstract class DecodingLevel
 function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$commentInArr,$commentHeaders)
 {
     $arr = array();
-    $arr["Text"]="";
     $parsingLevel = DecodingLevel::MainHeaders;
     if ($headersOnly) {
         foreach(preg_split("/\\r\\n|\\r|\\n/", $text) as $singleLine) {
@@ -61,17 +71,16 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
                     $parsingLevel = DecodingLevel::MainText;
                 } else {
                     $x = explode(":", $singleLine);
-                    if (count($x)!=2) { continue;
+                    if (count($x)==2 && in_array($x[0], $normalHeaders)) { 
+                        $arr[$x[0]] = $x[1]; 
                     }
-                    if (!in_array($x[0], $normalHeaders)) { 
-                        continue;
-                    }
-                    $arr[$x[0]] = $x[1]; 
                 }
             }
         }
+        $arr["When"] = strtotime($arr["When"]);
         return $arr;
     }
+    $arr["Text"]="";
     foreach(preg_split("/\\r\\n|\\r|\\n/", $text) as $singleLine) {
         if ($singleLine == $commentInFile) {
             if (isset($comment)) {
@@ -95,12 +104,9 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
                 $parsingLevel = DecodingLevel::MainText;
             } else {
                 $x = explode(":", $singleLine);
-                if (count($x)!=2) { break;
+                if (count($x)==2 && in_array($x[0], $normalHeaders)) {
+                    $arr[$x[0]] = $x[1];
                 }
-                if (!in_array($x[0], $normalHeaders)) {
-                    break;
-                }
-                $arr[$x[0]] = $x[1];
             }
             break;
         case DecodingLevel::MainText:
@@ -111,12 +117,9 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
                 $parsingLevel = DecodingLevel::CommentText;
             } else {
                 $x = explode(":", $singleLine);
-                if (count($x)!=2) { break;
+                if (count($x)==2 && in_array($x[0], $commentHeaders)) {
+                    $comment[$x[0]] = $x[1];
                 }
-                if (!in_array($x[0], $commentHeaders)) {
-                    break;
-                }
-                $comment[$x[0]] = $x[1];
             }
             break;
         case DecodingLevel::CommentText:
@@ -131,7 +134,7 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
         }
         array_push($arr[$commentInArr], $comment);
     }
-
+    $arr["When"] = strtotime($arr["When"]);
     return $arr;
 }
 
@@ -148,11 +151,82 @@ function decodeFileContent($text,$headersOnly)
 
 function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy) 
 {
+    global $gEntryPerPage;
+
     $files = array();
+    $i=0;
+
+    if (file_exists("test.db")) {
+        $db = new SQLite3("test.db");
+        $db->busyTimeout(5000);
+        $statement = $db->prepare(
+            "SELECT mod, filename, title, whentime, ".
+            "state, type, species,taxonomy,author FROM pages ORDER by whentime"
+        );
+        $result = $statement->execute();
+        while ($row = $result->fetchArray()) {
+            /*            if (filemtime("teksty/".$row["filename"].".txt")!=$row["mod"]) {
+                    $arr = decodeFileContent(readFileContent("teksty/".$fileNameArray[1].".txt"), true);
+                $db->exec(
+                    "UPDATE  pages SET mod=".filemtime("teksty/".$row["filename"].".txt").
+                    ",title='".$arr["Title"].
+                    "',whentime='".$arr["When"].
+                    "',state='".$arr["State"].
+                    "',type='".$arr["Type"].
+                    "',species='".$arr["Species"].
+                    "',taxonomy='".$arr["Taxonomy"].
+                    "',author='".$arr["Author"]."' WHERE filename='".$row["filename"]."'"
+                );
+	    }
+            */
+            if (!in_array($row["state"], $stateList)) { continue;
+            }
+            if (!in_array($row["type"], $typeList)) { continue;
+            }
+            if (!in_array($row["species"], $speciesList)) { continue;
+            }
+            if ($taxonomy!="" && isset($row["taxonomy"])) {
+                $tax = explode(",", $row["taxonomy"]);
+                if (!in_array($taxonomy, $tax)) { continue;
+                }
+            }
+            $arr= array();
+            $arr["Author"]=$row["author"];
+            $arr["Title"]=$row["title"];
+            $arr["When"]=$row["whentime"];
+            $arr["State"]=$row["state"];
+            $arr["Type"]=$row["type"];
+            $arr["Species"]=$row["species"];
+            $arr["Taxonomy"]=$row["taxonomy"];
+            $i++;
+            if ($i>=$gEntryPerPage*$pageNum) {
+                       $files[$row["filename"]] = $arr;
+            }
+            if ($i>=$gEntryPerPage*($pageNum+1)) { break;
+            }
+        }
+        $db->close();
+        return $files;
+    }
+
+    $db = new SQLite3("test.db");
+    $db->busyTimeout(5000);
+    $db->exec('PRAGMA journal_mode = wal;');
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS pages(mod INTEGER, filename TEXT, title TEXT, whentime TEXT, ".
+        "state TEXT, type TEXT, species TEXT, taxonomy TEXT, author TEXT)"
+    );
+    $db->exec('BEGIN');
     foreach (scandir("teksty", 0) as $file) {
         if (is_file("teksty/$file") && preg_match("/^(.*)\.txt/", $file, $fileNameArray)) {
-            $text = readFileContent("teksty/".$fileNameArray[1].".txt");
-            $arr = decodeFileContent($text, true);
+            $arr = decodeFileContent(readFileContent("teksty/".$fileNameArray[1].".txt"), true);
+            $db->exec(
+                "INSERT INTO pages(mod, filename, title, whentime, state, type, species, taxonomy, author) ".
+                "VALUES(".filemtime("teksty/".$fileNameArray[1].".txt").",'".$fileNameArray[1]."','".$arr["Title"]."','".
+                $arr["When"]."','".$arr["State"]."','".$arr["Type"]."','".$arr["Species"]."','".
+                $arr["Taxonomy"]."','".$arr["Author"]."')"
+            );
+
             if (!isset($arr["State"]) || !in_array($arr["State"], $stateList)) { continue;
             }
             if (!isset($arr["Type"]) || !in_array($arr["Type"], $typeList)) { continue;
@@ -164,9 +238,18 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
                 if (!in_array($taxonomy, $tax)) { continue;
                 }
             }
-            $files[$fileNameArray[1]] = $arr;
+            $i++;
+            if ($i>=$gEntryPerPage*$pageNum && $i<$gEntryPerPage*($pageNum+1)) {
+	        $files[$fileNameArray[1]] = $arr;
+            }
         }
     }
+
+    $db->exec('COMMIT');
+    $db->close();
+
+    //    uksort($fileNames,"cmpByDate");
+
     return $files;
 }
 
@@ -182,36 +265,35 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
         exit(0);
     }
 
-    $ft = readFileContent("teksty/".$id[2].".txt");
-    $arr = decodeFileContent($ft, false);
+    $arr = decodeFileContent(readFileContent("teksty/".$id[2].".txt"), false);
     if (!in_array($arr["Type"], $podstronyType[$id[1]])) { 
         header('Location: '.$_SERVER['PHP_SELF']);
         exit(0);
     }
 
     $text = readFileContent("templates/entry.txt");
-    $text = str_replace("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
-    $text = str_replace("<!--JS-->", readFileContent("templates/js.txt"), $text);
-    $text = str_replace("<!--TITLE-->", $arr["Title"], $text);
-    $text = str_replace("<!--USER-->", $arr["Author"], $text);
-    $text = str_replace("<!--TEXT-->", $arr["Text"], $text);
-    $text = str_replace("<!--TYPE-->", $arr["Type"], $text);
-    $text = str_replace("<!--SPECIES-->", $arr["Species"], $text);
+    $text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
+    $text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
+    $text = str_replace_first("<!--TITLE-->", $arr["Title"], $text);
+    $text = str_replace_first("<!--USER-->", $arr["Author"], $text);
+    $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
+    $text = str_replace_first("<!--TYPE-->", $arr["Type"], $text);
+    $text = str_replace_first("<!--SPECIES-->", $arr["Species"], $text);
     if (isset($arr["Comments"])) {
         $template0 = readFileContent("templates/comment.txt");
         $txt = "";
         foreach($arr["Comments"] as $comment) {
             $template = $template0;
-            $template = str_replace("<!--USER-->", $comment["Author"], $template);
-            $template = str_replace("<!--TITLE-->", $comment["Title"], $template);
-            $template = str_replace("<!--WHEN-->", $comment["When"], $template);
-            $template = str_replace("<!--TEXT-->", $comment["Text"], $template);
+            $template = str_replace_first("<!--USER-->", $comment["Author"], $template);
+            $template = str_replace_first("<!--TITLE-->", $comment["Title"], $template);
+            $template = str_replace_first("<!--WHEN-->", $comment["When"], $template);
+            $template = str_replace_first("<!--TEXT-->", $comment["Text"], $template);
 
             $txt = $txt.$template;
         }
-        $text = str_replace("<!--COMMENTS-->", $txt, $text);
+        $text = str_replace_first("<!--COMMENTS-->", $txt, $text);
     }
-    $text = str_replace("<!--COMMENTEDIT-->", readFileContent("templates/commentedit.txt"), $text);
+    $text = str_replace_first("<!--COMMENTEDIT-->", readFileContent("templates/commentedit.txt"), $text);
 
     echo $text;
     return;
@@ -222,33 +304,38 @@ $podstronyState["opowiadania"]=array("biblioteka","beta","archiwum");
 $podstronyState["publicystyka"]=array("artykuly","felietony","poradniki");
 
 // for example opowiadania/biblioteka
-if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)$/", $_GET["q"], $id)) {
+if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_GET["q"], $id)) {
     if (isset($podstronyState[$id[1]]) && in_array($id[2], $podstronyState[$id[1]])) {
-        $list = GetPagesList(1, array($id[2]), $podstronyType[$id[1]], array("inne","scifi"), "");
+        $pageNum=0;
+        if (isset($id[3])) {
+            $pageNum = intval(substr($id[3], 1, strlen($id[3])-1));
+        }
+        $list = GetPagesList($pageNum, array($id[2]), $podstronyType[$id[1]], array("inne","scifi"), "");
     } else {
         header('Location: '.$_SERVER['PHP_SELF']);
         exit(0);
     }
 
     $text = readFileContent("templates/list.txt");
-    $text = str_replace("<!--TITLE-->", "", $text);
-    $text = str_replace("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
-    $text = str_replace("<!--JS-->", readFileContent("templates/js.txt"), $text);
+    $text = str_replace_first("<!--TITLE-->", "", $text);
+    $text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
+    $text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
 
     if (!empty($list)) {
         $template0 = readFileContent("templates/listentry.txt");
         $txt="";
         foreach($list as $fileName => $arr) {
             $template = $template0;
-            $template = str_replace("<!--USER-->", $arr["Author"], $template);
-            $template = str_replace("<!--TITLE-->", "<a href=\"?q=".$id[1]."/pokaz/$fileName\">".$arr["Title"]."</a>", $template);
-            $template = str_replace("<!--TYPE-->", $arr["Type"], $template);
-            $template = str_replace("<!--SPECIES-->", $arr["Species"], $template);
-            $template = str_replace("<!--WHEN-->", $arr["When"], $template);
+            $template = str_replace_first("<!--USER-->", $arr["Author"], $template);
+            $template = str_replace_first("<!--TITLE-->", "<a href=\"?q=".$id[1]."/pokaz/$fileName\">".$arr["Title"]."</a>", $template);
+            $template = str_replace_first("<!--TYPE-->", $arr["Type"], $template);
+            $template = str_replace_first("<!--SPECIES-->", $arr["Species"], $template);
+            $template = str_replace_first("<!--WHEN-->", $arr["When"], $template);
             $txt = $txt.$template;
         }
-        $text = str_replace("<!--LIST-->", $txt, $text);
+        $text = str_replace_first("<!--LIST-->", $txt, $text);
     }
+    $text = str_replace_first("<!--NEXTLINK-->", "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum-1).">Prev page</a><a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1).">Next page</a>", $text);
 
     echo $text;
     return;
@@ -285,9 +372,9 @@ if (isset($_GET["q"]) && preg_match("/^profil\/([0-9\-]+)$/", $_GET["q"], $id)) 
 }
 
 $text = readFileContent("templates/main.txt");
-$text = str_replace("<!--TITLE-->", "", $text);
-$text = str_replace("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
-$text = str_replace("<!--JS-->", readFileContent("templates/js.txt"), $text);
+$text = str_replace_first("<!--TITLE-->", "", $text);
+$text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
+$text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
 
 echo $text;
 
