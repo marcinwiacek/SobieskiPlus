@@ -177,7 +177,7 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
                     "',taxonomy='".$arr["Taxonomy"].
                     "',author='".$arr["Author"]."' WHERE filename='".$row["filename"]."'"
                 );
-	    }
+            }
             */
             if (!in_array($row["state"], $stateList)) { continue;
             }
@@ -240,7 +240,7 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
             }
             $i++;
             if ($i>=$gEntryPerPage*$pageNum && $i<$gEntryPerPage*($pageNum+1)) {
-	        $files[$fileNameArray[1]] = $arr;
+                $files[$fileNameArray[1]] = $arr;
             }
         }
     }
@@ -251,6 +251,63 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
     //    uksort($fileNames,"cmpByDate");
 
     return $files;
+}
+
+function decodeFileContent2($text,$headersOnly)
+{
+        return decodeFileContent0(
+            $text, $headersOnly,
+            array("When","Author","Mail","Password"),
+            "<!--PW-->",
+            "PW",
+            array("To","When","From")
+        );
+}
+
+function genericReplace($text,$userID) 
+{
+    $text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
+    $text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
+    if ($userID!="") {
+        $text = str_replace_first("<!--LOGIN-LOGOUT-->", readFileContent("templates/logout.txt"), $text);
+    } else {
+        $text = str_replace_first("<!--LOGIN-LOGOUT-->", readFileContent("templates/login.txt"), $text);
+
+        $db = new SQLite3("session.db");
+        $db->busyTimeout(5000);
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT); ".
+            "delete from sessions where expire < ".time().";"
+        );
+
+        $salt = random_int(0, PHP_INT_MAX-1);
+        $text = str_replace_first("<!--HASH-->", $salt, $text);
+        $db->exec(
+            "INSERT INTO sessions(expire, userID, token, salt) ".
+            "VALUES(".(time()+(30 * 60)).",'','',".$salt.")"
+        );
+        $db->close();
+    }
+    return $text;
+}
+
+$userID="";
+if (isset($_COOKIE["login"])) {
+    $db = new SQLite3("session.db");
+    $db->busyTimeout(5000);
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT); ".
+        "delete from sessions where expire < ".time().";"
+    );
+    //TODO: limit number of sessions per user
+    $statement = $db->prepare(
+        "SELECT userID from sessions where token = '".$_COOKIE["login"]."';"
+    );
+    $result = $statement->execute();
+    while ($row = $result->fetchArray()) {
+        $userID=$row['userID'];
+    }
+    $db->close();
 }
 
 $podstronyType = array();
@@ -272,8 +329,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     }
 
     $text = readFileContent("templates/entry.txt");
-    $text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
-    $text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
+    $text = genericReplace($text, $userID);
     $text = str_replace_first("<!--TITLE-->", $arr["Title"], $text);
     $text = str_replace_first("<!--USER-->", $arr["Author"], $text);
     $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
@@ -293,7 +349,9 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
         }
         $text = str_replace_first("<!--COMMENTS-->", $txt, $text);
     }
-    $text = str_replace_first("<!--COMMENTEDIT-->", readFileContent("templates/commentedit.txt"), $text);
+    if ($userID!="") {
+        $text = str_replace_first("<!--COMMENTEDIT-->", readFileContent("templates/commentedit.txt"), $text);
+    }
 
     echo $text;
     return;
@@ -317,9 +375,8 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
     }
 
     $text = readFileContent("templates/list.txt");
+    $text = genericReplace($text, $userID);
     $text = str_replace_first("<!--TITLE-->", "", $text);
-    $text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
-    $text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
 
     if (!empty($list)) {
         $template0 = readFileContent("templates/listentry.txt");
@@ -340,13 +397,14 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
     echo $text;
     return;
 }
+
+
+
+
+
 if (isset($_POST["q"]) && $_POST["q"]=="upload_new_page" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
 }
 if (isset($_POST["q"]) && $_POST["q"]=="edit_page" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
-if (isset($_POST["q"]) && $_POST["q"]=="login" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
-if (isset($_POST["q"]) && $_POST["q"]=="logout" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
 }
 if (isset($_POST["q"]) && $_POST["q"]=="new_user" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
 }
@@ -371,11 +429,59 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
 if (isset($_GET["q"]) && preg_match("/^profil\/([0-9\-]+)$/", $_GET["q"], $id)) {
 }
 
+
+
+
+
+
+if (isset($_POST["logout"]) && $userID!="") {
+    $db = new SQLite3("session.db");
+    $db->busyTimeout(5000);
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT);".
+        "delete from sessions where expire < ".time()." OR token=".$_COOKIE["login"].";"
+    );
+    setcookie("login", "", time() - 3600);
+    $db->close();
+} else if (isset($_POST["login"]) && isset($_POST["user"]) && isset($_POST["password"]) && $userID=="") {
+    $db = new SQLite3("session.db");
+    $db->busyTimeout(5000);
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT);".
+        "delete from sessions where expire < ".time().";"
+    );
+
+    $statement = $db->prepare(
+        "SELECT salt from sessions where salt <> ''"
+    );
+    $result = $statement->execute();
+    while ($row = $result->fetchArray()) {
+        foreach (scandir("uzytkownicy", 0) as $file) {
+            if (is_file("uzytkownicy/$file") && preg_match("/^(.*)\.txt/", $file, $fileNameArray)) {
+                $arr = decodeFileContent2(readFileContent("uzytkownicy/$file"), true);
+                $usr = hash('sha256', $row['salt'].$arr["Author"]);
+                if ($usr != $_POST["user"]) { continue;
+                }
+                $pass = hash('sha256', $row['salt'].$arr["Password"]);
+                if ($pass==$_POST["password"]) {
+                    $salt = random_int(0, PHP_INT_MAX-1);
+                    $exp = (time()+(1 * 24 * 60 * 60));
+                    $db->exec(
+                        "UPDATE sessions SET expire=".$exp.", userID='".$file."',token='".$salt."',salt=''".
+                        "where salt=".$row['salt']
+                    );
+                    setcookie("login", $salt, $exp, "/");
+                    break;
+                }
+            }
+        }
+    }
+    $db->close();
+}
+
 $text = readFileContent("templates/main.txt");
 $text = str_replace_first("<!--TITLE-->", "", $text);
-$text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
-$text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
-
+$text = genericReplace($text, $userID);
 echo $text;
 
 ?>

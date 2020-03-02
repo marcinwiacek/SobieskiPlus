@@ -65,4 +65,11 @@
       <p><a href="?q=publicystyka/poradniki">Poradniki</a></p>
     </div>
   </div>
+  <div class="menu-option">
+    <div class=menu-option-text>Użytkownik</div>
+    <div class="menu-option-content">
+	<!--LOGIN-LOGOUT-->
+    </div>
+  </div>
+
 </div>

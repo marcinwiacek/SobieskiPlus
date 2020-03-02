@@ -1,0 +1,22 @@
+<table width=100% border=1><tr><td>
+<script src="templates/sha256.js"></script>
+<script>
+  var hash='<!--HASH-->';
+</script>
+  <form method=post id=login name=login>
+      <input name="login" type="hidden">
+      Użytkownik: <input name="user" type="text" value=""><br>
+      Hasło: <input name="password" type="text" value="">
+      <button type="submit">Login</button>
+  </form>
+<script>
+document.login.onsubmit = function() {
+  var user = document.getElementById("login").elements.namedItem("user").value; 
+  var password = document.getElementById("login").elements.namedItem("password").value; 
+  document.getElementById("login").elements.namedItem("user").value = sha256(hash+user);
+  document.getElementById("login").elements.namedItem("password").value = sha256(hash+password);
+  document.login.submit();
+  return false;
+};
+</script>
+</td></tr></table>

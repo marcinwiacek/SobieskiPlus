@@ -1,11 +1,11 @@
 ﻿
 <!-- we need something with Polish dictionary -->
 
-<link href="templates/quill.snow.css" rel="stylesheet">
+<link type="text/css" rel="stylesheet" href="templates/quill.snow.css">
 <script src="templates/quill.min.js"></script>
 
 <table width=100% border=1><tr><td>
-  <form>
+  <form id=commentedit name=commentedit>
       Tytuł: <input name="display_name" type="text" value="">
       <input name="about" type="hidden">
       <div id="editor-container"></div>
@@ -43,8 +43,7 @@ var quill = new Quill('#editor-container', {
   theme: 'snow'
 });
 
-var form = document.querySelector('form');
-form.onsubmit = function() {
+document.commentedit.onsubmit = function() {
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'/'+window.location.hostname+':'+window.location.port+window.location.pathname;

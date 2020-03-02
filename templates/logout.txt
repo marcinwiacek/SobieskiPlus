@@ -1,0 +1,6 @@
+<table width=100% border=1><tr><td>
+  <form method=post>
+      <input name="logout" type="hidden">
+      <button type="submit">Logout</button>
+  </form>
+</td></tr></table>
