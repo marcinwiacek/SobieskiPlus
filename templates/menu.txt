@@ -71,5 +71,4 @@
 	<!--LOGIN-LOGOUT-->
     </div>
   </div>
-
 </div>

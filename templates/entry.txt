@@ -19,7 +19,43 @@
 </td></tr></table>
 <p>
 <!--COMMENTS-->
+<div id=newcomments></div>
 <p>
 <!--COMMENTEDIT-->
 <!--JS-->
+
+<!-- pooling is bad -->
+<!--
+function updatePage() {
+  var lastUpdate = <!--LASTUPDATE-->;
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = 'q=get_page_updates&lastUpdate='+lastUpdate+'&tekstID=<!--PAGEID-->';
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+
+  http.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            document.getElementById("newcomments").innerHTML += this.responseText;
+       } else {
+            alert('other');
+       }
+  //  setTimeout(updatePage, 2000);
+    };
+
+  http.send(params);
+}
+//    setTimeout(updatePage, 10000);
+-->
+
+<script>
+  <!-- SSE is a little better -->
+  var source = new EventSource("push.php?fileid=<!--PAGEID-->");
+  source.onmessage = function(event) {
+    //parsing
+    document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+  };
+  document.body.onunload = function(){source.close();};
+</script>
 </body></html>

@@ -5,7 +5,7 @@
 <script src="templates/quill.min.js"></script>
 
 <table width=100% border=1><tr><td>
-  <form id=commentedit name=commentedit>
+  <form id=commentedit name=commentedit method=post>
       Tytuł: <input name="display_name" type="text" value="">
       <input name="about" type="hidden">
       <div id="editor-container"></div>
@@ -46,12 +46,11 @@ var quill = new Quill('#editor-container', {
 document.commentedit.onsubmit = function() {
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
-  var url = window.location.protocol+'/'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=upload_comment&tekst=3&comment='+decodeURIComponent(quill.root.innerHTML);
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = 'q=upload_comment&tekst=<!--PAGEID-->&comment='+decodeURIComponent(quill.root.innerHTML);
 
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-
   http.onprogress = function(e) {
     if (e.lengthComputable) {
         progressBar.max = e.total;

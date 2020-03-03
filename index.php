@@ -71,8 +71,8 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
                     $parsingLevel = DecodingLevel::MainText;
                 } else {
                     $x = explode(":", $singleLine);
-                    if (count($x)==2 && in_array($x[0], $normalHeaders)) { 
-                        $arr[$x[0]] = $x[1]; 
+                    if (count($x)>=2 && in_array($x[0], $normalHeaders)) { 
+                        $arr[$x[0]] = substr($singleLine, strlen($x[0])+1, strlen($singleLine)-strlen($x[0])); 
                     }
                 }
             }
@@ -87,6 +87,7 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
                 if (!isset($arr[$commentInArr])) {
                     $arr[$commentInArr] = array();
                 }
+                $comment["When"] = strtotime($comment["When"]);
                 array_push($arr[$commentInArr], $comment);
             }
             $parsingLevel = DecodingLevel::CommentHeaders;
@@ -104,8 +105,8 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
                 $parsingLevel = DecodingLevel::MainText;
             } else {
                 $x = explode(":", $singleLine);
-                if (count($x)==2 && in_array($x[0], $normalHeaders)) {
-                    $arr[$x[0]] = $x[1];
+                if (count($x)>=2 && in_array($x[0], $normalHeaders)) {
+                        $arr[$x[0]] = substr($singleLine, strlen($x[0])+1, strlen($singleLine)-strlen($x[0])); 
                 }
             }
             break;
@@ -117,8 +118,8 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
                 $parsingLevel = DecodingLevel::CommentText;
             } else {
                 $x = explode(":", $singleLine);
-                if (count($x)==2 && in_array($x[0], $commentHeaders)) {
-                    $comment[$x[0]] = $x[1];
+                if (count($x)>=2 && in_array($x[0], $commentHeaders)) {
+                        $comment[$x[0]] = substr($singleLine, strlen($x[0])+1, strlen($singleLine)-strlen($x[0])); 
                 }
             }
             break;
@@ -132,6 +133,7 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
         if (!isset($arr[$commentInArr])) {
             $arr[$commentInArr] = array();
         }
+        $comment["When"] = strtotime($comment["When"]);
         array_push($arr[$commentInArr], $comment);
     }
     $arr["When"] = strtotime($arr["When"]);
@@ -335,10 +337,12 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
     $text = str_replace_first("<!--TYPE-->", $arr["Type"], $text);
     $text = str_replace_first("<!--SPECIES-->", $arr["Species"], $text);
+    $last = $arr["When"];
     if (isset($arr["Comments"])) {
         $template0 = readFileContent("templates/comment.txt");
         $txt = "";
         foreach($arr["Comments"] as $comment) {
+            $last = $arr["When"];
             $template = $template0;
             $template = str_replace_first("<!--USER-->", $comment["Author"], $template);
             $template = str_replace_first("<!--TITLE-->", $comment["Title"], $template);
@@ -349,9 +353,11 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
         }
         $text = str_replace_first("<!--COMMENTS-->", $txt, $text);
     }
+    $text = str_replace_first("<!--LASTUPDATE-->", $last, $text);
     if ($userID!="") {
         $text = str_replace_first("<!--COMMENTEDIT-->", readFileContent("templates/commentedit.txt"), $text);
     }
+    $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
 
     echo $text;
     return;
@@ -398,8 +404,53 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
     return;
 }
 
+if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
+    //checking for login
+    //checking for correct filename protection
+    if (file_exists("teksty/".$_POST["tekst"].".txt")) {
+        $handle = @fopen("teksty/".$_POST["tekst"].".txt", "a");
+        //checking for <!--comment--> and others
+        //saving pictures separately
+        fwrite($handle, "\n<!--comment-->\nTitle:ala\nWhen:".date("d M Y H:i:s", time())."\nAuthor:marcin\n\n".rawurldecode($_POST["comment"]));
+        fclose($handle);
+    }
+
+    exit(0);
+}
 
 
+/*if (isset($_POST["q"]) && $_POST["q"]=="get_page_updates" && isset($_POST["tekstID"]) && isset($_POST["lastUpdate"])) {
+        $handle = @fopen("log", "a");
+        fwrite($handle, $_POST["q"]."-".$_POST["tekstID"]."-".$_POST["lastUpdate"]);
+        fclose($handle);
+    $arr = decodeFileContent(readFileContent("teksty/".$_POST["tekstID"].".txt"), false);
+        $txt = "";
+$last = $_POST["lastUpdate"];
+    if (isset($arr["Comments"])) {
+        $template0 = readFileContent("templates/comment.txt");
+        foreach($arr["Comments"] as $comment) {
+if ($comment["When"]>$last) $last = $comment["When"];
+        if ($comment["When"]<=$_POST["lastUpdate"]) continue;
+            $template = $template0;
+            $template = str_replace_first("<!--USER-->", $comment["Author"], $template);
+            $template = str_replace_first("<!--TITLE-->", $comment["Title"], $template);
+            $template = str_replace_first("<!--WHEN-->", $comment["When"], $template);
+            $template = str_replace_first("<!--TEXT-->", $comment["Text"], $template);
+
+            $txt = $txt.$template;
+        }
+    
+    }
+    if ($txt !="") {
+// of course create JSON here
+//    echo("document.getElementById(\"newcomments\").innerHTML = ".
+//"document.getElementById(\"newcomments\").innerHTML+
+    echo(rawurlencode($txt));
+//    echo("lastUpdate = $last;");
+    }
+    return;
+}
+*/
 
 
 if (isset($_POST["q"]) && $_POST["q"]=="upload_new_page" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
@@ -409,21 +460,6 @@ if (isset($_POST["q"]) && $_POST["q"]=="edit_page" && isset($_POST["tekst"]) && 
 if (isset($_POST["q"]) && $_POST["q"]=="new_user" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
 }
 if (isset($_POST["q"]) && $_POST["q"]=="edit_user" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
-if (isset($_POST["q"]) && $_POST["q"]=="get_page_updates" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
-if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-    //checking for login
-    //checking for correct filename protection
-    if (file_exists("teksty/".$_POST["tekst"].".txt")) {
-        $handle = @fopen("teksty/".$_POST["tekst"].".txt", "a");
-        //checking for <!--comment--> and others
-        //saving pictures separately
-        fwrite($handle, "\n<!--comment-->\n".rawurldecode($_POST["comment"]));
-        fclose($handle);
-    }
-
-    exit(0);
 }
 // profil/1234
 if (isset($_GET["q"]) && preg_match("/^profil\/([0-9\-]+)$/", $_GET["q"], $id)) {
