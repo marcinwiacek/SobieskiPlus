@@ -4,7 +4,6 @@
   var hash='<!--HASH-->';
 </script>
   <form method=post id=login name=login>
-      <input name="login" type="hidden">
       Użytkownik: <input name="user" type="text" value=""><br>
       Hasło: <input name="password" type="text" value="">
       <button type="submit">Login</button>
@@ -13,9 +12,25 @@
 document.login.onsubmit = function() {
   var user = document.getElementById("login").elements.namedItem("user").value; 
   var password = document.getElementById("login").elements.namedItem("password").value; 
-  document.getElementById("login").elements.namedItem("user").value = sha256(hash+user);
-  document.getElementById("login").elements.namedItem("password").value = sha256(hash+password);
-  document.login.submit();
+
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = "login=1&user="+sha256(hash+user)+"&password="+sha256(hash+password);
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onload = function() {
+    if (http.status != 200) {
+      alert('login error');
+    } else {
+      window.location.reload();
+    }
+  };
+  http.onerror = function () {
+    alert('login error');
+  };
+
+  http.send(params);
   return false;
 };
 </script>

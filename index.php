@@ -332,7 +332,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
 
     $text = readFileContent("templates/entry.txt");
     $text = genericReplace($text, $userID);
-    $text = str_replace_first("<!--TITLE-->", $arr["Title"], $text);
+    $text = str_replace("<!--TITLE-->", $arr["Title"], $text); // multiple instances
     $text = str_replace_first("<!--USER-->", $arr["Author"], $text);
     $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
     $text = str_replace_first("<!--TYPE-->", $arr["Type"], $text);
@@ -346,7 +346,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
             $template = $template0;
             $template = str_replace_first("<!--USER-->", $comment["Author"], $template);
             $template = str_replace_first("<!--TITLE-->", $comment["Title"], $template);
-            $template = str_replace_first("<!--WHEN-->", $comment["When"], $template);
+            $template = str_replace_first("<!--WHEN-->", date("d M Y H:i:s", $comment["When"]), $template);
             $template = str_replace_first("<!--TEXT-->", $comment["Text"], $template);
 
             $txt = $txt.$template;
@@ -393,7 +393,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
             $template = str_replace_first("<!--TITLE-->", "<a href=\"?q=".$id[1]."/pokaz/$fileName\">".$arr["Title"]."</a>", $template);
             $template = str_replace_first("<!--TYPE-->", $arr["Type"], $template);
             $template = str_replace_first("<!--SPECIES-->", $arr["Species"], $template);
-            $template = str_replace_first("<!--WHEN-->", $arr["When"], $template);
+            $template = str_replace_first("<!--WHEN-->", date("d M Y H:i:s", $arr["When"]), $template);
             $txt = $txt.$template;
         }
         $text = str_replace_first("<!--LIST-->", $txt, $text);
@@ -479,6 +479,7 @@ if (isset($_POST["logout"]) && $userID!="") {
     );
     setcookie("login", "", time() - 3600);
     $db->close();
+    exit(0);
 } else if (isset($_POST["login"]) && isset($_POST["user"]) && isset($_POST["password"]) && $userID=="") {
     $db = new SQLite3("session.db");
     $db->busyTimeout(5000);
@@ -507,12 +508,15 @@ if (isset($_POST["logout"]) && $userID!="") {
                         "where salt=".$row['salt']
                     );
                     setcookie("login", $salt, $exp, "/");
-                    break;
+                    $db->close();
+                    exit(0);
                 }
             }
         }
     }
     $db->close();
+    header('HTTP/1.1 404 Not Found');
+    exit(0);
 }
 
 $text = readFileContent("templates/main.txt");

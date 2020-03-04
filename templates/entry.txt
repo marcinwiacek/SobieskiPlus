@@ -36,10 +36,10 @@ function updatePage() {
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 
   http.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("newcomments").innerHTML += this.responseText;
+       if (this.readyState == 4 && this.status == 200) {
+          document.getElementById("newcomments").innerHTML += this.responseText;
        } else {
-            alert('other');
+          alert('other');
        }
   //  setTimeout(updatePage, 2000);
     };
@@ -53,8 +53,10 @@ function updatePage() {
   <!-- SSE is a little better -->
   var source = new EventSource("push.php?fileid=<!--PAGEID-->");
   source.onmessage = function(event) {
-    //parsing
-    document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+    if (event.data!='') {
+      //parsing
+      document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+    }
   };
   document.body.onunload = function(){source.close();};
 </script>

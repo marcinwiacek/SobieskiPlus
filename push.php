@@ -147,8 +147,14 @@ function decodeFileContent($text,$headersOnly)
 }
 
 //check field format
+//check if session is OK
 if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
+//        $handle = @fopen("log", "a");
+//        fwrite($handle, "wchodze");
+//        fclose($handle);
+
     $template0 = readFileContent("templates/comment.txt");
+    clearstatcache();
     $t = filemtime("teksty/".$_GET["fileid"].".txt");
     $arr = decodeFileContent(readFileContent("teksty/".$_GET["fileid"].".txt"), false);
 
@@ -156,9 +162,17 @@ if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
     if (isset($arr["Comments"])) { $num = count($arr["Comments"]);
     }
 
+    echo "data:\n\n";
+    ob_flush();
+//            ob_end_flush();
+    flush();
+
     while (true) {
         clearstatcache();
         if ($t != filemtime("teksty/".$_GET["fileid"].".txt")) {
+//        $handle = @fopen("log", "a");
+  //      fwrite($handle, "mamy update");
+    //    fclose($handle);
             $arr = decodeFileContent(readFileContent("teksty/".$_GET["fileid"].".txt"), false);
             if (isset($arr["Comments"])) {
                 for ($i=$num;$i<count($arr["Comments"]);$i++) {
@@ -166,7 +180,7 @@ if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
                     $template = $template0;
                     $template = str_replace_first("<!--USER-->", $comment["Author"], $template);
                     $template = str_replace_first("<!--TITLE-->", $comment["Title"], $template);
-                    $template = str_replace_first("<!--WHEN-->", $comment["When"], $template);
+                    $template = str_replace_first("<!--WHEN-->", date("d M Y H:i:s", $comment["When"]), $template);
                     $template = str_replace_first("<!--TEXT-->", $comment["Text"], $template);
                     /*        $handle = @fopen("log", "a");
                     fwrite($handle, $template);
@@ -178,7 +192,8 @@ if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
                 }
                 $num = count($arr["Comments"]);
             }
-            ob_end_flush();
+            ob_flush();
+//            ob_end_flush();
             flush();
             if (connection_aborted()==1) { break;
             }

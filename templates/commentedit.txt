@@ -12,7 +12,7 @@
       <button type="submit">Dodaj komentarz</button>
   </form>
 </td></tr></table>
-Postęp: <progress id="progress" value="0"></progress>
+<div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
 <script async=async>
 
 var toolbarOptions = [
@@ -57,12 +57,19 @@ document.commentedit.onsubmit = function() {
         progressBar.value = e.loaded;
     }
   };
-  http.onloadstart = function(e) {
+  http.onloadstart = function() {
+    document.getElementById("progressinfo").style.display="block";
+    document.getElementById("progress").innerHTML="";
     progressBar.value = 0;
   };
-  http.onloadend = function(e) {
-    progressBar.value = e.loaded;
+  http.onload = function() {
+    progressBar.value = progressBar.max;
+    document.getElementById("progressinfo").style.display="none";
   };
+  http.onerror = function () {
+    document.getElementById("progress").innerHTML="error";
+  };
+
   http.send(params);
 
   return false;
