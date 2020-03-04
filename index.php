@@ -411,7 +411,13 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
         $handle = @fopen("teksty/".$_POST["tekst"].".txt", "a");
         //checking for <!--comment--> and others
         //saving pictures separately
-        fwrite($handle, "\n<!--comment-->\nTitle:ala\nWhen:".date("d M Y H:i:s", time())."\nAuthor:marcin\n\n".rawurldecode($_POST["comment"]));
+        fwrite(
+            $handle, "\n<!--comment-->\n".
+            "Title:ala\n".
+            "When:".date("d M Y H:i:s", time())."\n".
+            "Author:marcin\n\n".
+            rawurldecode($_POST["comment"])
+        );
         fclose($handle);
     }
 

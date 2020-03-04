@@ -56,6 +56,9 @@ function updatePage() {
     if (event.data!='') {
       //parsing
       document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+      if (document.hidden && window.document.title.substring(0,2)!="* ") {
+        window.document.title = "* "+window.document.title;
+      }
     }
   };
   document.body.onunload = function(){source.close();};

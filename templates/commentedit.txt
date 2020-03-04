@@ -65,6 +65,7 @@ document.commentedit.onsubmit = function() {
   http.onload = function() {
     progressBar.value = progressBar.max;
     document.getElementById("progressinfo").style.display="none";
+    quill.root.innerHTML="";
   };
   http.onerror = function () {
     document.getElementById("progress").innerHTML="error";
