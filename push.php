@@ -1,7 +1,7 @@
 <?php
 //session_write_close();
 ignore_user_abort(false);
-set_time_limit(60);//10 minutes
+set_time_limit(60);//1 minute
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 
@@ -14,7 +14,7 @@ if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
     //        fwrite($handle, "wchodze");
     //        fclose($handle);
 
-    $template0 = readFileContent("templates/comment.txt");
+    $template0 = readFileContent("internal/comment.txt");
     clearstatcache();
     $t = filemtime("teksty/".$_GET["fileid"].".txt");
     $arr = decodeFileContent(readFileContent("teksty/".$_GET["fileid"].".txt"), false);

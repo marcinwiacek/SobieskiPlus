@@ -234,11 +234,26 @@ $podstronyState["publicystyka"]=array("artykuly","felietony","poradniki");
 // for example opowiadania/biblioteka
 if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_GET["q"], $id)) {
     if (isset($podstronyState[$id[1]]) && in_array($id[2], $podstronyState[$id[1]])) {
+        if (isset($_GET["t"])) {
+            if (!in_array($_GET["t"], $podstronyType[$id[1]])) {
+                header('Location: '.$_SERVER['PHP_SELF']);
+                exit(0);
+            }
+            $typ = $_GET["t"];
+        } else {
+            $typ="";
+        }
         $pageNum=0;
         if (isset($id[3])) {
             $pageNum = intval(substr($id[3], 1, strlen($id[3])-1));
         }
-        $list = GetPagesList($pageNum, array($id[2]), $podstronyType[$id[1]], array("inne","scifi"), "");
+        $list = GetPagesList(
+            $pageNum, 
+            array($id[2]), 
+            ($typ=="")?$podstronyType[$id[1]]:array($typ), 
+            array("inne","scifi"), 
+            ""
+        );
     } else {
         header('Location: '.$_SERVER['PHP_SELF']);
         exit(0);
@@ -250,16 +265,32 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
 
     $template = readFileContent("internal/criteria.txt");
     $txt = "";
+
+    if ($typ=="") {
+            $txt = $txt."<b>wszystkie</b>, ";
+    } else {
+            $txt = $txt."<a href=?q=".$id[1]."/".$id[2].">wszystkie</a>, ";
+    }
     foreach($podstronyType[$id[1]] as $t) {
-        $txt = $txt.$t.", ";
+        if ($typ==$t) {
+                $txt = $txt."<b>$t</b>, ";
+        } else {
+                $txt = $txt."<a href=?q=".$id[1]."/".$id[2]."&t=$t>$t</a>, ";
+        }
     }
     $template = str_replace_first("<!--TYPE-->", $txt, $template);
+
     $txt = "";
     foreach($podstronyState[$id[1]] as $t) {
-        $txt = $txt.$t.", ";
+        if ($id[2] == $t) {
+                $txt = $txt."<b>$t</b>, ";
+        } else {
+                $txt = $txt."<a href=?q=".$id[1]."/".$t.">$t</a>, ";
+        }
     }
     $template = str_replace_first("<!--STATE-->", $txt, $template);
-    $template = str_replace_first("<!--SORTBY-->", "Data", $template);
+
+    $template = str_replace_first("<!--SORTBY-->", "<b>data</b>", $template);
     $text = str_replace_first("<!--CRITERIA-->", $template, $text);
 
     if (!empty($list)) {
@@ -277,7 +308,11 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
         }
         $text = str_replace_first("<!--LIST-->", $txt, $text);
     }
-    $text = str_replace_first("<!--NEXTLINK-->", "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum-1).">Prev page</a><a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1).">Next page</a>", $text);
+    $text = str_replace_first(
+        "<!--NEXTLINK-->", 
+        "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum-1).">&lt; Prev page</a>&nbsp;".
+        "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1).">Next page &gt;</a>", $text
+    );
 
     echo $text;
     return;
@@ -302,7 +337,6 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
 
     exit(0);
 }
-
 
 /*if (isset($_POST["q"]) && $_POST["q"]=="get_page_updates" && isset($_POST["tekstID"]) && isset($_POST["lastUpdate"])) {
         $handle = @fopen("log", "a");
@@ -336,7 +370,7 @@ if ($comment["When"]>$last) $last = $comment["When"];
 }
 */
 
-
+/*
 if (isset($_POST["q"]) && $_POST["q"]=="upload_new_page" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
 }
 if (isset($_POST["q"]) && $_POST["q"]=="edit_page" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
@@ -348,11 +382,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="edit_user" && isset($_POST["tekst"]) && 
 // profil/1234
 if (isset($_GET["q"]) && preg_match("/^profil\/([0-9\-]+)$/", $_GET["q"], $id)) {
 }
-
-
-
-
-
+*/
 
 if (isset($_POST["logout"]) && $userID!="") {
     $db = new SQLite3("internal/session.db");
