@@ -1,8 +1,8 @@
 ﻿
 <!-- we need something with Polish dictionary -->
 
-<link type="text/css" rel="stylesheet" href="templates/quill.snow.css">
-<script src="templates/quill.min.js"></script>
+<link type="text/css" rel="stylesheet" href="external/quill.snow.css">
+<script src="external/quill.min.js"></script>
 
 <table width=100% border=1><tr><td>
   <form id=commentedit name=commentedit method=post>

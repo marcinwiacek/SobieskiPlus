@@ -1,5 +1,5 @@
 <table width=100% border=1><tr><td>
-<script src="templates/sha256.js"></script>
+<script src="external/sha256.js"></script>
 <script>
   var hash='<!--HASH-->';
 </script>
@@ -12,6 +12,8 @@
 document.login.onsubmit = function() {
   var user = document.getElementById("login").elements.namedItem("user").value; 
   var password = document.getElementById("login").elements.namedItem("password").value; 
+
+  if (user == '' || password == '') return false;
 
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;

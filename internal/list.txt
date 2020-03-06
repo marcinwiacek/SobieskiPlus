@@ -2,7 +2,7 @@
 <html><head>
 <meta charset='utf-8'>
 <title><!--TITLE--></title>
-<link rel='stylesheet' type='text/css' href='styles.css'>
+<link rel='stylesheet' type='text/css' href='external/styles.css'>
 </head><body>
 <div class=content>
 <!--MENU-->

@@ -5,151 +5,7 @@ $gMaxPerFolder=10000000;
 
 $gEntryPerPage = 10;
 
-function strncmp_startswith($haystack, $needle)
-{
-    return strncmp($haystack, $needle, strlen($needle)) === 0;
-}
-
-function str_replace_first($search, $replace, $subject) 
-{
-    $pos = strpos($subject, $search);
-    if ($pos !== false) {
-        return substr_replace($subject, $replace, $pos, strlen($search));
-    }
-    return $subject;
-}
-
-function readFileContent($fileName)
-{
-    $nodeFileName = $fileName;
-
-    $handle = @fopen($nodeFileName, "r");
-    if ($handle == false) {
-        header('HTTP/1.1 404 Not Found');
-        exit;
-    }
-
-    $text = fread($handle, filesize($nodeFileName));
-    if (!$text) {
-        header('HTTP/1.1 404 Not Found');
-        exit;
-    }
-    fclose($handle);
-
-    // support for UTF8 files
-    if (ord($text[0])==239) {
-        return substr($text, 3);
-    }
-    return $text;
-}
-
-abstract class DecodingLevel
-{
-    const MainHeaders = 1;
-    const MainText = 2;
-    const CommentHeaders = 3;
-    const CommentText = 4;
-}
-
-// one weakness - we don't have edits for comments
-// maybe <!--commentedit?-->
-function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$commentInArr,$commentHeaders)
-{
-    $arr = array();
-    $parsingLevel = DecodingLevel::MainHeaders;
-    if ($headersOnly) {
-        foreach(preg_split("/\\r\\n|\\r|\\n/", $text) as $singleLine) {
-            if ($singleLine == $commentInFile) {
-                $parsingLevel = DecodingLevel::CommentHeaders;
-                continue;
-            } else if ($singleLine == "<!--change-->") {
-                $parsingLevel = DecodingLevel::MainHeaders;
-                continue;
-            }
-            if ($parsingLevel== DecodingLevel::MainHeaders) {
-                if ($singleLine == "") {
-                    $parsingLevel = DecodingLevel::MainText;
-                } else {
-                    $x = explode(":", $singleLine);
-                    if (count($x)>=2 && in_array($x[0], $normalHeaders)) { 
-                        $arr[$x[0]] = substr($singleLine, strlen($x[0])+1, strlen($singleLine)-strlen($x[0])); 
-                    }
-                }
-            }
-        }
-        $arr["When"] = strtotime($arr["When"]);
-        return $arr;
-    }
-    $arr["Text"]="";
-    foreach(preg_split("/\\r\\n|\\r|\\n/", $text) as $singleLine) {
-        if ($singleLine == $commentInFile) {
-            if (isset($comment)) {
-                if (!isset($arr[$commentInArr])) {
-                    $arr[$commentInArr] = array();
-                }
-                $comment["When"] = strtotime($comment["When"]);
-                array_push($arr[$commentInArr], $comment);
-            }
-            $parsingLevel = DecodingLevel::CommentHeaders;
-            $comment = array();
-            $comment["Text"] = "";
-            continue;
-        } else if ($singleLine == "<!--change-->") {
-            $parsingLevel = DecodingLevel::MainHeaders;
-            continue;
-        }
-
-        switch ($parsingLevel) {
-        case DecodingLevel::MainHeaders:
-            if ($singleLine == "") {
-                $parsingLevel = DecodingLevel::MainText;
-            } else {
-                $x = explode(":", $singleLine);
-                if (count($x)>=2 && in_array($x[0], $normalHeaders)) {
-                        $arr[$x[0]] = substr($singleLine, strlen($x[0])+1, strlen($singleLine)-strlen($x[0])); 
-                }
-            }
-            break;
-        case DecodingLevel::MainText:
-            $arr["Text"] = $arr["Text"].$singleLine."\n";
-            break;
-        case DecodingLevel::CommentHeaders:
-            if ($singleLine == "") {
-                $parsingLevel = DecodingLevel::CommentText;
-            } else {
-                $x = explode(":", $singleLine);
-                if (count($x)>=2 && in_array($x[0], $commentHeaders)) {
-                        $comment[$x[0]] = substr($singleLine, strlen($x[0])+1, strlen($singleLine)-strlen($x[0])); 
-                }
-            }
-            break;
-        case DecodingLevel::CommentText:
-            $comment["Text"] = $comment["Text"].$singleLine."\n";
-            break;
-        }
-    }
-
-    if (isset($comment)) {
-        if (!isset($arr[$commentInArr])) {
-            $arr[$commentInArr] = array();
-        }
-        $comment["When"] = strtotime($comment["When"]);
-        array_push($arr[$commentInArr], $comment);
-    }
-    $arr["When"] = strtotime($arr["When"]);
-    return $arr;
-}
-
-function decodeFileContent($text,$headersOnly)
-{
-        return decodeFileContent0(
-            $text, $headersOnly,
-            array("Title","Author","Taxonomy","MainPage","When","State","Type","Species"),
-            "<!--comment-->",
-            "Comments",
-            array("Title","Author","When")
-        );
-}
+require "internal/shared.php";
 
 function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy) 
 {
@@ -158,12 +14,12 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
     $files = array();
     $i=0;
 
-    if (file_exists("test.db")) {
-        $db = new SQLite3("test.db");
+    if (file_exists("internal/test.db")) {
+        $db = new SQLite3("internal/test.db");
         $db->busyTimeout(5000);
         $statement = $db->prepare(
             "SELECT mod, filename, title, whentime, ".
-            "state, type, species,taxonomy,author FROM pages ORDER by whentime"
+            "state, type, species,taxonomy,author,commentsNum FROM pages ORDER by whentime"
         );
         $result = $statement->execute();
         while ($row = $result->fetchArray()) {
@@ -200,6 +56,7 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
             $arr["Type"]=$row["type"];
             $arr["Species"]=$row["species"];
             $arr["Taxonomy"]=$row["taxonomy"];
+            $arr["CommentsNum"]=$row["commentsNum"];
             $i++;
             if ($i>=$gEntryPerPage*$pageNum) {
                        $files[$row["filename"]] = $arr;
@@ -211,22 +68,29 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
         return $files;
     }
 
-    $db = new SQLite3("test.db");
+    $db = new SQLite3("internal/test.db");
     $db->busyTimeout(5000);
     $db->exec('PRAGMA journal_mode = wal;');
     $db->exec(
         "CREATE TABLE IF NOT EXISTS pages(mod INTEGER, filename TEXT, title TEXT, whentime TEXT, ".
-        "state TEXT, type TEXT, species TEXT, taxonomy TEXT, author TEXT)"
+        "state TEXT, type TEXT, species TEXT, taxonomy TEXT, author TEXT, commentsNum INTEGER)"
     );
     $db->exec('BEGIN');
     foreach (scandir("teksty", 0) as $file) {
         if (is_file("teksty/$file") && preg_match("/^(.*)\.txt/", $file, $fileNameArray)) {
-            $arr = decodeFileContent(readFileContent("teksty/".$fileNameArray[1].".txt"), true);
+            $arr = decodeFileContent(readFileContent("teksty/".$fileNameArray[1].".txt"), false);
+
+            $cn = 0;
+            if (isset($arr["Comments"])) {
+                      $cn = count($arr["Comments"]);
+            }
+            $arr["CommentsNum"] = $cn;
+
             $db->exec(
-                "INSERT INTO pages(mod, filename, title, whentime, state, type, species, taxonomy, author) ".
+                "INSERT INTO pages(mod, filename, title, whentime, state, type, species, taxonomy, author, commentsNum) ".
                 "VALUES(".filemtime("teksty/".$fileNameArray[1].".txt").",'".$fileNameArray[1]."','".$arr["Title"]."','".
                 $arr["When"]."','".$arr["State"]."','".$arr["Type"]."','".$arr["Species"]."','".
-                $arr["Taxonomy"]."','".$arr["Author"]."')"
+                $arr["Taxonomy"]."','".$arr["Author"]."',".$cn.")"
             );
 
             if (!isset($arr["State"]) || !in_array($arr["State"], $stateList)) { continue;
@@ -268,14 +132,14 @@ function decodeFileContent2($text,$headersOnly)
 
 function genericReplace($text,$userID) 
 {
-    $text = str_replace_first("<!--MENU-->", readFileContent("templates/menu.txt"), $text);
-    $text = str_replace_first("<!--JS-->", readFileContent("templates/js.txt"), $text);
+    $text = str_replace_first("<!--MENU-->", readFileContent("internal/menu.txt"), $text);
+    $text = str_replace_first("<!--JS-->", readFileContent("internal/js.txt"), $text);
     if ($userID!="") {
-        $text = str_replace_first("<!--LOGIN-LOGOUT-->", readFileContent("templates/logout.txt"), $text);
+        $text = str_replace_first("<!--LOGIN-LOGOUT-->", readFileContent("internal/logout.txt"), $text);
     } else {
-        $text = str_replace_first("<!--LOGIN-LOGOUT-->", readFileContent("templates/login.txt"), $text);
+        $text = str_replace_first("<!--LOGIN-LOGOUT-->", readFileContent("internal/login.txt"), $text);
 
-        $db = new SQLite3("session.db");
+        $db = new SQLite3("internal/session.db");
         $db->busyTimeout(5000);
         $db->exec(
             "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT); ".
@@ -295,7 +159,7 @@ function genericReplace($text,$userID)
 
 $userID="";
 if (isset($_COOKIE["login"])) {
-    $db = new SQLite3("session.db");
+    $db = new SQLite3("internal/session.db");
     $db->busyTimeout(5000);
     $db->exec(
         "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT); ".
@@ -330,7 +194,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
         exit(0);
     }
 
-    $text = readFileContent("templates/entry.txt");
+    $text = readFileContent("internal/entry.txt");
     $text = genericReplace($text, $userID);
     $text = str_replace("<!--TITLE-->", $arr["Title"], $text); // multiple instances
     $text = str_replace_first("<!--USER-->", $arr["Author"], $text);
@@ -339,7 +203,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     $text = str_replace_first("<!--SPECIES-->", $arr["Species"], $text);
     $last = $arr["When"];
     if (isset($arr["Comments"])) {
-        $template0 = readFileContent("templates/comment.txt");
+        $template0 = readFileContent("internal/comment.txt");
         $txt = "";
         foreach($arr["Comments"] as $comment) {
             $last = $arr["When"];
@@ -355,7 +219,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     }
     $text = str_replace_first("<!--LASTUPDATE-->", $last, $text);
     if ($userID!="") {
-        $text = str_replace_first("<!--COMMENTEDIT-->", readFileContent("templates/commentedit.txt"), $text);
+        $text = str_replace_first("<!--COMMENTEDIT-->", readFileContent("internal/commentedit.txt"), $text);
     }
     $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
 
@@ -380,12 +244,26 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
         exit(0);
     }
 
-    $text = readFileContent("templates/list.txt");
+    $text = readFileContent("internal/list.txt");
     $text = genericReplace($text, $userID);
     $text = str_replace_first("<!--TITLE-->", "", $text);
 
+    $template = readFileContent("internal/criteria.txt");
+    $txt = "";
+    foreach($podstronyType[$id[1]] as $t) {
+        $txt = $txt.$t.", ";
+    }
+    $template = str_replace_first("<!--TYPE-->", $txt, $template);
+    $txt = "";
+    foreach($podstronyState[$id[1]] as $t) {
+        $txt = $txt.$t.", ";
+    }
+    $template = str_replace_first("<!--STATE-->", $txt, $template);
+    $template = str_replace_first("<!--SORTBY-->", "Data", $template);
+    $text = str_replace_first("<!--CRITERIA-->", $template, $text);
+
     if (!empty($list)) {
-        $template0 = readFileContent("templates/listentry.txt");
+        $template0 = readFileContent("internal/listentry.txt");
         $txt="";
         foreach($list as $fileName => $arr) {
             $template = $template0;
@@ -393,6 +271,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
             $template = str_replace_first("<!--TITLE-->", "<a href=\"?q=".$id[1]."/pokaz/$fileName\">".$arr["Title"]."</a>", $template);
             $template = str_replace_first("<!--TYPE-->", $arr["Type"], $template);
             $template = str_replace_first("<!--SPECIES-->", $arr["Species"], $template);
+            $template = str_replace_first("<!--COMMENTSNUM-->", $arr["CommentsNum"], $template);
             $template = str_replace_first("<!--WHEN-->", date("d M Y H:i:s", $arr["When"]), $template);
             $txt = $txt.$template;
         }
@@ -433,7 +312,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
         $txt = "";
 $last = $_POST["lastUpdate"];
     if (isset($arr["Comments"])) {
-        $template0 = readFileContent("templates/comment.txt");
+        $template0 = readFileContent("internal/comment.txt");
         foreach($arr["Comments"] as $comment) {
 if ($comment["When"]>$last) $last = $comment["When"];
         if ($comment["When"]<=$_POST["lastUpdate"]) continue;
@@ -445,7 +324,6 @@ if ($comment["When"]>$last) $last = $comment["When"];
 
             $txt = $txt.$template;
         }
-    
     }
     if ($txt !="") {
 // of course create JSON here
@@ -477,7 +355,7 @@ if (isset($_GET["q"]) && preg_match("/^profil\/([0-9\-]+)$/", $_GET["q"], $id)) 
 
 
 if (isset($_POST["logout"]) && $userID!="") {
-    $db = new SQLite3("session.db");
+    $db = new SQLite3("internal/session.db");
     $db->busyTimeout(5000);
     $db->exec(
         "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT);".
@@ -487,7 +365,7 @@ if (isset($_POST["logout"]) && $userID!="") {
     $db->close();
     exit(0);
 } else if (isset($_POST["login"]) && isset($_POST["user"]) && isset($_POST["password"]) && $userID=="") {
-    $db = new SQLite3("session.db");
+    $db = new SQLite3("internal/session.db");
     $db->busyTimeout(5000);
     $db->exec(
         "CREATE TABLE IF NOT EXISTS sessions(expire INTEGER, userID TEXT, token TEXT, salt TEXT);".
@@ -525,7 +403,7 @@ if (isset($_POST["logout"]) && $userID!="") {
     exit(0);
 }
 
-$text = readFileContent("templates/main.txt");
+$text = readFileContent("internal/main.txt");
 $text = str_replace_first("<!--TITLE-->", "", $text);
 $text = genericReplace($text, $userID);
 echo $text;
