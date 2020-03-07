@@ -51,7 +51,7 @@ function updatePage() {
 
 <script>
   <!-- SSE is a little better -->
-  var source = new EventSource("push.php?fileid=<!--PAGEID-->");
+  var source = new EventSource("?fileid=<!--PAGEID-->");
   source.onmessage = function(event) {
     if (event.data!='') {
       //parsing
