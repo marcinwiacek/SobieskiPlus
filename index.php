@@ -80,7 +80,6 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
         $arr["When"] = strtotime($arr["When"]);
         return $arr;
     }
-    $arr["Text"]="";
     foreach(preg_split("/\\r\\n|\\r|\\n/", $text) as $singleLine) {
         if ($singleLine == $commentInFile) {
             if (isset($comment)) {
@@ -103,6 +102,7 @@ function decodeFileContent0($text,$headersOnly,$normalHeaders,$commentInFile,$co
         case DecodingLevel::MainHeaders:
             if ($singleLine == "") {
                 $parsingLevel = DecodingLevel::MainText;
+                $arr["Text"]="";
             } else {
                 $x = explode(":", $singleLine);
                 if (count($x)>=2 && in_array($x[0], $normalHeaders)) {
@@ -454,6 +454,26 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     echo $text;
     return;
 }
+if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)\/edit$/", $_GET["q"], $id)) {
+    if (!isset($podstronyType[$id[1]])) {
+        header('Location: '.$_SERVER['PHP_SELF']);
+        exit(0);
+    }
+
+    $arr = decodeFileContent(readFileContent("teksty/".$id[2].".txt"), false);
+    if (!in_array($arr["Type"], $podstronyType[$id[1]])) { 
+        header('Location: '.$_SERVER['PHP_SELF']);
+        exit(0);
+    }
+
+    $text = readFileContent("internal/entryedit.txt");
+    $text = genericReplace($text, $userID);
+    $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
+    $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
+
+    echo $text;
+    return;
+}
 
 $podstronyState = array();
 $podstronyState["opowiadania"]=array("biblioteka","beta","archiwum");
@@ -602,6 +622,25 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
             "When:".date("d M Y H:i:s", time())."\n".
             "Author:marcin\n\n".
             rawurldecode($_POST["comment"])
+        );
+        fclose($handle);
+    }
+
+    exit(0);
+}
+if (isset($_POST["q"]) && $_POST["q"]=="change_text" && isset($_POST["tekst"]) && isset($_POST["text"])) {
+    //checking for login
+    //checking for correct filename protection
+    if (file_exists("teksty/".$_POST["tekst"].".txt")) {
+        $handle = @fopen("teksty/".$_POST["tekst"].".txt", "a");
+        //checking for <!--comment--> and others
+        //saving pictures separately
+        fwrite(
+            $handle, "\n<!--change-->\n".
+            "Title:ala\n".
+            "When:".date("d M Y H:i:s", time())."\n".
+            "Author:marcin\n\n".
+            rawurldecode($_POST["text"])
         );
         fclose($handle);
     }

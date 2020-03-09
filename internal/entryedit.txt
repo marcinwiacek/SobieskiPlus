@@ -1,15 +1,21 @@
-﻿
-<!-- we need something with Polish dictionary -->
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<link rel='stylesheet' type='text/css' href='external/styles.css'>
+</head><body>
+<!--MENU-->
+<div class=content>
 
 <link type="text/css" rel="stylesheet" href="external/quill.snow.css">
 <script src="external/quill.min.js"></script>
 
 <table width=100% border=1><tr><td>
-  <form id=commentedit name=commentedit method=post>
+  <form id=textedit name=textedit method=post>
       Tytuł: <input name="display_name" type="text" value="">
       <input name="about" type="hidden">
-      <div id="editor-container"></div>
-      <button id=sub type="submit">Dodaj komentarz</button>
+      <div id="editor-container"><!--TEXT--></div>
+      <button type="submit" id=sub name=sub>Zapisz</button>
   </form>
 </td></tr></table>
 <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
@@ -39,7 +45,7 @@ var quill = new Quill('#editor-container', {
   modules: {
     toolbar: toolbarOptions
   },
-  placeholder: 'Zapodaj ładny komentarz proszę...',
+  placeholder: 'Zapodaj ładny tekst proszę...',
   theme: 'snow'
 });
 
@@ -52,11 +58,11 @@ quill.on('text-change', function(delta, oldDelta, source) {
   }
 });
 
-document.commentedit.onsubmit = function() {
+document.textedit.onsubmit = function() {
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=upload_comment&tekst=<!--PAGEID-->&comment='+decodeURIComponent(quill.root.innerHTML);
+  var params = 'q=change_text&tekst=<!--PAGEID-->&text='+decodeURIComponent(quill.root.innerHTML);
 
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -74,7 +80,7 @@ document.commentedit.onsubmit = function() {
   http.onload = function() {
     progressBar.value = progressBar.max;
     document.getElementById("progressinfo").style.display="none";
-    quill.root.innerHTML="";
+//    quill.root.innerHTML="";
   };
   http.onerror = function () {
     document.getElementById("progress").innerHTML="error";
@@ -86,3 +92,4 @@ document.commentedit.onsubmit = function() {
 };
 
 </script>
+</div></body></html>
