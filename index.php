@@ -216,7 +216,14 @@ if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
     exit(0);
 }
 
-function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy) 
+abstract class SortLevel
+{
+    const DateSort = 1;
+    const CommentsNumSort = 2;
+    const AuthorSort = 3;
+}
+
+function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy, $sortLevel) 
 {
     global $gEntryPerPage;
 
@@ -224,11 +231,23 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy)
     $i=0;
 
     if (file_exists("internal/test.db")) {
+        $t = "whentime desc";
+        switch ($sortLevel) {
+        case SortLevel::DateSort:
+            break;
+        case SortLevel::CommentsNumSort:
+            $t="commentsNum desc";
+            break;
+        case SortLevel::AuthorSort:
+            $t = "author";
+            break;
+        }
+
         $db = new SQLite3("internal/test.db");
         $db->busyTimeout(5000);
         $statement = $db->prepare(
             "SELECT mod, filename, title, whentime, ".
-            "state, type, species,taxonomy,author,commentsNum FROM pages ORDER by whentime"
+            "state, type, species,taxonomy,author,commentsNum FROM pages ORDER by ".$t
         );
         $result = $statement->execute();
         while ($row = $result->fetchArray()) {
@@ -452,6 +471,24 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
         } else {
             $typ="";
         }
+        $sortLevel = SortLevel::DateSort;
+        if (isset($_GET["s"])) {
+            switch ($_GET["s"]) {
+            case "date":
+                $sortLevel= SortLevel::DateSort;
+                break;
+            case "comments":
+                $sortLevel = SortLevel::CommentsNumSort;
+                break;
+            case "author":
+                $sortLevel = SortLevel::AuthorSort;
+                break;
+            default:
+                header('Location: '.$_SERVER['PHP_SELF']);
+                exit(0);
+            }
+        }
+
         $pageNum=0;
         if (isset($id[3])) {
             $pageNum = intval(substr($id[3], 1, strlen($id[3])-1));
@@ -461,7 +498,8 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
             array($id[2]), 
             ($typ=="")?$podstronyType[$id[1]]:array($typ), 
             array("inne","scifi"), 
-            ""
+            "",
+            $sortLevel
         );
     } else {
         header('Location: '.$_SERVER['PHP_SELF']);
@@ -476,15 +514,21 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
 
     $txt = "";
     if ($typ=="") {
-            $txt = $txt."<b>wszystkie</b>, ";
+        $txt = $txt."<b>wszystkie</b>, ";
     } else {
-            $txt = $txt."<a href=?q=".$id[1]."/".$id[2].">wszystkie</a>, ";
+        $txt = $txt."<a href=?q=".$id[1]."/".$id[2];
+        if (isset($_GET["s"])) { $txt = $txt."&s=".$_GET["s"];
+        }
+        $txt=$txt.">wszystkie</a>, ";
     }
     foreach($podstronyType[$id[1]] as $t) {
         if ($typ==$t) {
-                $txt = $txt."<b>$t</b>, ";
+            $txt = $txt."<b>$t</b>, ";
         } else {
-                $txt = $txt."<a href=?q=".$id[1]."/".$id[2]."&t=$t>$t</a>, ";
+            $txt = $txt."<a href=?q=".$id[1]."/".$id[2]."&t=$t";
+            if (isset($_GET["s"])) { $txt = $txt."&s=".$_GET["s"];
+            }
+            $txt = $txt.">$t</a>, ";
         }
     }
     $template = str_replace_first("<!--TYPE-->", $txt, $template);
@@ -492,14 +536,26 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
     $txt = "";
     foreach($podstronyState[$id[1]] as $t) {
         if ($id[2] == $t) {
-                $txt = $txt."<b>$t</b>, ";
+            $txt = $txt."<b>$t</b>, ";
         } else {
-                $txt = $txt."<a href=?q=".$id[1]."/".$t.">$t</a>, ";
+            $txt = $txt."<a href=?q=".$id[1]."/".$t.">$t</a>, ";
         }
     }
     $template = str_replace_first("<!--STATE-->", $txt, $template);
 
-    $template = str_replace_first("<!--SORTBY-->", "<b>data</b>", $template);
+    $txt = "";
+    foreach(array("date","author","comments") as $t) {
+        if ((!isset($_GET["s"]) && $t=="date") || (isset($_GET["s"]) && $_GET["s"]==$t)) {
+            $txt = $txt."<b>$t</b>, ";
+        } else {
+            $txt = $txt."<a href=?q=".$id[1]."/".$id[2]."&s=$t";
+            if (isset($_GET["t"])) { $txt = $txt."&t=".$_GET["t"];
+            }
+            $txt = $txt.">$t</a>, ";
+        }
+    }
+    $template = str_replace_first("<!--SORTBY-->", "$txt", $template);
+
     $text = str_replace_first("<!--CRITERIA-->", $template, $text);
 
     if (!empty($list)) {
@@ -517,10 +573,16 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
         }
         $text = str_replace_first("<!--LIST-->", $txt, $text);
     }
+
+    $txt = "";
+    if (isset($_GET["s"])) { $txt = "&s=".$_GET["s"];
+    }
+    if (isset($_GET["t"])) { $txt = $txt."&t=".$_GET["t"];
+    }
     $text = str_replace_first(
         "<!--NEXTLINK-->", 
-        "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum-1).">&lt; Prev page</a>&nbsp;".
-        "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1).">Next page &gt;</a>", $text
+        "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum-1)."$txt>&lt; Prev page</a>&nbsp;".
+        "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1)."$txt>Next page &gt;</a>", $text
     );
 
     echo $text;

@@ -1,3 +1,4 @@
+Status: <!--STATE--><p>
+
 Sortowanie: <!--SORTBY--><br>
-Status: <!--STATE--><br>
 Rodzaj: <!--TYPE--><br>
