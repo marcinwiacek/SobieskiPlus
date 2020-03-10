@@ -15,7 +15,7 @@ for(i = 0; i < images.length; i++) {images[i].style.height='auto';}
 
 <script async="async">
   document.addEventListener( 'visibilitychange' , function() {
-//fixme function for checking for login/logout (if it was done in meantime)
+    //fixme function for checking for login/logout (if it was done in meantime)
     if (!document.hidden && window.document.title.substring(0,2)=="* ") {
       window.document.title = window.document.title.substring(2,window.document.title.length);
     }

@@ -176,15 +176,11 @@ if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
 
     echo "data:\n\n";
     ob_flush();
-    //            ob_end_flush();
     flush();
 
     while (true) {
         clearstatcache();
         if ($t != filemtime("teksty/".$_GET["fileid"].".txt")) {
-            //        $handle = @fopen("log", "a");
-            //      fwrite($handle, "mamy update");
-            //    fclose($handle);
             $arr = decodeFileContent(readFileContent("teksty/".$_GET["fileid"].".txt"), false);
             if (isset($arr["Comments"])) {
                 for ($i=$num;$i<count($arr["Comments"]);$i++) {
@@ -194,18 +190,11 @@ if (isset($_GET["fileid"]) && file_exists("teksty/".$_GET["fileid"].".txt")) {
                     $template = str_replace_first("<!--TITLE-->", $comment["Title"], $template);
                     $template = str_replace_first("<!--WHEN-->", date("d M Y H:i:s", $comment["When"]), $template);
                     $template = str_replace_first("<!--TEXT-->", $comment["Text"], $template);
-                    /*        $handle = @fopen("log", "a");
-                    fwrite($handle, $template);
-                    fclose($handle);
-                    $handle = @fopen("log", "a");
-                    fwrite($handle, "data: ".rawurlencode($template)."\n\n");
-                    fclose($handle);*/
                     echo "data: ".rawurlencode($template)."\n\n";
                 }
                 $num = count($arr["Comments"]);
             }
             ob_flush();
-            //            ob_end_flush();
             flush();
             if (connection_aborted()==1) { break;
             }
@@ -251,20 +240,6 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy, 
         );
         $result = $statement->execute();
         while ($row = $result->fetchArray()) {
-            /*            if (filemtime("teksty/".$row["filename"].".txt")!=$row["mod"]) {
-                    $arr = decodeFileContent(readFileContent("teksty/".$fileNameArray[1].".txt"), true);
-                $db->exec(
-                    "UPDATE  pages SET mod=".filemtime("teksty/".$row["filename"].".txt").
-                    ",title='".$arr["Title"].
-                    "',whentime='".$arr["When"].
-                    "',state='".$arr["State"].
-                    "',type='".$arr["Type"].
-                    "',species='".$arr["Species"].
-                    "',taxonomy='".$arr["Taxonomy"].
-                    "',author='".$arr["Author"]."' WHERE filename='".$row["filename"]."'"
-                );
-            }
-            */
             if (!in_array($row["state"], $stateList)) { continue;
             }
             if (!in_array($row["type"], $typeList)) { continue;
@@ -341,8 +316,6 @@ function GetPagesList($pageNum, $stateList, $typeList, $speciesList, $taxonomy, 
 
     $db->exec('COMMIT');
     $db->close();
-
-    //    uksort($fileNames,"cmpByDate");
 
     return $files;
 }
@@ -648,43 +621,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text" && isset($_POST["tekst"]) &
     exit(0);
 }
 
-/*if (isset($_POST["q"]) && $_POST["q"]=="get_page_updates" && isset($_POST["tekstID"]) && isset($_POST["lastUpdate"])) {
-        $handle = @fopen("log", "a");
-        fwrite($handle, $_POST["q"]."-".$_POST["tekstID"]."-".$_POST["lastUpdate"]);
-        fclose($handle);
-    $arr = decodeFileContent(readFileContent("teksty/".$_POST["tekstID"].".txt"), false);
-        $txt = "";
-$last = $_POST["lastUpdate"];
-    if (isset($arr["Comments"])) {
-        $template0 = readFileContent("internal/comment.txt");
-        foreach($arr["Comments"] as $comment) {
-if ($comment["When"]>$last) $last = $comment["When"];
-        if ($comment["When"]<=$_POST["lastUpdate"]) continue;
-            $template = $template0;
-            $template = str_replace_first("<!--USER-->", $comment["Author"], $template);
-            $template = str_replace_first("<!--TITLE-->", $comment["Title"], $template);
-            $template = str_replace_first("<!--WHEN-->", $comment["When"], $template);
-            $template = str_replace_first("<!--TEXT-->", $comment["Text"], $template);
-
-            $txt = $txt.$template;
-        }
-    }
-    if ($txt !="") {
-// of course create JSON here
-//    echo("document.getElementById(\"newcomments\").innerHTML = ".
-//"document.getElementById(\"newcomments\").innerHTML+
-    echo(rawurlencode($txt));
-//    echo("lastUpdate = $last;");
-    }
-    return;
-}
-*/
-
 /*
-if (isset($_POST["q"]) && $_POST["q"]=="upload_new_page" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
-if (isset($_POST["q"]) && $_POST["q"]=="edit_page" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
 if (isset($_POST["q"]) && $_POST["q"]=="new_user" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
 }
 if (isset($_POST["q"]) && $_POST["q"]=="edit_user" && isset($_POST["tekst"]) && isset($_POST["comment"])) {

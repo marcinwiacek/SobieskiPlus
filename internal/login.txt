@@ -1,4 +1,4 @@
-<table width=100% border=1><tr><td>
+<table width=100% border=0><tr><td>
 <script src="external/sha256.js"></script>
 <script>
   var hash='<!--HASH-->';

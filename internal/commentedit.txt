@@ -45,7 +45,7 @@ var quill = new Quill('#editor-container', {
 
 document.getElementById('sub').disabled=true;
 quill.on('text-change', function(delta, oldDelta, source) {
-  if (quill.root.innerHTML.length==0) {
+  if (quill.getText().trim().length==0) {
     document.getElementById('sub').disabled=true;
   } else {
     document.getElementById('sub').disabled=false;
