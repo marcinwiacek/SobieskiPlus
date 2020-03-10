@@ -13,7 +13,7 @@
   <form id=textedit name=textedit method=post>
       Status:<!--STATE-->
       Typ:<!--TYPE-->
-      Tytuł: <input name="display_name" type="text" value="">
+      Tytuł: <input name="title" type="text" value="<!--TITLE-->">
       <input name="about" type="hidden">
       <div id="editor-container"><!--TEXT--></div>
       <button type="submit" id=sub name=sub>Zapisz</button>
@@ -67,16 +67,17 @@ quill.on('text-change', function(delta, oldDelta, source) {
 //};
 
 document.textedit.onsubmit = function() {
-  var state = document.getElementById("textedit").elements.namedItem("state").value; 
   var type = document.getElementById("textedit").elements.namedItem("type").value; 
   if (type == '') {
 	alert('Proszę wybrać typ');
 	return false;
   }
+  var state = document.getElementById("textedit").elements.namedItem("state").value; 
+  var title = document.getElementById("textedit").elements.namedItem("title").value; 
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=change_text&tekst=<!--PAGEID-->&state='+state+'&type='+type+'&text='+decodeURIComponent(quill.root.innerHTML);
+  var params = 'q=change_text&tekst=<!--PAGEID-->&state='+state+'&title='+title+'&type='+type+'&text='+decodeURIComponent(quill.root.innerHTML);
 
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');

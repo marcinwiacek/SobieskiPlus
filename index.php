@@ -5,6 +5,14 @@ $gMaxPerFolder=10000000;
 
 $gEntryPerPage = 10;
 
+$podstronyType = array();
+$podstronyType["opowiadania"]=array("opowiadanie","szort");
+$podstronyType["publicystyka"]=array("artykul","felieton");
+
+$podstronyState = array();
+$podstronyState["opowiadania"]=array("biblioteka","beta","archiwum");
+$podstronyState["publicystyka"]=array("artykuly","felietony","poradniki");
+
 function strncmp_startswith($haystack, $needle)
 {
     return strncmp($haystack, $needle, strlen($needle)) === 0;
@@ -377,10 +385,6 @@ if (isset($_COOKIE["login"])) {
     $db->close();
 }
 
-$podstronyType = array();
-$podstronyType["opowiadania"]=array("opowiadanie","szort");
-$podstronyType["publicystyka"]=array("artykul","felieton");
-
 // showing text page
 // for example: opowiadanie/pokaz/1
 if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"], $id)) {
@@ -402,6 +406,8 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
     $text = str_replace_first("<!--TYPE-->", $arr["Type"], $text);
     $text = str_replace_first("<!--SPECIES-->", $arr["Species"], $text);
+    $text = str_replace_first("<!--WHEN-->", date("d M Y H:i:s", $arr["When"]), $text);
+
     $last = $arr["When"];
     if (isset($arr["Comments"])) {
         $template0 = readFileContent("internal/comment.txt");
@@ -431,10 +437,6 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     echo $text;
     return;
 }
-
-$podstronyState = array();
-$podstronyState["opowiadania"]=array("biblioteka","beta","archiwum");
-$podstronyState["publicystyka"]=array("artykuly","felietony","poradniki");
 
 //opowiadania/biblioteka/add
 if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)\/add$/", $_GET["q"], $id)) {
@@ -484,6 +486,7 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)\/edit$/", $_G
     $text = genericReplace($text, $userID);
     $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
     $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
+    $text = str_replace("<!--TITLE-->", $arr["Title"], $text); //many entries
 
     $txt = "";
     foreach($podstronyState[$id[1]] as $state) {
@@ -688,9 +691,8 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
 
     exit(0);
 }
-if (isset($_POST["q"]) && $_POST["q"]=="change_text"  
-    && isset($_POST["tekst"]) && isset($_POST["text"])  
-    && isset($_POST["state"]) && isset($_POST["type"])
+if (isset($_POST["q"]) && $_POST["q"]=="change_text"  && isset($_POST["title"])    
+    && isset($_POST["tekst"]) && isset($_POST["text"])      && isset($_POST["state"]) && isset($_POST["type"])
 ) {
     //checking for login
     //checking for correct filename protection
@@ -702,7 +704,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text"
                 $handle = @fopen("teksty/$id.txt", "a");
                 fwrite(
                     $handle, 
-                    "Title:ala\n".
+                    "Title:".$_POST["title"]."\n".
                     "State:".$_POST["state"]."\n".
                     "Type:".$_POST["type"]."\n".
                     "Species:inne\n".
@@ -751,7 +753,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text"
         //saving pictures separately
         fwrite(
             $handle, "\n<!--change-->\n".
-            "Title:ala\n".
+            "Title:".$_POST["title"]."\n".
             "State:".$_POST["state"]."\n".
             "Type:".$_POST["type"]."\n".
             "When:".date("d M Y H:i:s", $t)."\n".
@@ -771,6 +773,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text"
         $db->exec(
             "UPDATE  pages SET mod=".filemtime("teksty/".$_POST["tekst"].".txt").
                     ",whentime='".$t.
+                    "',title='".$_POST["title"].
                     "',state='".$_POST["state"].
                     "',type='".$_POST["type"]."' WHERE filename='".$_POST["tekst"]."'"
         );

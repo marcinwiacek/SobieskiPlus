@@ -10,6 +10,7 @@
 <!--TITLE-->
 <table width=100% border=1><tr><td>
 <!--USER-->: <!--TYPE-->,<!--SPECIES--><p>
+<!--WHEN-->
 </td></tr></table>
 <!--LOGIN-EDIT-->
 <p>
