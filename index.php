@@ -424,7 +424,9 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     }
     $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
 
-    $text = str_replace_first("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=".$_GET["q"]."/edit>Edycja</a></div>", $text);
+    if ($userID!="") {
+        $text = str_replace_first("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=".$_GET["q"]."/edit>Edycja</a></div>", $text);
+    }
 
     echo $text;
     return;
@@ -634,7 +636,9 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
         "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1)."$txt>Next page &gt;</a>", $text
     );
 
-    $text = str_replace_first("<!--LOGIN-NEW-->", "<div align=right><a href=?q=".$_GET["q"]."/add>Nowy tekst</a></div>", $text);
+    if ($userID!="") {
+        $text = str_replace_first("<!--LOGIN-NEW-->", "<div align=right><a href=?q=".$_GET["q"]."/add>Nowy tekst</a></div>", $text);
+    }
 
     echo $text;
     return;
@@ -644,17 +648,42 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
     //checking for login
     //checking for correct filename protection
     if (file_exists("teksty/".$_POST["tekst"].".txt")) {
+        $t = time();
         $handle = @fopen("teksty/".$_POST["tekst"].".txt", "a");
         //checking for <!--comment--> and others
         //saving pictures separately
         fwrite(
             $handle, "\n<!--comment-->\n".
             "Title:ala\n".
-            "When:".date("d M Y H:i:s", time())."\n".
+            "When:".date("d M Y H:i:s", $t)."\n".
             "Author:marcin\n\n".
             rawurldecode($_POST["comment"])
         );
         fclose($handle);
+
+        $arr = decodeFileContent(readFileContent("teksty/".$_POST["tekst"].".txt"), false);
+
+        $cn = 0;
+        if (isset($arr["Comments"])) {
+            $cn = count($arr["Comments"]);
+        }
+        $arr["CommentsNum"] = $cn;
+
+        $db = new SQLite3("internal/test.db");
+        $db->busyTimeout(5000);
+        $db->exec('PRAGMA journal_mode = wal;');
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS pages(mod INTEGER, filename TEXT, title TEXT, whentime TEXT, ".
+            "state TEXT, type TEXT, species TEXT, taxonomy TEXT, author TEXT, commentsNum INTEGER)"
+        );
+        $db->exec(
+            "UPDATE pages SET mod=".filemtime("teksty/".$_POST["tekst"].".txt").
+                    ",whentime='".$t.
+                    "',commentsNum=".$cn.
+                    " WHERE filename='".$_POST["tekst"]."'"
+        );
+        $db->exec('COMMIT');
+        $db->close();
     }
 
     exit(0);
@@ -683,6 +712,32 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text"
                     rawurldecode($_POST["text"])
                 );
                 fclose($handle);
+
+                $db = new SQLite3("internal/test.db");
+                $db->busyTimeout(5000);
+                $db->exec('PRAGMA journal_mode = wal;');
+                $db->exec(
+                    "CREATE TABLE IF NOT EXISTS pages(mod INTEGER, filename TEXT, title TEXT, whentime TEXT, ".
+                    "state TEXT, type TEXT, species TEXT, taxonomy TEXT, author TEXT, commentsNum INTEGER)"
+                );
+                $db->exec('BEGIN');
+                $arr = decodeFileContent(readFileContent("teksty/$id.txt"), false);
+
+                $cn = 0;
+                if (isset($arr["Comments"])) {
+                      $cn = count($arr["Comments"]);
+                }
+                $arr["CommentsNum"] = $cn;
+
+                $db->exec(
+                    "INSERT INTO pages(mod, filename, title, whentime, state, type, species, taxonomy, author, commentsNum) ".
+                    "VALUES(".filemtime("teksty/$id.txt").",'".$id."','".$arr["Title"]."','".
+                    $arr["When"]."','".$arr["State"]."','".$arr["Type"]."','".$arr["Species"]."','".
+                    $arr["Taxonomy"]."','".$arr["Author"]."',".$cn.")"
+                );
+                $db->exec('COMMIT');
+                $db->close();
+
                 echo $id;
                 exit(0);            
             }
@@ -690,6 +745,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text"
         }
     }
     if (file_exists("teksty/".$_POST["tekst"].".txt")) {
+        $t = time();
         $handle = @fopen("teksty/".$_POST["tekst"].".txt", "a");
         //checking for <!--comment--> and others
         //saving pictures separately
@@ -698,25 +754,32 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text"
             "Title:ala\n".
             "State:".$_POST["state"]."\n".
             "Type:".$_POST["type"]."\n".
-            "When:".date("d M Y H:i:s", time())."\n".
+            "When:".date("d M Y H:i:s", $t)."\n".
             "Author:marcin\n\n".
             rawurldecode($_POST["text"])
         );
         fclose($handle);
+
+        $db = new SQLite3("internal/test.db");
+        $db->busyTimeout(5000);
+        $db->exec('PRAGMA journal_mode = wal;');
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS pages(mod INTEGER, filename TEXT, title TEXT, whentime TEXT, ".
+            "state TEXT, type TEXT, species TEXT, taxonomy TEXT, author TEXT, commentsNum INTEGER)"
+        );
+        $db->exec('BEGIN');
+        $db->exec(
+            "UPDATE  pages SET mod=".filemtime("teksty/".$_POST["tekst"].".txt").
+                    ",whentime='".$t.
+                    "',state='".$_POST["state"].
+                    "',type='".$_POST["type"]."' WHERE filename='".$_POST["tekst"]."'"
+        );
+        $db->exec('COMMIT');
+        $db->close();
     }
 
     exit(0);
 }
-
-/*
-if (isset($_POST["q"]) && $_POST["q"]=="new_user" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
-if (isset($_POST["q"]) && $_POST["q"]=="edit_user" && isset($_POST["tekst"]) && isset($_POST["comment"])) {
-}
-// profil/1234
-if (isset($_GET["q"]) && preg_match("/^profil\/([0-9\-]+)$/", $_GET["q"], $id)) {
-}
-*/
 
 if (isset($_POST["logout"]) && $userID!="") {
     $db = new SQLite3("internal/session.db");
