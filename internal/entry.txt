@@ -11,6 +11,7 @@
 <table width=100% border=1><tr><td>
 <!--USER-->: <!--TYPE-->,<!--SPECIES--><p>
 </td></tr></table>
+<!--LOGIN-EDIT-->
 <p>
 <table width=100% border=1><tr><td>
 <center><h1><!--TITLE--></h1></center>

@@ -424,9 +424,48 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     }
     $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
 
+    $text = str_replace_first("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=".$_GET["q"]."/edit>Edycja</a></div>", $text);
+
     echo $text;
     return;
 }
+
+$podstronyState = array();
+$podstronyState["opowiadania"]=array("biblioteka","beta","archiwum");
+$podstronyState["publicystyka"]=array("artykuly","felietony","poradniki");
+
+//opowiadania/biblioteka/add
+if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)\/add$/", $_GET["q"], $id)) {
+    if (isset($podstronyState[$id[1]]) && in_array($id[2], $podstronyState[$id[1]])) {
+        $text = readFileContent("internal/entryedit.txt");
+        $text = genericReplace($text, $userID);
+        //    $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
+        $text = str_replace("<!--PAGEID-->", "0", $text); //many entries
+
+        $txt = "";
+        foreach($podstronyState[$id[1]] as $state) {
+            $txt=$txt."<input type=\"radio\" name=\"state\" value=\"$state\"";
+            if ($id[2] == $state) { $txt=$txt." checked";
+            }
+            $txt=$txt."><label for=\"$state\">$state</label>";
+        }
+        $txt=$txt."<p>";
+        $text = str_replace_first("<!--STATE-->", $txt, $text);
+
+        $txt = "";
+        foreach($podstronyType[$id[1]] as $type) {
+            $txt=$txt."<input type=\"radio\" name=\"type\" value=\"$type\">";
+            $txt=$txt."<label for=\"$type\">$type</label>";
+            //  $txt=$txt."<input type=\"checkbox\" name=\"type\" value=\"$type\">$type";
+        }
+        $txt=$txt."<p>";
+        $text = str_replace_first("<!--TYPE-->", $txt, $text);
+
+        echo $text;
+        return;
+    }
+}
+//opowiadania/1234/edit
 if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)\/edit$/", $_GET["q"], $id)) {
     if (!isset($podstronyType[$id[1]])) {
         header('Location: '.$_SERVER['PHP_SELF']);
@@ -444,13 +483,30 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)\/edit$/", $_G
     $text = str_replace_first("<!--TEXT-->", $arr["Text"], $text);
     $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
 
+    $txt = "";
+    foreach($podstronyState[$id[1]] as $state) {
+        $txt=$txt."<input type=\"radio\" name=\"state\" value=\"$state\"";
+        if ($arr["State"] == $state) { $txt=$txt." checked";
+        }
+        $txt=$txt."><label for=\"$state\">$state</label>";
+    }
+    $txt=$txt."<p>";
+    $text = str_replace_first("<!--STATE-->", $txt, $text);
+
+    $txt = "";
+    foreach($podstronyType[$id[1]] as $type) {
+        $txt=$txt."<input type=\"radio\" name=\"type\" value=\"$type\"";
+        if ($arr["Type"] == $type) { $txt=$txt." checked";
+        }
+        $txt=$txt."><label for=\"$type\">$type</label>";
+        //  $txt=$txt."<input type=\"checkbox\" name=\"type\" value=\"$type\">$type";
+    }
+    $txt=$txt."<p>";
+    $text = str_replace_first("<!--TYPE-->", $txt, $text);
+
     echo $text;
     return;
 }
-
-$podstronyState = array();
-$podstronyState["opowiadania"]=array("biblioteka","beta","archiwum");
-$podstronyState["publicystyka"]=array("artykuly","felietony","poradniki");
 
 // for example opowiadania/biblioteka
 if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_GET["q"], $id)) {
@@ -578,6 +634,8 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/", $_
         "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1)."$txt>Next page &gt;</a>", $text
     );
 
+    $text = str_replace_first("<!--LOGIN-NEW-->", "<div align=right><a href=?q=".$_GET["q"]."/add>Nowy tekst</a></div>", $text);
+
     echo $text;
     return;
 }
@@ -601,9 +659,36 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
 
     exit(0);
 }
-if (isset($_POST["q"]) && $_POST["q"]=="change_text" && isset($_POST["tekst"]) && isset($_POST["text"])) {
+if (isset($_POST["q"]) && $_POST["q"]=="change_text"  
+    && isset($_POST["tekst"]) && isset($_POST["text"])  
+    && isset($_POST["state"]) && isset($_POST["type"])
+) {
     //checking for login
     //checking for correct filename protection
+    if ($_POST["tekst"] == "0") {
+        //fixme - when two users trying to use the same in the same time
+        $id=1;
+        while(1) {
+            if (!file_exists("teksty/$id.txt")) {
+                $handle = @fopen("teksty/$id.txt", "a");
+                fwrite(
+                    $handle, 
+                    "Title:ala\n".
+                    "State:".$_POST["state"]."\n".
+                    "Type:".$_POST["type"]."\n".
+                    "Species:inne\n".
+                    "Taxonomy:inne\n".
+                    "When:".date("d M Y H:i:s", time())."\n".
+                    "Author:marcin\n\n".
+                    rawurldecode($_POST["text"])
+                );
+                fclose($handle);
+                echo $id;
+                exit(0);            
+            }
+            $id++;
+        }
+    }
     if (file_exists("teksty/".$_POST["tekst"].".txt")) {
         $handle = @fopen("teksty/".$_POST["tekst"].".txt", "a");
         //checking for <!--comment--> and others
@@ -611,6 +696,8 @@ if (isset($_POST["q"]) && $_POST["q"]=="change_text" && isset($_POST["tekst"]) &
         fwrite(
             $handle, "\n<!--change-->\n".
             "Title:ala\n".
+            "State:".$_POST["state"]."\n".
+            "Type:".$_POST["type"]."\n".
             "When:".date("d M Y H:i:s", time())."\n".
             "Author:marcin\n\n".
             rawurldecode($_POST["text"])

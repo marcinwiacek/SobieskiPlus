@@ -1,4 +1,5 @@
-Status: <!--STATE--><p>
+Status: <!--STATE--><br>
+Sortowanie: <!--SORTBY--><p>
 
-Sortowanie: <!--SORTBY--><br>
 Rodzaj: <!--TYPE--><br>
+Gatunek: <b>inne</b>
