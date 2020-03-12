@@ -1,0 +1,113 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<link rel='stylesheet' type='text/css' href='external/styles.css'>
+</head><body>
+<!--MENU-->
+<div class=content>
+<link type="text/css" rel="stylesheet" href="external/quill.snow.css">
+<script src="external/quill.min.js"></script>
+
+<table width=100% border=1><tr><td>
+  <form id=textedit name=textedit method=post>
+      Status:<!--STATE-->
+      Typ:<!--TYPE-->
+      Tytuł: <input name="title" type="text" value="<!--TITLE-->">
+      <input name="about" type="hidden">
+      <div id="editor-container"><!--TEXT--></div>
+      <button type="submit" id=sub name=sub>Zapisz</button>
+  </form>
+</td></tr></table>
+<div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
+Licznik ze spacjami: <span id="counter"></span>
+<script async=async>
+
+var toolbarOptions = [
+  ['bold', 'italic', 'underline', 'strike'],
+  ['blockquote', 'code-block', 'image'],
+
+  [{ 'header': 1 }, { 'header': 2 }],
+  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+  [{ 'script': 'sub'}, { 'script': 'super' }],
+  [{ 'indent': '-1'}, { 'indent': '+1' }],
+  [{ 'direction': 'rtl' }],
+
+  [{ 'size': ['small', false, 'large', 'huge'] }],
+  [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+
+  [{ 'color': [] }, { 'background': [] }],
+  [{ 'font': [] }],
+  [{ 'align': [] }],
+
+  ['clean']
+];
+
+var quill = new Quill('#editor-container', {
+  modules: {
+    toolbar: toolbarOptions
+  },
+  placeholder: 'Zapodaj ładny tekst proszę...',
+  theme: 'snow'
+});
+
+document.getElementById('sub').disabled=true;
+document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
+quill.on('text-change', function(delta, oldDelta, source) {
+  if (quill.getText().trim().length==0) {
+    document.getElementById('sub').disabled=true;
+  } else {
+    document.getElementById('sub').disabled=false;
+  }
+  document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
+});
+
+//window.onbeforeunload = function(){
+//  return 'Tekst jest niezapisany. Czy na pewno chcesz opuścić edytor?';
+//};
+
+document.textedit.onsubmit = function() {
+  var type = document.getElementById("textedit").elements.namedItem("type").value; 
+  if (type == '') {
+	alert('Proszę wybrać typ');
+	return false;
+  }
+  var state = document.getElementById("textedit").elements.namedItem("state").value; 
+  var title = document.getElementById("textedit").elements.namedItem("title").value; 
+  var progressBar = document.getElementById("progress");
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = 'q=change_text&tekst=<!--PAGEID-->&state='+state+'&title='+title+'&type='+type+'&text='+decodeURIComponent(quill.root.innerHTML);
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onprogress = function(e) {
+    if (e.lengthComputable) {
+        progressBar.max = e.total;
+        progressBar.value = e.loaded;
+    }
+  };
+  http.onloadstart = function() {
+    document.getElementById("progressinfo").style.display="block";
+    document.getElementById("progress").innerHTML="";
+    progressBar.value = 0;
+  };
+  http.onload = function() {
+    if (<!--PAGEID--> == 0) {
+      window.location.href='?q=opowiadania/pokaz/'+http.response+'/edit';
+    } else {
+      progressBar.value = progressBar.max;
+      document.getElementById("progressinfo").style.display="none";
+    }
+  };
+  http.onerror = function () {
+    document.getElementById("progress").innerHTML="error";
+  };
+
+  http.send(params);
+
+  return false;
+};
+
+</script>
+</div></body></html>

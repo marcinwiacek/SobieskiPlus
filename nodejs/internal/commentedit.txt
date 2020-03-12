@@ -1,0 +1,88 @@
+﻿
+<!-- we need something with Polish dictionary -->
+
+<link type="text/css" rel="stylesheet" href="external/quill.snow.css">
+<script src="external/quill.min.js"></script>
+
+<table width=100% border=1><tr><td>
+  <form id=commentedit name=commentedit method=post>
+      Tytuł: <input name="display_name" type="text" value="">
+      <input name="about" type="hidden">
+      <div id="editor-container"></div>
+      <button id=sub type="submit">Dodaj komentarz</button>
+  </form>
+</td></tr></table>
+<div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
+<script async=async>
+
+var toolbarOptions = [
+  ['bold', 'italic', 'underline', 'strike'],
+  ['blockquote', 'code-block', 'image'],
+
+  [{ 'header': 1 }, { 'header': 2 }],
+  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+  [{ 'script': 'sub'}, { 'script': 'super' }],
+  [{ 'indent': '-1'}, { 'indent': '+1' }],
+  [{ 'direction': 'rtl' }],
+
+  [{ 'size': ['small', false, 'large', 'huge'] }],
+  [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+
+  [{ 'color': [] }, { 'background': [] }],
+  [{ 'font': [] }],
+  [{ 'align': [] }],
+
+  ['clean']
+];
+
+var quill = new Quill('#editor-container', {
+  modules: {
+    toolbar: toolbarOptions
+  },
+  placeholder: 'Zapodaj ładny komentarz proszę...',
+  theme: 'snow'
+});
+
+document.getElementById('sub').disabled=true;
+quill.on('text-change', function(delta, oldDelta, source) {
+  if (quill.getText().trim().length==0) {
+    document.getElementById('sub').disabled=true;
+  } else {
+    document.getElementById('sub').disabled=false;
+  }
+});
+
+document.commentedit.onsubmit = function() {
+  var progressBar = document.getElementById("progress");
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = 'q=upload_comment&tekst=<!--PAGEID-->&comment='+decodeURIComponent(quill.root.innerHTML);
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onprogress = function(e) {
+    if (e.lengthComputable) {
+        progressBar.max = e.total;
+        progressBar.value = e.loaded;
+    }
+  };
+  http.onloadstart = function() {
+    document.getElementById("progressinfo").style.display="block";
+    document.getElementById("progress").innerHTML="";
+    progressBar.value = 0;
+  };
+  http.onload = function() {
+    progressBar.value = progressBar.max;
+    document.getElementById("progressinfo").style.display="none";
+    quill.root.innerHTML="";
+  };
+  http.onerror = function () {
+    document.getElementById("progress").innerHTML="error";
+  };
+
+  http.send(params);
+
+  return false;
+};
+
+</script>

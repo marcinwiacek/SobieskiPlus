@@ -1,0 +1,77 @@
+﻿<style>
+.menu {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height:43px;
+  background-color: black;
+  position: fixed;
+  z-index: 99999;
+}
+
+.menu-option {
+  font-size: 16px;  
+  color:white;
+  float: left;
+  overflow: hidden;
+  z-index: 99999;
+}
+
+.menu-option-text {
+  padding: 12px 16px;
+  z-index: 99999;
+}
+
+.menu-option-content {
+  display: none;
+  background-color: #f9f9f9;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  padding: 12px 16px;
+  z-index: 99999;
+  position: fixed;
+}
+
+.menu-option:hover {
+  background-color: red;
+}
+
+.menu-option:hover .menu-option-content {
+  display: inline-block;
+}
+
+.content {
+  padding-top:43px;
+}
+</style>
+
+<div class=menu>
+  <div class="menu-option">
+    <div class=menu-option-text>Start</div>
+    <div class="menu-option-content">
+      <p><a href=".">Strona główna</a></p>
+    </div>
+  </div>
+  <div class="menu-option">
+    <div class=menu-option-text>Opowiadania</div>
+    <div class="menu-option-content">
+      <p><a href="?q=opowiadania/biblioteka">Biblioteka</a></p>
+      <p><a href="?q=opowiadania/beta">Betalista</a></p>
+      <p><a href="?q=opowiadania/archiwum">Archiwum</a></p>
+    </div>
+  </div>
+  <div class="menu-option">
+    <div class=menu-option-text>Publicystyka</div>
+    <div class="menu-option-content">
+      <p><a href="?q=publicystyka/artykuly">Artykuły</a></p>
+      <p><a href="?q=publicystyka/felietony">Felietony</a></p>
+      <p><a href="?q=publicystyka/poradniki">Poradniki</a></p>
+    </div>
+  </div>
+  <div class="menu-option">
+    <div class=menu-option-text>Użytkownik</div>
+    <div class="menu-option-content">
+	<!--LOGIN-LOGOUT-->
+    </div>
+  </div>
+</div>

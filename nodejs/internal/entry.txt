@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<link rel='stylesheet' type='text/css' href='external/styles.css'>
+</head><body>
+<!--MENU-->
+<div class=content>
+
+<!--TITLE-->
+<table width=100% border=1><tr><td>
+<!--USER-->: <!--TYPE-->,<!--SPECIES--><p>
+<!--WHEN-->
+</td></tr></table>
+<!--LOGIN-EDIT-->
+<p>
+<table width=100% border=1><tr><td>
+<center><h1><!--TITLE--></h1></center>
+<hr>
+<!--TEXT-->
+</td></tr></table>
+<p>
+<!--COMMENTS-->
+<div id=newcomments></div>
+<p>
+<!--COMMENTEDIT-->
+<!--JS-->
+<script>
+  var source = new EventSource("?fileid=<!--PAGEID-->");
+  source.onmessage = function(event) {
+    if (event.data!='') {
+      //parsing
+      document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+      if (document.hidden && window.document.title.substring(0,2)!="* ") {
+        window.document.title = "* "+window.document.title;
+      }
+    }
+  };
+  document.body.onunload = function(){source.close();};
+</script>
+</body></html>
