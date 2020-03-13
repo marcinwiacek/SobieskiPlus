@@ -108,10 +108,22 @@ const server = http.createServer((req, res) => {
         res.end(fs.readFileSync(__dirname + '\\external\\styles.css', ''));
         return;
     }
+    if (req.url == "/external/quill.snow.css") {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'Content-Type: text/css');
+        res.end(fs.readFileSync(__dirname + '\\external\\quill.snow.css', ''));
+        return;
+    }
     if (req.url == "/external/sha256.js") {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'Content-Type: text/javascript');
         res.end(fs.readFileSync(__dirname + '\\external\\sha256.js', ''));
+        return;
+    }
+    if (req.url == "/external/quill.min.js") {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'Content-Type: text/javascript');
+        res.end(fs.readFileSync(__dirname + '\\external\\quill.min.js', ''));
         return;
     }
     if (req.url == "/favicon.ico") {
@@ -166,12 +178,12 @@ const server = http.createServer((req, res) => {
             }
             //    $text = str_replace_first("<!--LASTUPDATE-->", $last, $text);
             //if ($userID!="") {
-            //  $text = str_replace_first("<!--COMMENTEDIT-->", readFileContent("internal/commentedit.txt"), $text);
+            text = text.replace("<!--COMMENTEDIT-->", fs.readFileSync(__dirname + '\\internal\\commentedit.txt', 'utf8'));
             //    }
-            //  $text = str_replace("<!--PAGEID-->", $id[2], $text); //many entries
+            text = text.replace(/<!--PAGEID-->/g, id[2]); //many entries
 
             //  if ($userID!="") {
-            //    $text = str_replace_first("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=".$_GET["q"]."/edit>Edycja</a></div>", $text);
+            text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=?q="+params["q"]+"/edit>Edycja</a></div>");
             //  }
             res.statusCode = 200;
             res.setHeader('Content-Type', 'Content-Type: text/html; charset=UTF-8');
@@ -217,32 +229,19 @@ const server = http.createServer((req, res) => {
                     }
             */
 
-            list = getPageList(0, new Array(id[2]), typ == "" ? podstronyType[id[1]] : new Array(typ),
-                new Array("inne", "scifi"), "", 0);
-
+            const pageNum = 0;
             /*
-                    $pageNum=0;
                     if (isset($id[3])) {
                         $pageNum = intval(substr($id[3], 1, strlen($id[3])-1));
                     }
-                    $list = GetPagesList(
-                        $pageNum, 
-                        array($id[2]), 
-                        ($typ=="")?$podstronyType[$id[1]]:array($typ), 
-                        array("inne","scifi"), 
-                        "",
-                        $sortLevel
-                    );
-                } else {
-                    header('Location: '.$_SERVER['PHP_SELF']);
-                    exit(0);
-                }*/
+*/
+
+            list = getPageList(pageNum, new Array(id[2]), typ == "" ? podstronyType[id[1]] : new Array(typ),
+                new Array("inne", "scifi"), "", 0);
 
             var text = fs.readFileSync(__dirname + '\\internal\\list.txt', 'utf8');
-            //       text = text.replace("<!--MENU-->",fs.readFileSync(__dirname+'\\internal\\menu.txt', 'utf8'));
 
             text = text.replace("<!--TITLE-->", "");
-
             text = text.replace("<!--MENU-->", fs.readFileSync(__dirname + '\\internal\\menu.txt', 'utf8'));
             text = text.replace("<!--JS-->", fs.readFileSync(__dirname + '\\internal\\js.txt', 'utf8'));
             text = text.replace("<!--LOGIN-LOGOUT-->", fs.readFileSync(__dirname + '\\internal\\login.txt', 'utf8'));
@@ -306,7 +305,8 @@ const server = http.createServer((req, res) => {
                 list.forEach(function(arr) {
                     var template = template0;
                     template = template.replace("<!--USER-->", arr["Author"]);
-                    template = template.replace("<!--TITLE-->", "<a href=\"?q=" + id[1] + "/pokaz/$fileName\">" + arr["Title"] + "</a>");
+                    template = template.replace("<!--TITLE-->", 
+"<a href=\"?q=" + id[1] + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
                     template = template.replace("<!--TYPE-->", arr["Type"]);
                     template = template.replace("<!--SPECIES-->", arr["Species"]);
                     //                    template = template.replace("<!--COMMENTSNUM-->", arr["CommentsNum"]);
@@ -316,31 +316,25 @@ const server = http.createServer((req, res) => {
                 text = text.replace("<!--LIST-->", txt);
             }
 
-            /*    $txt = "";
-                if (isset($_GET["s"])) { $txt = "&s=".$_GET["s"];
-                }
-                if (isset($_GET["t"])) { $txt = $txt."&t=".$_GET["t"];
-                }
-                $text = str_replace_first(
-                    "<!--NEXTLINK-->", 
-                    "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum-1)."$txt>&lt; Prev page</a>&nbsp;".
-                    "<a href=?q=".$id[1]."/".$id[2]."/".($pageNum+1)."$txt>Next page &gt;</a>", $text
-                );
+            var txt = "";
+            if (params["s"]) txt = "&s=" + params["s"];
+            if (params["t"]) txt = txt + "&t=" + params["t"];
+            text = text.replace("<!--NEXTLINK-->",
+                "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;" +
+                "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
+            );
 
-                if ($userID!="") {
-                    $text = str_replace_first("<!--LOGIN-NEW-->", "<div align=right><a href=?q=".$_GET["q"]."/add>Nowy tekst</a></div>", $text);
-                }
+            //  if ($userID!="") {
+            //    $text = str_replace_first("<!--LOGIN-NEW-->", "<div align=right><a href=?q=".$_GET["q"]."/add>Nowy tekst</a></div>", $text);
+            //}
 
-                echo $text;
-                return;
-            }
-            */
+            //}
+
             res.statusCode = 200;
             res.setHeader('Content-Type', 'Content-Type: text/html; charset=UTF-8');
             res.end(text);
             return;
         }
-
 
         console.log(q);
     }
@@ -351,9 +345,6 @@ const server = http.createServer((req, res) => {
     text = text.replace("<!--JS-->", fs.readFileSync(__dirname + '\\internal\\js.txt', 'utf8'));
     text = text.replace("<!--LOGIN-LOGOUT-->", fs.readFileSync(__dirname + '\\internal\\login.txt', 'utf8'));
 
-    //  var x = fs.readFileSync(__dirname+'\\teksty\\2.txt', 'utf8');
-    //  decodeFileContent(x,true);
-
     res.statusCode = 200;
     res.setHeader('Content-Type', 'Content-Type: text/html; charset=UTF-8');
     res.end(text);
@@ -362,7 +353,9 @@ const server = http.createServer((req, res) => {
 var cache = new Array();
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     console.log(file);
-    cache.push(decodeFileContent(fs.readFileSync(__dirname + '\\teksty\\' + file, 'utf8'), false));
+    var x = decodeFileContent(fs.readFileSync(__dirname + '\\teksty\\' + file, 'utf8'), false);
+    x["filename"] = file.replace(".txt", "");
+    cache.push(x);
 })
 
 server.listen(port, hostname, () => {
