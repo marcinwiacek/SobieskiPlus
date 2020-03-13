@@ -1,6 +1,0 @@
-<table border=1 width=100%><tr><td>
-<!--USER-->: <b><!--TITLE--></b><br>
-<!--WHEN-->
-<hr>
-<!--TEXT-->
-</td></tr></table>
