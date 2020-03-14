@@ -77,7 +77,7 @@ document.textedit.onsubmit = function() {
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=change_text&tekst=<!--PAGEID-->&state='+state+'&title='+title+'&type='+type+'&text='+decodeURIComponent(quill.root.innerHTML);
+  var params = 'q=upload_text&tekst=<!--PAGEID-->&state='+state+'&title='+title+'&type='+type+'&text='+decodeURIComponent(quill.root.innerHTML);
 
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -94,7 +94,7 @@ document.textedit.onsubmit = function() {
   };
   http.onload = function() {
     if (<!--PAGEID--> == 0) {
-      window.location.href='?q=opowiadania/pokaz/'+http.response+'/edit';
+      window.location.href='?q=opowiadania/zmien/'+http.response;
     } else {
       progressBar.value = progressBar.max;
       document.getElementById("progressinfo").style.display="none";

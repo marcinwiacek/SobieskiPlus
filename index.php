@@ -438,8 +438,8 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)$/", $_GET["q"
     return;
 }
 
-//opowiadania/biblioteka/add
-if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)\/add$/", $_GET["q"], $id)) {
+//opowiadania/biblioteka/dodaj
+if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)\/dodaj$/", $_GET["q"], $id)) {
     if (isset($podstronyState[$id[1]]) && in_array($id[2], $podstronyState[$id[1]])) {
         $text = readFileContent("internal/entryedit.txt");
         $text = genericReplace($text, $userID);
@@ -469,8 +469,8 @@ if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/([a-z]+)\/add$/", $_GET["q"], $
         return;
     }
 }
-//opowiadania/1234/edit
-if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/pokaz\/([0-9\-]+)\/edit$/", $_GET["q"], $id)) {
+//opowiadanie/edit/1234
+if (isset($_GET["q"]) && preg_match("/^([a-z]+)\/zmien\/([0-9\-]+)$/", $_GET["q"], $id)) {
     if (!isset($podstronyType[$id[1]])) {
         header('Location: '.$_SERVER['PHP_SELF']);
         exit(0);
@@ -691,7 +691,7 @@ if (isset($_POST["q"]) && $_POST["q"]=="upload_comment" && isset($_POST["tekst"]
 
     exit(0);
 }
-if (isset($_POST["q"]) && $_POST["q"]=="change_text"  && isset($_POST["title"])    
+if (isset($_POST["q"]) && $_POST["q"]=="upload_text"  && isset($_POST["title"])    
     && isset($_POST["tekst"]) && isset($_POST["text"])      && isset($_POST["state"]) && isset($_POST["type"])
 ) {
     //checking for login
