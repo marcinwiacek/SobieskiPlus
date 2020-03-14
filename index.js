@@ -2,16 +2,23 @@
 
 const hostname = '127.0.0.1';
 const port = 3000;
-var callbackID = 0;
-var cacheID = 1; //ID for new files - cache
 
-podstronyType = new Array();
+const onThePage = 5;
+
+var podstronyType = new Array();
 podstronyType["opowiadania"] = new Array("opowiadanie", "szort");
 podstronyType["publicystyka"] = new Array("artykul", "felieton");
 
-podstronyState = new Array();
+var podstronyState = new Array();
 podstronyState["opowiadania"] = new Array("biblioteka", "beta", "archiwum");
 podstronyState["publicystyka"] = new Array("artykuly", "felietony", "poradniki");
+
+// internals
+
+const sortParam = new Array("date", "comments", "author");
+
+var callbackID = 0;
+var cacheID = 1; //ID for new files - cache
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -33,15 +40,22 @@ const DecodingLevel = {
     CommentText: 4
 }
 
+//FIXME: reading only headers to save memory
+//fields starting from big char are read from memory
 function decodeFileContent(txt, allVersions) {
     var arr = new Array();
     var level = DecodingLevel.MainHeaders;
     var comment = null;
+    arr["commentsnum"] = 0; // for cache we don't want comments in memory; just number
+    arr["commentswhen"] = 0; // for cache we don't want comments in memory; just number
     txt.split(/\r?\n/).forEach(function(line) {
         if (line == "<!--comment-->") {
             if (comment != null) {
                 if (!arr["Comments"]) arr["Comments"] = new Array();
+                comment["When"] = Date.parse(comment["When"]);
                 arr["Comments"].push(comment);
+                arr["commentsnum"]++;
+                arr["commentswhen"] = comment["When"];
             }
             level = DecodingLevel.CommentHeaders;
             comment = new Array();
@@ -60,7 +74,7 @@ function decodeFileContent(txt, allVersions) {
                         if (!arr["OldText"]) arr["OldText"] = new Array();
                         var oldtext = new Array();
                         oldtext["Text"] = arr["Text"];
-                        oldtext["When"] = arr["When"];
+                        oldtext["When"] = Date.parse(arr["When"]);
                         arr["OldText"].push(oldtext);
                     }
                     arr["Text"] = "";
@@ -87,18 +101,65 @@ function decodeFileContent(txt, allVersions) {
     });
     if (comment != null) {
         if (!arr["Comments"]) arr["Comments"] = new Array();
+        comment["When"] = Date.parse(comment["When"]);
         arr["Comments"].push(comment);
+        arr["commentsnum"]++;
+        arr["commentswhen"] = comment["When"];
     }
-    //    console.log(arr);
+    arr["When"] = Date.parse(arr["When"]);
     return arr;
 }
 
 function addToCache(name) {
-    console.log(name);
     var x = decodeFileContent(readFileContent('\\teksty\\' + name + '.txt'), false);
     x["filename"] = name;
     x["callback"] = new Array();
     cache.push(x);
+}
+
+function formatDate(date) {
+    const d = new Date(date);
+    var ret = d.getDate() + ' ';
+    switch (d.getMonth()) {
+        case 0:
+            ret += "Jan";
+            break;
+        case 1:
+            ret += "Feb";
+            break;
+        case 2:
+            ret += "Mar";
+            break;
+        case 3:
+            ret += "Apr";
+            break;
+        case 4:
+            ret += "May";
+            break;
+        case 5:
+            ret += "Jun";
+            break;
+        case 6:
+            ret += "Jul";
+            break;
+        case 7:
+            ret += "Aug";
+            break;
+        case 8:
+            ret += "Sep";
+            break;
+        case 9:
+            ret += "Oct";
+            break;
+        case 10:
+            ret += "Nov";
+            break;
+        case 11:
+            ret += "Dec";
+            break;
+    }
+    return ret + ' ' + d.getFullYear() + ' ' +
+        (d.getHours()) + ':' + (d.getMinutes() + 1) + ':' + d.getSeconds();
 }
 
 function getPageList(pageNum, stateList, typeList, speciesList, taxonomy, sortLevel) {
@@ -114,10 +175,30 @@ function getPageList(pageNum, stateList, typeList, speciesList, taxonomy, sortLe
                         }
                     }*/
     });
-    return result;
+    if (sortLevel == "date") {
+        result.sort(function(a, b) {
+            if (a["When"] == b["When"]) return 0;
+            return a["When"] > b["When"] ? -1 : 1;
+        });
+    } else if (sortLevel == "comments") {
+        result.sort(function(a, b) {
+            if (a["commentsnum"] == b["commentsnum"]) {
+                if (a["When"] == b["When"]) return 0;
+                return a["When"] > b["When"] ? -1 : 1;
+            }
+            return a["commentsnum"] > b["commentsnum"] ? -1 : 1;
+        });
+    } else if (sortLevel == "author") {
+        result.sort(function(a, b) {
+            return a["Author"].localeCompare(b["Author"]);
+        });
+    }
+
+    return new Array(result.slice(pageNum * onThePage, (pageNum + 1) * onThePage),
+        result.length);
 }
 
-function parsePOSTforms(params, req, res, userID) {
+function parsePOSTforms(params, req, res, userName) {
     console.log(params);
 
     if (params["q"]) {
@@ -125,10 +206,11 @@ function parsePOSTforms(params, req, res, userID) {
             //checking for login
             //checking for correct filename protection
             if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
+                const t = Date.now();
                 fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                     "\n<!--comment-->\n" +
                     "Title:ala\n" +
-                    //            "When:".date("d M Y H:i:s", $t)."\n"+
+                    "When:" + formatDate(t) + "\n" +
                     "Author:marcin\n\n" +
                     params["comment"]
                 );
@@ -136,10 +218,12 @@ function parsePOSTforms(params, req, res, userID) {
                 comment = new Array();
                 comment["Title"] = "ala";
                 comment["Author"] = "marcin";
+                comment["When"] = t;
                 comment["Text"] = params["comment"];
 
                 cache.forEach(function(entry) {
                     if (params["tekst"] == entry["filename"]) {
+                        entry["commentsnum"]++;
                         entry["callback"].forEach(function(entry2) {
                             console.log("probuje callbark");
                             entry2[0](comment, entry2[1]);
@@ -164,7 +248,7 @@ function parsePOSTforms(params, req, res, userID) {
                             "Title:" + params["title"] + "\n" +
                             "State:" + params["state"] + "\n" +
                             "Type:" + params["type"] + "\n" +
-                            //                          "When:".date("d M Y H:i:s", $t)."\n"+
+                            "When:" + formatDate(Date.now()) + "\n" +
                             "Author:marcin\n\n" +
                             params["text"], 'utf8');
                         addToCache(id);
@@ -182,13 +266,14 @@ function parsePOSTforms(params, req, res, userID) {
                 return;
             }
             if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
+                const t = Date.now();
                 fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                     "\n<!--change-->\n" +
                     "Title:" + params["title"] + "\n" +
                     "State:" + params["state"] + "\n" +
                     "Type:" + params["type"] + "\n" +
                     "Species:inne\n" +
-                    //                          "When:".date("d M Y H:i:s", $t)."\n"+
+                    "When:" + formatDate(t) + "\n" +
                     "Author:marcin\n\n" +
                     params["text"]
                 );
@@ -198,6 +283,7 @@ function parsePOSTforms(params, req, res, userID) {
                         entry["Title"] = params["title"];
                         entry["State"] = params["state"];
                         entry["Type"] = params["type"];
+                        entry["When"] = t;
                         entry["Species"] = params["inne"];
                     }
                 });
@@ -206,13 +292,13 @@ function parsePOSTforms(params, req, res, userID) {
                 res.end();
             } else {
                 res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
+                res.setHeader('Content-Type', 'text/plain');
                 res.end();
             }
         }
         return;
     }
-    if (params["login"] && params["user"] && params["password"]) {
+    if (params["login"] && params["user"] && params["password"] && userName == "") {
         console.log("probuje login");
         var found = false;
         fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
@@ -225,7 +311,7 @@ function parsePOSTforms(params, req, res, userID) {
                 pass = crypto.createHash('sha256').update(session + arr["Password"]).digest("hex");
                 if (pass != params["password"]) return;
                 const salt = crypto.randomBytes(32).toString('base64');
-                cookies.push(new Array(salt, arr["Author"]));
+                cookies.push(new Array(salt, arr["Author"], file));
                 console.log("jest login");
                 res.setHeader('Set-Cookie', 'login=' + salt);
                 found = true;
@@ -234,7 +320,7 @@ function parsePOSTforms(params, req, res, userID) {
 
         if (!found) {
             res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
+            res.setHeader('Content-Type', 'text/plain');
         } else {
             res.statusCode = 200;
             res.setHeader('Content-Type', 'text/html; charset=UTF-8');
@@ -242,29 +328,48 @@ function parsePOSTforms(params, req, res, userID) {
         res.end();
         return;
     }
+    if (params["logout"] && userName != "") {
+        res.setHeader('Set-Cookie', 'login=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        cookies.forEach(function(cookieInfo, index) {
+            if ("login=" + cookieInfo[0] == req.headers['cookie']) {
+                console.log('removing cookie');
+                cookies.splice(index, 1);
+            }
+        });
+
+        console.log('after');
+        cookies.forEach(function(cookieInfo) {
+            console.log(cookieInfo);
+        });
+
+        res.end();
+        return;
+    }
     res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Type', 'text/plain');
     res.end();
 }
 
 function updateComment(comment, res) {
-    console.log("jest callbark");
+    console.log("jest callback");
     var template = readFileContent('\\internal\\comment.txt');
     template = template.replace("<!--USER-->", comment["Author"]);
     template = template.replace("<!--TITLE-->", comment["Title"]);
-    //           template = text.replace("<!--WHEN-->", date("d M Y H:i:s", $comment["When"]), $template);
+    template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
     template = template.replace("<!--TEXT-->", comment["Text"]);
 
     res.write("data: " + encodeURI(template) + "\n\n")
 }
 
-function genericReplace(text, userID) {
+function genericReplace(text, userName) {
     const session = crypto.randomBytes(32).toString('base64');
     sessions.push(session);
 
     text = text.replace("<!--MENU-->", readFileContent('\\internal\\menu.txt'));
     text = text.replace("<!--JS-->", readFileContent('\\internal\\js.txt'));
-    if (userID == "") {
+    if (userName == "") {
         text = text.replace("<!--LOGIN-LOGOUT-->", readFileContent('\\internal\\login.txt'));
         return text.replace("<!--HASH-->", session);
     } else {
@@ -272,8 +377,9 @@ function genericReplace(text, userID) {
     }
 }
 
-function zmienDodajStrona(res, params, id, userID) {
+function zmienDodajStrona(res, params, id, userName) {
     if (!podstronyType[id[1]]) {
+        console.log("typ1" + id[1]);
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
@@ -283,6 +389,7 @@ function zmienDodajStrona(res, params, id, userID) {
     if (id[2] == "zmien") {
         var arr = decodeFileContent(readFileContent('\\teksty\\' + id[3] + '.txt'), true);
         if (!podstronyType[id[1]].includes(arr["Type"])) {
+            console.log("typ2" + arr["Type"]);
             res.statusCode = 302;
             res.setHeader('Location', '/');
             res.end();
@@ -298,7 +405,7 @@ function zmienDodajStrona(res, params, id, userID) {
     }
 
     var text = readFileContent('\\internal\\entryedit.txt');
-    text = genericReplace(text, userID);
+    text = genericReplace(text, userName);
     if (id[2] == "zmien") {
         text = text.replace("<!--TEXT-->", arr["Text"]);
         text = text.replace(/<!--TITLE-->/g, arr["Title"]); //many entries
@@ -329,7 +436,7 @@ function zmienDodajStrona(res, params, id, userID) {
     res.end(text);
 }
 
-function pokazStrona(res, params, id, userID) {
+function pokazStrona(res, params, id, userName) {
     if (!podstronyType[id[1]]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -346,14 +453,14 @@ function pokazStrona(res, params, id, userID) {
     }
 
     var text = readFileContent('\\internal\\entry.txt');
-    text = genericReplace(text, userID);
+    text = genericReplace(text, userName);
 
     text = text.replace(/<!--TITLE-->/g, arr["Title"]);
     text = text.replace("<!--USER-->", arr["Author"]);
     text = text.replace("<!--TEXT-->", arr["Text"]);
     text = text.replace("<!--TYPE-->", arr["Type"]);
     text = text.replace("<!--SPECIES-->", arr["Species"]);
-    //       text = text.replace("<!--WHEN-->",arr["Text"]);
+    text = text.replace("<!--WHEN-->", formatDate(arr["When"]));
 
     if (arr["Comments"]) {
         const template0 = readFileContent('\\internal\\comment.txt');
@@ -362,14 +469,14 @@ function pokazStrona(res, params, id, userID) {
             var template = template0;
             template = template.replace("<!--USER-->", comment["Author"]);
             template = template.replace("<!--TITLE-->", comment["Title"]);
-            //           template = text.replace("<!--WHEN-->", date("d M Y H:i:s", $comment["When"]), $template);
+            template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
             txt += template.replace("<!--TEXT-->", comment["Text"]);
         });
         text = text.replace("<!--COMMENTS-->", txt);
     }
     //    $text = str_replace_first("<!--LASTUPDATE-->", $last, $text);
 
-    if (userID != "") {
+    if (userName != "") {
         text = text.replace("<!--COMMENTEDIT-->", readFileContent('\\internal\\commentedit.txt'));
         text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=" + params["q"].replace("pokaz", "zmien") + ">Edycja</a></div>");
     }
@@ -381,7 +488,7 @@ function pokazStrona(res, params, id, userID) {
     res.end(text);
 }
 
-function pokazLista(res, params, id, userID) {
+function pokazLista(res, params, id, userName) {
     if (!podstronyState[id[1]] || !podstronyState[id[1]].includes(id[2])) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -398,35 +505,33 @@ function pokazLista(res, params, id, userID) {
         }
         typ = params["t"];
     }
+    var sortLevel = "date";
+    if (params["s"]) {
+        if (!sortParam.includes(params["s"])) {
+            res.statusCode = 302;
+            res.setHeader('Location', '/');
+            res.end();
+            return;
+        }
+        sortLevel = params["s"];
+    }
 
-    /*        $sortLevel = SortLevel::DateSort;
-            if (isset($_GET["s"])) {
-                switch ($_GET["s"]) {
-                case "date":
-                    $sortLevel= SortLevel::DateSort;
-                    break;
-                case "comments":
-                    $sortLevel = SortLevel::CommentsNumSort;
-                    break;
-                case "author":
-                    $sortLevel = SortLevel::AuthorSort;
-                    break;
-                default:
-                    header('Location: '.$_SERVER['PHP_SELF']);
-                    exit(0);
-                }
-            }
-    */
+    const pageNum = id[3] ? parseInt(id[3].substring(1)) : 0;
 
-    const pageNum = id[3] ? parseInt(id[1].substring(1)) : 0;
+    const list = getPageList(pageNum, new Array(id[2]), typ == "" ? podstronyType[id[1]] : new Array(typ),
+        new Array("inne", "scifi"), "", sortLevel);
 
-    list = getPageList(pageNum, new Array(id[2]), typ == "" ? podstronyType[id[1]] : new Array(typ),
-        new Array("inne", "scifi"), "", pageNum);
+    if (pageNum * onThePage > list[1]) {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
 
     var text = readFileContent('\\internal\\list.txt');
 
     text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(text, userID);
+    text = genericReplace(text, userName);
 
     template = readFileContent("\\internal\\criteria.txt");
 
@@ -440,7 +545,7 @@ function pokazLista(res, params, id, userID) {
     }
     podstronyType[id[1]].forEach(function(t) {
         if (typ == t) {
-            txt += "<b>$t</b>, ";
+            txt += "<b>" + t + "</b>, ";
         } else {
             txt += "<a href=?q=" + id[1] + "/" + id[2] + "&t=" + t;
             if (params["s"]) txt += "&s=" + params["s"];
@@ -460,7 +565,7 @@ function pokazLista(res, params, id, userID) {
     template = template.replace("<!--STATE-->", txt);
 
     txt = "";
-    (new Array("date", "author", "comments")).forEach(function(t) {
+    sortParam.forEach(function(t) {
         if ((!params["s"] && t == "date") || (params["s"] && params["s"] == t)) {
             txt += "<b>" + t + "</b>, ";
         } else {
@@ -473,18 +578,18 @@ function pokazLista(res, params, id, userID) {
 
     text = text.replace("<!--CRITERIA-->", template);
 
-    if (list) {
+    if (list[0]) {
         const template0 = readFileContent('\\internal\\listentry.txt');
         var txt = "";
-        list.forEach(function(arr) {
+        list[0].forEach(function(arr) {
             var template = template0;
             template = template.replace("<!--USER-->", arr["Author"]);
             template = template.replace("<!--TITLE-->",
                 "<a href=\"?q=" + id[1] + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
             template = template.replace("<!--TYPE-->", arr["Type"]);
             template = template.replace("<!--SPECIES-->", arr["Species"]);
-            //                    template = template.replace("<!--COMMENTSNUM-->", arr["CommentsNum"]);
-            //           template = template.replace("<!--WHEN-->", date("d M Y H:i:s", $arr["When"]), $template);
+            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
+            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
             txt += template;
         });
         text = text.replace("<!--LIST-->", txt);
@@ -493,12 +598,18 @@ function pokazLista(res, params, id, userID) {
     var txt = "";
     if (params["s"]) txt = "&s=" + params["s"];
     if (params["t"]) txt += "&t=" + params["t"];
-    text = text.replace("<!--NEXTLINK-->",
-        "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;" +
-        "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
-    );
+    if (pageNum != 0) {
+        text = text.replace("<!--PREVLINK-->",
+            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;"
+        );
+    }
+    if ((pageNum + 1) * onThePage < list[1]) {
+        text = text.replace("<!--NEXTLINK-->",
+            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
+        );
+    }
 
-    if (userID != "") {
+    if (userName != "") {
         text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=?q=" + params["q"] + "/dodaj>Nowy tekst</a></div>");
     }
 
@@ -527,14 +638,17 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    var userID = "";
+    var userName = "";
     cookies.forEach(function(cookieInfo) {
-        if ("login=" + cookieInfo[0] == req.headers['cookie']) userID = cookieInfo[1];
+        if ("login=" + cookieInfo[0] == req.headers['cookie']) userName = cookieInfo[1];
     });
-    console.log('user id is ' + userID);
+    console.log('user name is ' + userName);
+
+    console.log(req.method);
 
     if (req.method === 'GET') {
         const params = url.parse(req.url, true).query;
+        console.log(params);
 
         //PUSH functionality
         //check field format
@@ -567,28 +681,32 @@ const server = http.createServer((req, res) => {
         }
 
         if (params["q"]) {
+            console.log('sprawdza edit0');
+            if (userName != "") {
+                console.log('sprawdza edit');
+                // for example opowiadanie/zmien/1
+                var id = params["q"].match(/^([a-z]+)\/(zmien)\/([0-9\-]+)$/);
+                if (id) {
+                    zmienDodajStrona(res, params, id, userName);
+                    return;
+                }
+                // for example opowiadania/biblioteka/dodaj
+                var id = params["q"].match(/^([a-z]+)\/([a-z]+)\/dodaj$/);
+                if (id) {
+                    zmienDodajStrona(res, params, id, userName);
+                    return;
+                }
+            }
             // for example opowiadania/pokaz/1
             var id = params["q"].match(/^([a-z]+)\/pokaz\/([0-9\-]+)$/);
             if (id) {
-                pokazStrona(res, params, id, userID);
-                return;
-            }
-            // for example opowiadanie/zmien/1
-            var id = params["q"].match(/^([a-z]+)\/(zmien)\/([0-9\-]+)$/);
-            if (id) {
-                zmienDodajStrona(res, params, id, userID);
-                return;
-            }
-            // for example opowiadania/biblioteka/dodaj
-            var id = params["q"].match(/^([a-z]+)\/([a-z]+)\/dodaj$/);
-            if (id) {
-                zmienDodajStrona(res, params, id, userID);
+                pokazStrona(res, params, id, userName);
                 return;
             }
             // for example opowiadania/biblioteka/1
             var id = params["q"].match(/^([a-z]+)\/([a-z]+)(\/{1,1}[0-9]*)?$/);
             if (id) {
-                pokazLista(res, params, id, userID);
+                pokazLista(res, params, id, userName);
                 return;
             }
         }
@@ -600,7 +718,7 @@ const server = http.createServer((req, res) => {
         });
         req.on('end', function() {
             console.log(body);
-            parsePOSTforms(url.parse("/?" + body, true).query, req, res, userID);
+            parsePOSTforms(url.parse("/?" + body, true).query, req, res, userName);
             return;
         });
         return;
@@ -608,7 +726,7 @@ const server = http.createServer((req, res) => {
 
     var text = readFileContent('\\internal\\main.txt');
     text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(text, userID);
+    text = genericReplace(text, userName);
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');

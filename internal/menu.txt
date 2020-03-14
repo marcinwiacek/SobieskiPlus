@@ -15,6 +15,7 @@
   float: left;
   overflow: hidden;
   z-index: 99999;
+  cursor: pointer;
 }
 
 .menu-option-text {

@@ -6,7 +6,7 @@
   <form method=post id=login name=login>
       Użytkownik: <input name="user" type="text" value=""><br>
       Hasło: <input name="password" type="text" value="">
-      <button type="submit">Login</button>
+      <button type="submit" style='cursor: pointer;'>Login</button>
   </form>
 <script>
 document.login.onsubmit = function() {
