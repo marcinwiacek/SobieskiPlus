@@ -26,8 +26,9 @@
 <!--COMMENTEDIT-->
 <!--JS-->
 <script>
-  var source = new EventSource("?fileid=<!--PAGEID-->");
-  source.onmessage = function(event) {
+  var source = new EventSource("?sse=<!--TIMENOW-->");
+source.addEventListener("c", function(event) {
+//timestamp = 
     if (event.data!='') {
       //parsing
       document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
@@ -35,7 +36,7 @@
         window.document.title = "* "+window.document.title;
       }
     }
-  };
-  document.body.onunload = function(){source.close();};
+});
+//  document.body.onbeforeunload = function(){source.close();};
 </script>
 </body></html>

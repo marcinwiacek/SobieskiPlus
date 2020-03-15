@@ -1,5 +1,7 @@
 <?php
 
+//last working version 13.03.2020
+
 //filesystem limit for one folder
 $gMaxPerFolder=10000000;
 

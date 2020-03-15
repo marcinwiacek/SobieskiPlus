@@ -1,3 +1,3 @@
-<!--USER-->: <b><!--TITLE--></b><br>
-<!--WHEN-->; <!--COMMENTSNUM--> comments<br>
+<!--USER--> <!--WHEN-->: <b><!--TITLE--></b><br>
+<!--COMMENTSNUM--> comments (last <!--COMMENTSWHEN-->)<br>
 <!--TYPE-->, <!--SPECIES--><p>

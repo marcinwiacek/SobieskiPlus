@@ -17,12 +17,13 @@ podstronyState["publicystyka"] = new Array("artykuly", "felietony", "poradniki")
 
 const sortParam = new Array("date", "comments", "author");
 
-var callbackID = 0;
+//var callbackID = 0;
 var cacheID = 1; //ID for new files - cache
 
 const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
+const http2 = require('http2');
 const path = require('path');
 const url = require('url');
 
@@ -198,6 +199,19 @@ function getPageList(pageNum, stateList, typeList, speciesList, taxonomy, sortLe
         result.length);
 }
 
+function updateComment(comment, res) {
+    console.log("jest callback");
+    var template = readFileContent('\\internal\\comment.txt');
+    template = template.replace("<!--USER-->", comment["Author"]);
+    template = template.replace("<!--TITLE-->", comment["Title"]);
+    template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
+    template = template.replace("<!--TEXT-->", comment["Text"]);
+
+    res.write("event: c\n");
+    //    res.write("id: " + comment["When"] + "\n");
+    res.write("data: " + encodeURI(template) + "\n\n");
+}
+
 function parsePOSTforms(params, req, res, userName) {
     console.log(params);
 
@@ -211,23 +225,24 @@ function parsePOSTforms(params, req, res, userName) {
                     "\n<!--comment-->\n" +
                     "Title:ala\n" +
                     "When:" + formatDate(t) + "\n" +
-                    "Author:marcin\n\n" +
+                    "Author:" + userName + "\n\n" +
                     params["comment"]
                 );
 
                 comment = new Array();
                 comment["Title"] = "ala";
-                comment["Author"] = "marcin";
+                comment["Author"] = userName;
                 comment["When"] = t;
                 comment["Text"] = params["comment"];
 
                 cache.forEach(function(entry) {
                     if (params["tekst"] == entry["filename"]) {
+                        entry["commentswhen"] = t;
                         entry["commentsnum"]++;
-                        entry["callback"].forEach(function(entry2) {
-                            console.log("probuje callbark");
-                            entry2[0](comment, entry2[1]);
-                        });
+                        console.log("probuje callback");
+                        for (var index in entry["callback"]) {
+                            updateComment(comment, entry["callback"][index]);
+                        }
                     }
                 });
             }
@@ -249,7 +264,7 @@ function parsePOSTforms(params, req, res, userName) {
                             "State:" + params["state"] + "\n" +
                             "Type:" + params["type"] + "\n" +
                             "When:" + formatDate(Date.now()) + "\n" +
-                            "Author:marcin\n\n" +
+                            "Author:" + userName + "\n\n" +
                             params["text"], 'utf8');
                         addToCache(id);
                         cacheID = id + 1;
@@ -274,7 +289,7 @@ function parsePOSTforms(params, req, res, userName) {
                     "Type:" + params["type"] + "\n" +
                     "Species:inne\n" +
                     "When:" + formatDate(t) + "\n" +
-                    "Author:marcin\n\n" +
+                    "Author:" + userName + "\n\n" +
                     params["text"]
                 );
                 //update cache
@@ -284,6 +299,7 @@ function parsePOSTforms(params, req, res, userName) {
                         entry["State"] = params["state"];
                         entry["Type"] = params["type"];
                         entry["When"] = t;
+                        entry["Author"] = userName;
                         entry["Species"] = params["inne"];
                     }
                 });
@@ -347,20 +363,10 @@ function parsePOSTforms(params, req, res, userName) {
         res.end();
         return;
     }
+
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end();
-}
-
-function updateComment(comment, res) {
-    console.log("jest callback");
-    var template = readFileContent('\\internal\\comment.txt');
-    template = template.replace("<!--USER-->", comment["Author"]);
-    template = template.replace("<!--TITLE-->", comment["Title"]);
-    template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
-    template = template.replace("<!--TEXT-->", comment["Text"]);
-
-    res.write("data: " + encodeURI(template) + "\n\n")
 }
 
 function genericReplace(text, userName) {
@@ -462,6 +468,7 @@ function pokazStrona(res, params, id, userName) {
     text = text.replace("<!--SPECIES-->", arr["Species"]);
     text = text.replace("<!--WHEN-->", formatDate(arr["When"]));
 
+    var lu = arr["When"];
     if (arr["Comments"]) {
         const template0 = readFileContent('\\internal\\comment.txt');
         var txt = "";
@@ -471,10 +478,11 @@ function pokazStrona(res, params, id, userName) {
             template = template.replace("<!--TITLE-->", comment["Title"]);
             template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
             txt += template.replace("<!--TEXT-->", comment["Text"]);
+            lu = comment["When"];
         });
         text = text.replace("<!--COMMENTS-->", txt);
     }
-    //    $text = str_replace_first("<!--LASTUPDATE-->", $last, $text);
+    text = text.replace("<!--LASTUPDATE-->", formatDate(lu));
 
     if (userName != "") {
         text = text.replace("<!--COMMENTEDIT-->", readFileContent('\\internal\\commentedit.txt'));
@@ -482,8 +490,12 @@ function pokazStrona(res, params, id, userName) {
     }
 
     text = text.replace(/<!--PAGEID-->/g, id[2]); //many entries
+    text = text.replace("<!--TIMENOW-->", Date.now());
 
     res.statusCode = 200;
+    res.setHeader('Cache-Control', 'no-store');
+    //    res.setHeader('Last-Modified', 'Sun, '+formatDate(lu)+' GMT');
+    //Last-modified : Mon, 28 Nov 2017 03:33:33 GMT
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     res.end(text);
 }
@@ -589,6 +601,7 @@ function pokazLista(res, params, id, userName) {
             template = template.replace("<!--TYPE-->", arr["Type"]);
             template = template.replace("<!--SPECIES-->", arr["Species"]);
             template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
+            template = template.replace("<!--COMMENTSWHEN-->", formatDate(arr["commentswhen"]));
             template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
             txt += template;
         });
@@ -618,7 +631,7 @@ function pokazLista(res, params, id, userName) {
     res.end(text);
 }
 
-const server = http.createServer((req, res) => {
+const onRequestHandler = (req, res) => {
     if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css") {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/css; charset=UTF-8');
@@ -648,42 +661,48 @@ const server = http.createServer((req, res) => {
 
     if (req.method === 'GET') {
         const params = url.parse(req.url, true).query;
-        console.log(params);
 
         //PUSH functionality
         //check field format
         //check if session is OK
-        if (params["fileid"] && fs.existsSync(__dirname + "\\teksty\\" + params["fileid"] + ".txt")) {
-            console.log("callback");
-            res.writeHead(200, {
-                'Cache-Control': 'no-cache',
-                'Content-Type': 'text/event-stream',
-                'Connection': 'keep-alive',
-            });
-            res.write("data: \n\n")
+        if (params["sse"]) {
+            //fixme - we need checking URL beginning
+            var id = req.headers['referer'].match(/.*([a-z]+)\/pokaz\/([0-9\-]+)$/);
+            if (id && fs.existsSync(__dirname + "\\teksty\\" + id[2] + ".txt")) {
+                res.writeHead(200, {
+                    'Cache-Control': 'no-cache',
+                    'Content-Type': 'text/event-stream',
+                    'Connection': 'keep-alive',
+                });
+                res.write("event: c\n");
+                //    res.write("id:" + Date.now() + "\n");
+                res.write("data: \n\n");
 
-            const id = callbackID++;
-
-            cache.forEach(function(entry) {
-                if (params["fileid"] == entry["filename"]) entry["callback"][id] = new Array(updateComment, res);
-            });
-            setTimeout(function() {
+                const session = crypto.randomBytes(32).toString('base64');
                 cache.forEach(function(entry) {
-                    if (params["fileid"] == entry["filename"]) {
-                        console.log("usuwa callback");
-                        delete entry["callback"][id];
-                        res.end();
+                    if (id[2] == entry["filename"]) {
+                        entry["callback"][session] = res;
+                            console.log("usuwa callback " + session);
                     }
                 });
-            }, 60000); //60 seconds
+                res.on('close', function() {
+                    cache.forEach(function(entry) {
+                        if (id[2] == entry["filename"]) {
+                            console.log("usuwa callback " + session);
+                            delete entry["callback"][session];
+                        }
+                    });
+                })
+                setTimeout(function() {
+                    res.end();
+                }, 60000); //60 seconds
 
-            return;
+                return;
+            }
         }
 
         if (params["q"]) {
-            console.log('sprawdza edit0');
             if (userName != "") {
-                console.log('sprawdza edit');
                 // for example opowiadanie/zmien/1
                 var id = params["q"].match(/^([a-z]+)\/(zmien)\/([0-9\-]+)$/);
                 if (id) {
@@ -709,6 +728,10 @@ const server = http.createServer((req, res) => {
                 pokazLista(res, params, id, userName);
                 return;
             }
+            res.statusCode = 302;
+            res.setHeader('Location', '/');
+            res.end();
+            return;
         }
     } else if (req.headers['content-type'] == "application/x-www-form-urlencoded") { // POST forms
         var body = "";
@@ -731,7 +754,7 @@ const server = http.createServer((req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     res.end(text);
-});
+};
 
 var cache = new Array();
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
@@ -745,7 +768,14 @@ fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '
 
 var sessions = new Array();
 var cookies = new Array();
+var callbacks = new Array();
+
+//const server = http.createServer(onRequestHandler);
+const server = http2.createSecureServer({
+    key: fs.readFileSync(__dirname + '\\internal\\localhost-privkey.pem'),
+    cert: fs.readFileSync(__dirname + '\\internal\\localhost-cert.pem')
+}, onRequestHandler);
 
 server.listen(port, hostname, () => {
-    console.log(`Server running at http://${hostname}:${port}/`);
+    console.log(`Server running at http(s)://${hostname}:${port}/`);
 });
