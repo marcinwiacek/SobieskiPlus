@@ -8,6 +8,7 @@
 <!--MENU-->
 <table border=0 width=100%><tr><td><!--RODZAJ--></td><td><!--LOGIN-NEW--></td></tr></table>
 <table border=1 width=100%><tr><td><!--CRITERIA--></td></tr></table>
+<table border=1 width=100%><tr><td><!--LIST-GLUE--></td></tr></table>
 <table border=1 width=100%><tr><td><!--LIST--></td></tr></table>
 <!--PREVLINK--><!--NEXTLINK-->
 <!--JS-->

@@ -14,10 +14,11 @@
   <form id=textedit name=textedit method=post>
       Status:<!--STATE-->
       Typ:<!--TYPE-->
-      Tytuł: <input name="title" type="text" value="<!--TITLE-->" placeholder="Poproszę o ładny tytuł">
-      <input name="about" type="hidden">
+      <!--TAXONOMY-->
+      <!--SPECIAL-TAXONOMY-->
+      Tytuł: <input name="title" type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie">
       <div id="editor-container"><!--TEXT--></div>
-      <button type="submit" id=sub name=sub>Zapisz</button>
+      <button type="submit" id=sub>Zapisz</button>
   </form>
 </td></tr></table>
 <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
@@ -48,7 +49,7 @@ var quill = new Quill('#editor-container', {
   modules: {
     toolbar: toolbarOptions
   },
-  placeholder: 'Zapodaj ładny tekst proszę...',
+  placeholder: 'Bądź grzeczny i zapodaj ładny tekst proszę...',
   theme: 'snow'
 });
 
@@ -67,6 +68,15 @@ quill.on('text-change', function(delta, oldDelta, source) {
 //  return 'Tekst jest niezapisany. Czy na pewno chcesz opuścić edytor?';
 //};
 
+function getListValues(name) {
+  var result = "";
+  for (var i=0, len=document.getElementById(name).options.length; i<len; i++) {
+        opt = document.getElementById(name).options[i];
+        if (opt.selected) result += opt.value+",";
+  }
+  return result;
+}
+
 document.textedit.onsubmit = function() {
   var type = document.getElementById("textedit").elements.namedItem("type").value; 
   if (type == '') {
@@ -75,11 +85,18 @@ document.textedit.onsubmit = function() {
   }
   var state = document.getElementById("textedit").elements.namedItem("state").value; 
   var title = document.getElementById("textedit").elements.namedItem("title").value; 
+  var taxonomy = getListValues("taxonomy");
+  if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
+    var specialtaxonomy = getListValues("specialtaxonomy"); 
+  }
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=upload_text&tekst=<!--PAGEID-->&state='+state+'&title='+title+'&type='+type+'&text='+decodeURIComponent(quill.root.innerHTML);
-
+  var params = 'q=upload_text&tekst=<!--PAGEID-->&state='+state+'&title='+title+'&type='+type+'&taxonomy='+taxonomy+'&text='+decodeURIComponent(quill.root.innerHTML);
+  if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
+    params +='&specialtaxonomy='+specialtaxonomy;
+  }
+//  alert(params);
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   http.onprogress = function(e) {

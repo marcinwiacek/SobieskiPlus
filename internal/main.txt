@@ -7,7 +7,9 @@
 <!--MENU-->
 <div class=content>
 Welcome on main page
-<table border=1><tr><td><!--LIST--></td></tr></table>
+<table border=1 width=100%><tr><td><!--LIST-GLUE--></td></tr></table>
+<table border=1 width=100%><tr><td><!--LIST--></td></tr></table>
+<!--PREVLINK--><!--NEXTLINK-->
 </div>
 <!--JS-->
 </body></html>

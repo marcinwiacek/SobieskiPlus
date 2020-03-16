@@ -1,0 +1,19 @@
+﻿Author:admin
+When:23 Apr 1999
+Mail:marcin@mwiacek.com
+Password:321
+Level:2
+
+To jest moja strona
+<!--change-->
+Password:123
+<!--PW-->
+From:x
+When:10 Apr 2000
+
+To jest wiadomość prywatna
+<!--PW-->
+To:ala
+When:10 Apr 2000
+
+Wiadomość 2

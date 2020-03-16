@@ -142,23 +142,41 @@ function formatDate(date) {
         (d.getHours()) + ':' + (d.getMinutes() + 1) + ':' + d.getSeconds();
 }
 
-function getPageList(pageNum, typeList, stateList, taxonomy, sortLevel) {
+function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomy, sortLevel) {
     var result = new Array();
     cache.forEach(function(entry) {
+        if (typeList && !typeList.includes(entry["Type"])) return;
         if (!stateList.includes(entry["State"])) return;
-        if (!typeList.includes(entry["Type"])) return;
+        if (specialtaxonomy) {
+            console.log(specialtaxonomy.split(",") + "-" + entry["SpecialTaxonomy"].split(","));
+            console.log(specialtaxonomy.split(",").length + "-" + entry["SpecialTaxonomy"].split(",").length);
+            if (specialtaxonomy.split(",").length != entry["SpecialTaxonomy"].split(",").length) {
+                console.log('zla dlugosc');
+                return;
+            }
+            var bad = false;
+            specialtaxonomy.split(",").forEach(function(special) {
+                if (!entry["SpecialTaxonomy"].split(",").includes(special)) {
+                    console.log("nie zawiera " + special);
+                    bad = true;
+                }
+            });
+            if (bad) return;
+        }
+
+        console.log('dodaje');
         result.push(entry);
-        /*            if ($taxonomy!="" && isset($row["taxonomy"])) {
-                        $tax = explode(",", $row["taxonomy"]);
-                        if (!in_array($taxonomy, $tax)) { continue;
-                        }
-                    }*/
     });
 
     if (sortLevel == "ostatni") {
         result.sort(function(a, b) {
             if (a["When"] == b["When"]) return 0;
             return a["When"] > b["When"] ? -1 : 1;
+        });
+    } else if (sortLevel == "ostatniKomentarz") {
+        result.sort(function(a, b) {
+            if (a["commentswhen"] == b["commentswhen"]) return 0;
+            return a["commentswhen"] > b["commentswhen"] ? -1 : 1;
         });
     } else if (sortLevel == "ileKomentarzy") {
         result.sort(function(a, b) {
@@ -170,7 +188,9 @@ function getPageList(pageNum, typeList, stateList, taxonomy, sortLevel) {
         });
     } else if (sortLevel == "autor") {
         result.sort(function(a, b) {
-            return a["Author"].localeCompare(b["Author"]);
+            var x = a["Author"].localeCompare(b["Author"]);
+            if (x == 0) return a["When"] > b["When"] ? -1 : 1;
+            return x;
         });
     }
 
@@ -193,7 +213,6 @@ function updateComment(comment, res) {
 
 function parsePOSTforms(params, req, res, userName) {
     console.log(params);
-
     if (params["q"]) {
         if (params["q"] == "upload_comment" && params["tekst"] && params["comment"]) {
             //checking for login
@@ -230,8 +249,8 @@ function parsePOSTforms(params, req, res, userName) {
             res.end();
             return;
         }
-        if (params["q"] == "upload_text" && params["tekst"] && params["text"] &&
-            params["state"] && params["type"]) { //&& params["title"] 
+        if (params["q"] == "upload_text" && params["tekst"] && params["text"] && params["state"] &&
+            params["type"] && params["title"] && params["taxonomy"] !== 'undefined' && params["specialtaxonomy"] !== 'undefined') {
             if (params["tekst"] == "0") {
                 var id = cacheID;
                 while (1) {
@@ -242,6 +261,8 @@ function parsePOSTforms(params, req, res, userName) {
                             "Title:" + params["title"] + "\n" +
                             "State:" + params["state"] + "\n" +
                             "Type:" + params["type"] + "\n" +
+                            "Taxonomy:" + params["taxonomy"] + "\n" +
+                            "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n" +
                             "When:" + formatDate(Date.now()) + "\n" +
                             "Author:" + userName + "\n\n" +
                             params["text"], 'utf8');
@@ -266,6 +287,8 @@ function parsePOSTforms(params, req, res, userName) {
                     "Title:" + params["title"] + "\n" +
                     "State:" + params["state"] + "\n" +
                     "Type:" + params["type"] + "\n" +
+                    "Taxonomy:" + params["taxonomy"] + "\n" +
+                    "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n" +
                     "When:" + formatDate(t) + "\n" +
                     "Author:" + userName + "\n\n" +
                     params["text"]
@@ -276,6 +299,8 @@ function parsePOSTforms(params, req, res, userName) {
                         entry["Title"] = params["title"];
                         entry["State"] = params["state"];
                         entry["Type"] = params["type"];
+                        entry["Taxonomy"] = params["taxonomy"];
+                        entry["SpecialTaxonomy"] = params["specialtaxonomy"];
                         entry["When"] = t;
                         entry["Author"] = userName;
                     }
@@ -399,7 +424,8 @@ function zmienDodajStrona(res, params, id, userName, userLevel) {
 
     txt = "";
     podstronyState[id[1]].forEach(function(state) {
-        if (userLevel != "2" && state == "biblioteka") return;
+        if (userLevel != "2" && state == "biblioteka" && id[1] != "hydepark" &&
+            (!id[2] || (id[2] && arr["State"] != "biblioteka"))) return;
         txt += "<input type=\"radio\" name=\"state\" value=\"" + state + "\"";
         if ((!id[2] && state == "szkic" || id[2] && state == arr["State"])) txt += " checked";
         txt += "><label for=\"" + state + "\">" + state + "</label>";
@@ -413,6 +439,24 @@ function zmienDodajStrona(res, params, id, userName, userLevel) {
         txt += "><label for=\"" + type + "\">" + type + "</label>";
     });
     text = text.replace("<!--TYPE-->", txt + "<p>");
+
+    txt = "<select id=\"taxonomy\" name=\"taxonomy\" size=5 multiple>";
+    taxonomy.forEach(function(tax) {
+        txt += "<option value=\"" + tax + "\"";
+        if (id[2] && arr["Taxonomy"].split(",").includes(tax)) txt += " selected";
+        txt += ">" + tax + "</option>";
+    });
+    text = text.replace("<!--TAXONOMY-->", txt + "</select><p>");
+
+    if (userLevel == "2") {
+        txt = "<select id=\"specialtaxonomy\" name=\"specialtaxonomy\" size=5 multiple>";
+        specialTaxonomy.forEach(function(tax) {
+            txt += "<option value=\"" + tax + "\"";
+            if (id[2] && arr["SpecialTaxonomy"].split(",").includes(tax)) txt += " selected";
+            txt += ">" + tax + "</option>";
+        });
+        text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
+    }
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
@@ -474,6 +518,92 @@ function pokazStrona(res, params, id, userName, userLevel) {
     res.end(text);
 }
 
+function pokazListaMain(res, page, params, userName) {
+    var text = readFileContent('\\internal\\main.txt');
+
+    text = text.replace("<!--TITLE-->", "");
+    text = genericReplace(text, userName);
+
+    const list = getPageList(0,
+        null,
+        new Array("biblioteka"),
+        null,
+        "główna,przyklejone",
+        "ostatni");
+
+    const template0 = readFileContent('\\internal\\listentry.txt');
+
+    if (list[0]) {
+        var txt = "";
+        list[0].forEach(function(arr) {
+            var template = template0;
+            template = template.replace("<!--USER-->", arr["Author"]);
+            Object.keys(podstronyType).forEach(function(entry) {
+                if (podstronyType[entry].includes(arr["Type"])) {
+                    template = template.replace("<!--TITLE-->",
+                        "<a href=\"?q=" + entry + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
+                }
+            });
+            template = template.replace("<!--TYPE-->", arr["Type"]);
+            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
+            if (arr["commentsnum"] != "0") {
+                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
+            }
+            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            txt += template;
+        });
+        text = text.replace("<!--LIST-GLUE-->", txt);
+    }
+
+    const pageNum = page ? parseInt(page) : 0;
+    const list2 = getPageList(pageNum,
+        null,
+        new Array("biblioteka"),
+        null,
+        "główna",
+        "ostatni");
+
+    if (list2[0]) {
+        var txt = "";
+        list2[0].forEach(function(arr) {
+            var template = template0;
+            template = template.replace("<!--USER-->", arr["Author"]);
+            Object.keys(podstronyType).forEach(function(entry) {
+                if (podstronyType[entry].includes(arr["Type"])) {
+                    template = template.replace("<!--TITLE-->",
+                        "<a href=\"?q=" + entry + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
+                }
+            });
+            template = template.replace("<!--TYPE-->", arr["Type"]);
+            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
+            if (arr["commentsnum"] != "0") {
+                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
+            }
+            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            txt += template;
+        });
+        text = text.replace("<!--LIST-->", txt);
+    }
+
+    var txt = "";
+    if (params["s"]) txt = "&s=" + params["s"];
+    if (params["t"]) txt += "&t=" + params["t"];
+    if (pageNum != 0) {
+        text = text.replace("<!--PREVLINK-->",
+            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;"
+        );
+    }
+    if ((pageNum + 1) * onThePage < list2[1]) {
+        text = text.replace("<!--NEXTLINK-->",
+            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
+        );
+    }
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    res.end(text);
+}
+
 // rodzaj/typ/status
 function pokazLista(res, params, id, userName, userLevel) {
     if (!podstronyState[id[1]] || (id[2] && !podstronyType[id[1]].includes(id[2])) ||
@@ -494,22 +624,54 @@ function pokazLista(res, params, id, userName, userLevel) {
         sortLevel = params["s"];
     }
 
+    var text = readFileContent('\\internal\\list.txt');
+
+    const list = getPageList(0,
+        id[2] ? new Array(id[2]) : podstronyType[id[1]],
+        new Array("biblioteka"),
+        null,
+        "przyklejone",
+        "ostatni");
+
+    const template0 = readFileContent('\\internal\\listentry.txt');
+
+    if (list[0]) {
+        var txt = "";
+        list[0].forEach(function(arr) {
+            var template = template0;
+            template = template.replace("<!--USER-->", arr["Author"]);
+            Object.keys(podstronyType).forEach(function(entry) {
+                if (podstronyType[entry].includes(arr["Type"])) {
+                    template = template.replace("<!--TITLE-->",
+                        "<a href=\"?q=" + entry + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
+                }
+            });
+            template = template.replace("<!--TYPE-->", arr["Type"]);
+            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
+            if (arr["commentsnum"] != "0") {
+                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
+            }
+            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            txt += template;
+        });
+        text = text.replace("<!--LIST-GLUE-->", txt);
+    }
+
     const pageNum = id[4] ? parseInt(id[4].substring(1)) : 0;
 
-    const list = getPageList(pageNum,
+    const list2 = getPageList(pageNum,
         id[2] ? new Array(id[2]) : podstronyType[id[1]],
         id[3] ? new Array(id[3]) : podstronyState[id[1]],
-        "",
+        null,
+        null,
         sortLevel);
 
-    if (pageNum * onThePage > list[1]) {
+    if (pageNum * onThePage > list2[1]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
         return;
     }
-
-    var text = readFileContent('\\internal\\list.txt');
 
     text = text.replace("<!--TITLE-->", "");
     text = genericReplace(text, userName);
@@ -539,12 +701,23 @@ function pokazLista(res, params, id, userName, userLevel) {
     template = template.replace("<!--TYPE-->", txt);
 
     txt = "";
+    if (!id[3]) {
+        txt += "<b>wszystkie</b>, ";
+    } else {
+        txt += "<a href=?q=" + id[1] + "/";
+        if (id[2]) txt += id[2];
+        txt += "/";
+        if (params["s"]) txt += "&s=" + params["s"];
+        txt += ">wszystkie</a>, ";
+    }
     podstronyState[id[1]].forEach(function(t) {
         if (userName == "" && t == "szkic") return;
         if (id[3] && id[3] == t) {
             txt += "<b>" + t + "</b>, ";
         } else {
-            txt += "<a href=?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + t + ">" + t + "</a>, ";
+            txt += "<a href=?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + t;
+            if (params["s"]) txt += "&s=" + params["s"];
+            txt += ">" + t + "</a>, ";
         }
     });
     template = template.replace("<!--STATE-->", txt);
@@ -554,7 +727,11 @@ function pokazLista(res, params, id, userName, userLevel) {
         if ((!params["s"] && t == "ostatni") || (params["s"] && params["s"] == t)) {
             txt += "<b>" + t + "</b>, ";
         } else {
-            txt += "<a href=?q=" + id[1] + "/" + id[2] + "&s=" + t;
+            txt += "<a href=?q=" + id[1] + "/";
+            if (id[2]) txt += id[2];
+            txt += "/";
+            if (id[3]) txt += id[3];
+            txt += "&s=" + t;
             if (params["t"]) txt += "&t=" + params["t"];
             txt += ">" + t + "</a>, ";
         }
@@ -563,10 +740,9 @@ function pokazLista(res, params, id, userName, userLevel) {
 
     text = text.replace("<!--CRITERIA-->", template);
 
-    if (list[0]) {
-        const template0 = readFileContent('\\internal\\listentry.txt');
+    if (list2[0]) {
         var txt = "";
-        list[0].forEach(function(arr) {
+        list2[0].forEach(function(arr) {
             var template = template0;
             template = template.replace("<!--USER-->", arr["Author"]);
             template = template.replace("<!--TITLE-->",
@@ -590,7 +766,7 @@ function pokazLista(res, params, id, userName, userLevel) {
             "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;"
         );
     }
-    if ((pageNum + 1) * onThePage < list[1]) {
+    if ((pageNum + 1) * onThePage < list2[1]) {
         text = text.replace("<!--NEXTLINK-->",
             "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
         );
@@ -631,10 +807,9 @@ const onRequestHandler = (req, res) => {
     });
     console.log('user name is ' + userName);
 
-    console.log(req.method);
-
     if (req.method === 'GET') {
         const params = url.parse(req.url, true).query;
+        console.log(req.url);
 
         //PUSH functionality
         //check field format
@@ -706,6 +881,8 @@ const onRequestHandler = (req, res) => {
             res.end();
             return;
         }
+        pokazListaMain(res, "0", params, userName);
+        return;
     } else if (req.headers['content-type'] == "application/x-www-form-urlencoded") { // POST forms
         var body = "";
         req.on('data', function(data) {
@@ -720,13 +897,7 @@ const onRequestHandler = (req, res) => {
         return;
     }
 
-    var text = readFileContent('\\internal\\main.txt');
-    text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(text, userName);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    res.end(text);
+    pokazListaMain(res, "0", new Array(), userName);
 };
 
 var cache = new Array();

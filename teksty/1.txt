@@ -1,13 +1,19 @@
-Title:cos
+Title:witamy
+State:szkic
+Type:inne
+Taxonomy:
+SpecialTaxonomy:główna,przyklejone
+When:16 Mar 2020 21:32:50
+Author:admin
+
+<p>welcome</p>
+<!--change-->
+Title:witamy
 State:biblioteka
-Type:opowiadanie
-When:15 Mar 2020 13:37:41
-Author:marcin
+Type:inne
+Taxonomy:
+SpecialTaxonomy:główna,przyklejone
+When:16 Mar 2020 21:34:56
+Author:admin
 
-<p>d</p>
-<!--comment-->
-Title:ala
-When:16 Mar 2020 12:50:52
-Author:marcin
-
-<p>ss</p>
+<p>welcome2</p>

@@ -1,0 +1,35 @@
+Title:postapo
+State:beta
+Type:opowiadanie
+Taxonomy:postapo,
+SpecialTaxonomy:undefined
+When:16 Mar 2020 21:51:10
+Author:marcin
+
+<p>postapo</p>
+<!--change-->
+Title:postapo
+State:biblioteka
+Type:opowiadanie
+Taxonomy:postapo,
+SpecialTaxonomy:
+When:16 Mar 2020 21:51:44
+Author:admin
+
+<p>postapo</p>
+<!--comment-->
+Title:ala
+When:16 Mar 2020 21:52:0
+Author:admin
+
+<p>komentarze</p>
+<!--change-->
+Title:postapo
+State:biblioteka
+Type:opowiadanie
+Taxonomy:postapo,
+SpecialTaxonomy:główna,
+When:16 Mar 2020 21:52:23
+Author:admin
+
+<p>postapoo</p>

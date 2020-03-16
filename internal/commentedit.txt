@@ -7,7 +7,6 @@
 <table width=100% border=1><tr><td>
   <form id=commentedit name=commentedit method=post>
       Tytuł: <input name="title" type="text" placeholder="Poproszę o ładny tytuł">
-      <input name="about" type="hidden">
       <div id="editor-container"></div>
       <button id=sub type="submit">Dodaj komentarz</button>
   </form>
