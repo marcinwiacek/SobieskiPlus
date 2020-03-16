@@ -56,17 +56,30 @@
   <div class="menu-option">
     <div class=menu-option-text>Opowiadania</div>
     <div class="menu-option-content">
-      <p><a href="?q=opowiadania/biblioteka">Biblioteka</a></p>
-      <p><a href="?q=opowiadania/beta">Betalista</a></p>
-      <p><a href="?q=opowiadania/archiwum">Archiwum</a></p>
+      <p><a href="?q=opowiadania//biblioteka">Biblioteka</a></p>
+      <p><a href="?q=opowiadania//poczekalnia">Poczekalnia</a></p>
+      <p><a href="?q=opowiadania//beta">Betalista</a></p>
     </div>
   </div>
   <div class="menu-option">
     <div class=menu-option-text>Publicystyka</div>
     <div class="menu-option-content">
-      <p><a href="?q=publicystyka/artykuly">Artykuły</a></p>
-      <p><a href="?q=publicystyka/felietony">Felietony</a></p>
-      <p><a href="?q=publicystyka/poradniki">Poradniki</a></p>
+      <p><a href="?q=publicystyka/artykuł/">Artykuły</a></p>
+      <p><a href="?q=publicystyka/felieton/">Felietony</a></p>
+      <p><a href="?q=publicystyka/poradnik/">Poradniki</a></p>
+    </div>
+  </div>
+  <div class="menu-option">
+    <div class=menu-option-text>Książki</div>
+    <div class="menu-option-content">
+      <p><a href="?q=książki/książka/">Książka</a></p>
+      <p><a href="?q=książki/recenzja/">Recenzje</a></p>
+    </div>
+  </div>
+  <div class="menu-option">
+    <div class=menu-option-text>Hydepark</div>
+    <div class="menu-option-content">
+      <p><a href="?q=hydepark/inne/">Inne</a></p>
     </div>
   </div>
   <div class="menu-option">

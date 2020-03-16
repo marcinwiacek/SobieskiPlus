@@ -9,11 +9,12 @@
 <link type="text/css" rel="stylesheet" href="external/quill.snow.css">
 <script src="external/quill.min.js"></script>
 
+<!--RODZAJ--><br>
 <table width=100% border=1><tr><td>
   <form id=textedit name=textedit method=post>
       Status:<!--STATE-->
       Typ:<!--TYPE-->
-      Tytuł: <input name="title" type="text" value="<!--TITLE-->">
+      Tytuł: <input name="title" type="text" value="<!--TITLE-->" placeholder="Poproszę o ładny tytuł">
       <input name="about" type="hidden">
       <div id="editor-container"><!--TEXT--></div>
       <button type="submit" id=sub name=sub>Zapisz</button>
@@ -54,7 +55,7 @@ var quill = new Quill('#editor-container', {
 document.getElementById('sub').disabled=true;
 document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
 quill.on('text-change', function(delta, oldDelta, source) {
-  if (quill.getText().trim().length==0) {
+  if (quill.getText().trim().length==0 || document.getElementById("textedit").elements.namedItem("title").value=="") {
     document.getElementById('sub').disabled=true;
   } else {
     document.getElementById('sub').disabled=false;

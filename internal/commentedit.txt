@@ -6,7 +6,7 @@
 
 <table width=100% border=1><tr><td>
   <form id=commentedit name=commentedit method=post>
-      Tytuł: <input name="display_name" type="text" value="">
+      Tytuł: <input name="title" type="text" placeholder="Poproszę o ładny tytuł">
       <input name="about" type="hidden">
       <div id="editor-container"></div>
       <button id=sub type="submit">Dodaj komentarz</button>
@@ -45,7 +45,7 @@ var quill = new Quill('#editor-container', {
 
 document.getElementById('sub').disabled=true;
 quill.on('text-change', function(delta, oldDelta, source) {
-  if (quill.getText().trim().length==0) {
+  if (quill.getText().trim().length==0 || document.getElementById("commentedit").elements.namedItem("title").value=="") {
     document.getElementById('sub').disabled=true;
   } else {
     document.getElementById('sub').disabled=false;
