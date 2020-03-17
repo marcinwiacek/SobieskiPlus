@@ -11,10 +11,9 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' \
 
 
 Znane błędy:
-https://localhost:3000/?q=hydepark/inne/ - wszystkie na status, pokazuje szkice
-link next page, prev page
 specialtaxonomy undefined
-
+zapisuje zawsze całość (a nie tylko zmienione elementy)
+save powinno bec enabled po każdej zmianie
 
 
 

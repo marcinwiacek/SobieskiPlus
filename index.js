@@ -142,13 +142,14 @@ function formatDate(date) {
         (d.getHours()) + ':' + (d.getMinutes() + 1) + ':' + d.getSeconds();
 }
 
-function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel) {
+function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, userLevel) {
     var result = new Array();
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
     cache.forEach(function(entry) {
         if (typeList && !typeList.includes(entry["Type"])) return;
         if (!stateList.includes(entry["State"])) return;
+        if (entry["State"] == "szkic" && userName != entry["Author"]) return;
         if (entry["SpecialTaxonomy"]) {
             var bad = false;
             if (plus) {
@@ -194,8 +195,11 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
         });
     }
 
-    return new Array(result.slice(pageNum * onThePage, (pageNum + 1) * onThePage),
-        result.length);
+    if (specialtaxonomyplus && specialtaxonomyplus.includes("przyklejone")) {
+        return new Array(result);
+    } else {
+        return new Array(result.slice(pageNum * onThePage, (pageNum + 1) * onThePage), result.length);
+    }
 }
 
 function updateComment(comment, res) {
@@ -255,13 +259,16 @@ function parsePOSTforms(params, req, res, userName) {
                 while (1) {
                     var fd;
                     try {
+                        txt = "";
+                        if (params["taxonomy"] !== 'undefined') txt += "Taxonomy:" + params["taxonomy"] + "\n";
+                        if (params["specialtaxonomy"] !== 'undefined') txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+
                         fd = fs.openSync(__dirname + "\\teksty\\" + id + ".txt", 'wx');
                         fs.appendFileSync(fd,
                             "Title:" + params["title"] + "\n" +
                             "State:" + params["state"] + "\n" +
                             "Type:" + params["type"] + "\n" +
-                            "Taxonomy:" + params["taxonomy"] + "\n" +
-                            "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n" +
+                            txt +
                             "When:" + formatDate(Date.now()) + "\n" +
                             "Author:" + userName + "\n\n" +
                             params["text"], 'utf8');
@@ -285,13 +292,15 @@ function parsePOSTforms(params, req, res, userName) {
             }
             if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
                 const t = Date.now();
+                txt = "";
+                if (params["taxonomy"] !== 'undefined') txt += "Taxonomy:" + params["taxonomy"] + "\n";
+                if (params["specialtaxonomy"] !== 'undefined') txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
                 fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                     "\n<!--change-->\n" +
                     "Title:" + params["title"] + "\n" +
                     "State:" + params["state"] + "\n" +
                     "Type:" + params["type"] + "\n" +
-                    "Taxonomy:" + params["taxonomy"] + "\n" +
-                    "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n" +
+                    txt +
                     "When:" + formatDate(t) + "\n" +
                     "Author:" + userName + "\n\n" +
                     params["text"]
@@ -302,8 +311,8 @@ function parsePOSTforms(params, req, res, userName) {
                         entry["Title"] = params["title"];
                         entry["State"] = params["state"];
                         entry["Type"] = params["type"];
-                        entry["Taxonomy"] = params["taxonomy"];
-                        entry["SpecialTaxonomy"] = params["specialtaxonomy"];
+                        if (params["taxonomy"] !== 'undefined') entry["Taxonomy"] = params["taxonomy"];
+                        if (params["specialtaxonomy"] !== 'undefined') entry["SpecialTaxonomy"] = params["specialtaxonomy"];
                         entry["When"] = t;
                         entry["Author"] = userName;
                     }
@@ -500,7 +509,7 @@ function pokazStrona(req, res, params, id, userName, userLevel) {
     }
 
     var arr = decodeFileContent(readFileContent('\\teksty\\' + id[2] + '.txt'), true);
-    if (!podstronyType[id[1]].includes(arr["Type"]) || (userLevel == "0" && arr["Author"] != userName)) {
+    if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Author"])) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
@@ -551,13 +560,15 @@ function pokazListaMain(req, res, page, params, userName) {
     text = text.replace("<!--TITLE-->", "");
     text = genericReplace(req, text, userName);
 
-    const list = getPageList(0,
+    const list = getPageList(page,
         null,
         new Array("biblioteka"),
         null,
         "przyklejonegłówna",
         null,
-        "ostatni");
+        "ostatni",
+        userName,
+        "0");
 
     const template0 = readFileContent('\\internal\\listentry.txt');
 
@@ -583,14 +594,15 @@ function pokazListaMain(req, res, page, params, userName) {
         text = text.replace("<!--LIST-GLUE-->", txt);
     }
 
-    const pageNum = page ? parseInt(page) : 0;
-    const list2 = getPageList(pageNum,
+    const list2 = getPageList(page,
         null,
         new Array("biblioteka"),
         null,
         "główna",
         "przyklejonegłówna",
-        "ostatni");
+        "ostatni",
+        userName,
+        "0");
 
     if (list2[0]) {
         var txt = "";
@@ -614,17 +626,18 @@ function pokazListaMain(req, res, page, params, userName) {
         text = text.replace("<!--LIST-->", txt);
     }
 
+    console.log("page num is " + page);
     var txt = "";
     if (params["s"]) txt = "&s=" + params["s"];
     if (params["t"]) txt += "&t=" + params["t"];
-    if (pageNum != 0) {
+    if (page != 0) {
         text = text.replace("<!--PREVLINK-->",
-            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;"
+            "<a href=?q=/" + (page - 1) + txt + ">&lt; Prev page</a>&nbsp;"
         );
     }
-    if ((pageNum + 1) * onThePage < list2[1]) {
+    if ((page + 1) * onThePage < list2[1]) {
         text = text.replace("<!--NEXTLINK-->",
-            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
+            "<a href=?q=/" + (page + 1) + txt + ">Next page &gt;</a>"
         );
     }
 
@@ -661,7 +674,9 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         null,
         "przyklejone",
         null,
-        "ostatni");
+        "ostatni",
+        userName,
+        userLevel);
 
     const template0 = readFileContent('\\internal\\listentry.txt');
 
@@ -695,7 +710,9 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         null,
         null,
         "przyklejone",
-        sortLevel);
+        sortLevel,
+        userName,
+        userLevel);
 
     if (pageNum * onThePage > list2[1]) {
         res.statusCode = 302;
@@ -794,12 +811,12 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     if (params["t"]) txt += "&t=" + params["t"];
     if (pageNum != 0) {
         text = text.replace("<!--PREVLINK-->",
-            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;"
+            "<a href=?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + (id[3] ? id[3] : "") + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;"
         );
     }
     if ((pageNum + 1) * onThePage < list2[1]) {
         text = text.replace("<!--NEXTLINK-->",
-            "<a href=?q=" + id[1] + "/" + id[2] + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
+            "<a href=?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + (id[3] ? id[3] : "") + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
         );
     }
 
@@ -931,12 +948,17 @@ const onRequestHandler = (req, res) => {
                 pokazLista(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
+            var id = params["q"].match(/^(\/{1,1}[0-9]*)?$/);
+            if (id) {
+                pokazListaMain(req, res, parseInt(id[1].substring(1)), params, userName);
+                return;
+            }
             res.statusCode = 302;
             res.setHeader('Location', '/');
             res.end();
             return;
         }
-        pokazListaMain(req, res, "0", params, userName);
+        pokazListaMain(req, res, 0, new Array(), userName);
         return;
     } else if (req.headers['content-type'] == "application/x-www-form-urlencoded") { // POST forms
         var body = "";
@@ -951,8 +973,6 @@ const onRequestHandler = (req, res) => {
         });
         return;
     }
-
-    pokazListaMain(req, res, "0", new Array(), userName);
 };
 
 var cache = new Array();
