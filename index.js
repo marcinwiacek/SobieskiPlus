@@ -18,7 +18,7 @@ podstronyState["książki"] = new Array("szkic", "poczekalnia", "biblioteka");
 podstronyState["hydepark"] = new Array("szkic", "biblioteka");
 
 var taxonomy = new Array("postapo", "upadek cywilizacji", "mrok");
-var specialTaxonomy = new Array("główna", "przyklejone", "złoto", "srebro"); //wymaga uprawnien admina
+var specialTaxonomy = new Array("przyklejonegłówna", "główna", "przyklejone", "złoto", "srebro"); //wymaga uprawnien admina
 
 // internals
 
@@ -142,29 +142,29 @@ function formatDate(date) {
         (d.getHours()) + ':' + (d.getMinutes() + 1) + ':' + d.getSeconds();
 }
 
-function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomy, sortLevel) {
+function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel) {
     var result = new Array();
+    const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
+    const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
     cache.forEach(function(entry) {
         if (typeList && !typeList.includes(entry["Type"])) return;
         if (!stateList.includes(entry["State"])) return;
-        if (specialtaxonomy) {
-            console.log(specialtaxonomy.split(",") + "-" + entry["SpecialTaxonomy"].split(","));
-            console.log(specialtaxonomy.split(",").length + "-" + entry["SpecialTaxonomy"].split(",").length);
-            if (specialtaxonomy.split(",").length != entry["SpecialTaxonomy"].split(",").length) {
-                console.log('zla dlugosc');
-                return;
-            }
+        if (entry["SpecialTaxonomy"]) {
             var bad = false;
-            specialtaxonomy.split(",").forEach(function(special) {
-                if (!entry["SpecialTaxonomy"].split(",").includes(special)) {
-                    console.log("nie zawiera " + special);
-                    bad = true;
-                }
-            });
+            if (plus) {
+                plus.forEach(function(special) {
+                    if (!entry["SpecialTaxonomy"].split(",").includes(special)) bad = true;
+                });
+            }
+            if (!bad && minus) {
+                minus.forEach(function(special) {
+                    if (entry["SpecialTaxonomy"].split(",").includes(special)) bad = true;
+                });
+            }
             if (bad) return;
+        } else {
+            if (plus) return;
         }
-
-        console.log('dodaje');
         result.push(entry);
     });
 
@@ -207,7 +207,6 @@ function updateComment(comment, res) {
     template = template.replace("<!--TEXT-->", comment["Text"]);
 
     res.write("event: c\n");
-    //    res.write("id: " + comment["When"] + "\n");
     res.write("data: " + encodeURI(template) + "\n\n");
 }
 
@@ -277,7 +276,11 @@ function parsePOSTforms(params, req, res, userName) {
                 }
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-                res.end(id.toString());
+                Object.keys(podstronyType).forEach(function(entry) {
+                    if (podstronyType[entry].includes(params["type"])) {
+                        res.end(entry + "/zmien/" + id.toString());
+                    }
+                });
                 return;
             }
             if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
@@ -352,12 +355,9 @@ function parsePOSTforms(params, req, res, userName) {
         res.setHeader('Content-Type', 'text/html; charset=UTF-8');
         cookies.forEach(function(cookieInfo, index) {
             if ("login=" + cookieInfo[0] == req.headers['cookie']) {
-                console.log('removing cookie');
                 cookies.splice(index, 1);
             }
         });
-
-        console.log('after');
         cookies.forEach(function(cookieInfo) {
             console.log(cookieInfo);
         });
@@ -371,7 +371,15 @@ function parsePOSTforms(params, req, res, userName) {
     res.end();
 }
 
-function genericReplace(text, userName) {
+function isMobile(req) {
+    if (req.headers['user-agent']) {
+        return req.headers['user-agent'].includes('iPad') || req.headers['user-agent'].includes('iPhone') ||
+            req.headers['user-agent'].includes('Android');
+    }
+    return false;
+}
+
+function genericReplace(req, text, userName) {
     const session = crypto.randomBytes(32).toString('base64');
     sessions.push(session);
 
@@ -380,6 +388,27 @@ function genericReplace(text, userName) {
     } else {
         text = text.replace("<!--MENU-->", readFileContent('\\internal\\menu12.txt'));
     }
+
+    txt = "<link rel=\'stylesheet\' type=\'text/css\' href=\'external/styles.css\'>";
+    if (req.headers['cookie']) {
+        if (req.headers['cookie'].includes('dark=1')) txt +=
+            "<link rel=\'stylesheet\' type=\'text/css\' href=\'external/dark.css\'>";
+    } else {
+        //txt+= "<link rel=\'stylesheet\' type=\'text/css\' href=\'external/autodark.css\'>";
+    }
+    text = text.replace("<!--STYLES-->", txt);
+    if (req.headers['cookie'] && req.headers['cookie'].includes('dark=1')) {
+        text = text.replace("<!--DARK-LINK-->", "<p><a href=?set=dark0>Wyłącz ciemny kolor</a>");
+    } else {
+        text = text.replace("<!--DARK-LINK-->", "<p><a href=?set=dark1>Włącz ciemny kolor</a>");
+    }
+
+    if (req.headers['cookie'] && req.headers['cookie'].includes('mobile=1')) {
+        text = text.replace("<!--MOBILE-LINK-->", "<p><a href=?set=mobile0>Wyłącz mobile</a>");
+    } else {
+        text = text.replace("<!--MOBILE-LINK-->", "<p><a href=?set=mobile1>Włącz mobile</a>");
+    }
+
     text = text.replace("<!--JS-->", readFileContent('\\internal\\js.txt'));
     if (userName == "") {
         text = text.replace("<!--LOGIN-LOGOUT-->", readFileContent('\\internal\\login.txt'));
@@ -391,9 +420,8 @@ function genericReplace(text, userName) {
 
 // for example opowiadania/dodaj
 // for example opowiadania/zmien/1
-function zmienDodajStrona(res, params, id, userName, userLevel) {
+function zmienDodajStrona(req, res, params, id, userName, userLevel) {
     if (userLevel == "0" || !podstronyType[id[1]]) {
-        console.log("typ1" + id[1]);
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
@@ -402,7 +430,6 @@ function zmienDodajStrona(res, params, id, userName, userLevel) {
     if (id[2]) {
         var arr = decodeFileContent(readFileContent('\\teksty\\' + id[2] + '.txt'), true);
         if (!podstronyType[id[1]].includes(arr["Type"])) {
-            console.log("typ2" + arr["Type"]);
             res.statusCode = 302;
             res.setHeader('Location', '/');
             res.end();
@@ -411,7 +438,7 @@ function zmienDodajStrona(res, params, id, userName, userLevel) {
     }
 
     var text = readFileContent('\\internal\\entryedit.txt');
-    text = genericReplace(text, userName);
+    text = genericReplace(req, text, userName);
     text = text.replace("<!--RODZAJ-->", id[1]);
     if (id[2]) {
         text = text.replace("<!--TEXT-->", arr["Text"]);
@@ -464,7 +491,7 @@ function zmienDodajStrona(res, params, id, userName, userLevel) {
 }
 
 // for example opowiadania/pokaz/1
-function pokazStrona(res, params, id, userName, userLevel) {
+function pokazStrona(req, res, params, id, userName, userLevel) {
     if (!podstronyType[id[1]]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -481,7 +508,7 @@ function pokazStrona(res, params, id, userName, userLevel) {
     }
 
     var text = readFileContent('\\internal\\entry.txt');
-    text = genericReplace(text, userName);
+    text = genericReplace(req, text, userName);
 
     text = text.replace(/<!--TITLE-->/g, arr["Title"]);
     text = text.replace("<!--USER-->", arr["Author"]);
@@ -518,17 +545,18 @@ function pokazStrona(res, params, id, userName, userLevel) {
     res.end(text);
 }
 
-function pokazListaMain(res, page, params, userName) {
+function pokazListaMain(req, res, page, params, userName) {
     var text = readFileContent('\\internal\\main.txt');
 
     text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(text, userName);
+    text = genericReplace(req, text, userName);
 
     const list = getPageList(0,
         null,
         new Array("biblioteka"),
         null,
-        "główna,przyklejone",
+        "przyklejonegłówna",
+        null,
         "ostatni");
 
     const template0 = readFileContent('\\internal\\listentry.txt');
@@ -561,6 +589,7 @@ function pokazListaMain(res, page, params, userName) {
         new Array("biblioteka"),
         null,
         "główna",
+        "przyklejonegłówna",
         "ostatni");
 
     if (list2[0]) {
@@ -605,7 +634,7 @@ function pokazListaMain(res, page, params, userName) {
 }
 
 // rodzaj/typ/status
-function pokazLista(res, params, id, userName, userLevel) {
+function pokazLista(req, res, params, id, userName, userLevel) {
     if (!podstronyState[id[1]] || (id[2] && !podstronyType[id[1]].includes(id[2])) ||
         (id[3] && !podstronyState[id[1]].includes(id[3])) || (id[3] && userLevel == "0" && id[3] == "szkic")) {
         res.statusCode = 302;
@@ -631,6 +660,7 @@ function pokazLista(res, params, id, userName, userLevel) {
         new Array("biblioteka"),
         null,
         "przyklejone",
+        null,
         "ostatni");
 
     const template0 = readFileContent('\\internal\\listentry.txt');
@@ -664,6 +694,7 @@ function pokazLista(res, params, id, userName, userLevel) {
         id[3] ? new Array(id[3]) : podstronyState[id[1]],
         null,
         null,
+        "przyklejone",
         sortLevel);
 
     if (pageNum * onThePage > list2[1]) {
@@ -674,7 +705,7 @@ function pokazLista(res, params, id, userName, userLevel) {
     }
 
     text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(text, userName);
+    text = genericReplace(req, text, userName);
     text = text.replace("<!--RODZAJ-->", id[1]);
 
     template = readFileContent("\\internal\\criteria.txt");
@@ -782,7 +813,7 @@ function pokazLista(res, params, id, userName, userLevel) {
 }
 
 const onRequestHandler = (req, res) => {
-    if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css") {
+    if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css" || req.url == "/external/dark.css") {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/css; charset=UTF-8');
         res.end(readFileContent(req.url));
@@ -803,7 +834,9 @@ const onRequestHandler = (req, res) => {
 
     var userName = "";
     cookies.forEach(function(cookieInfo) {
-        if ("login=" + cookieInfo[0] == req.headers['cookie']) userName = cookieInfo[1];
+        req.headers['cookie'].split("; ").forEach(function(cookie) {
+            if ("login=" + cookieInfo[0] == cookie) userName = cookieInfo[1];
+        });
     });
     console.log('user name is ' + userName);
 
@@ -848,32 +881,54 @@ const onRequestHandler = (req, res) => {
                 return;
             }
         }
-
+        if (params["set"]) {
+            if (params["set"] == "mobile1") {
+                if (isMobile(req)) {
+                    res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
+                } else {
+                    res.setHeader('Set-Cookie', 'mobile=1');
+                }
+            } else if (params["set"] == "mobile0") {
+                if (!isMobile(req)) {
+                    res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
+                } else {
+                    res.setHeader('Set-Cookie', 'mobile=0');
+                }
+            } else if (params["set"] == "dark1") {
+                res.setHeader('Set-Cookie', 'dark=1');
+            } else if (params["set"] == "dark0") {
+                res.setHeader('Set-Cookie', 'dark=0');
+            }
+            res.statusCode = 302;
+            res.setHeader('Location', req.headers['referer']);
+            res.end();
+            return;
+        }
         if (params["q"]) {
             if (userName != "") {
                 // for example opowiadania/zmien/1
                 var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9\-]+)$/);
                 if (id) {
-                    zmienDodajStrona(res, params, id, userName, getUserLevelUserName(userName));
+                    zmienDodajStrona(req, res, params, id, userName, getUserLevelUserName(userName));
                     return;
                 }
                 // for example opowiadania/dodaj
                 var id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
                 if (id) {
-                    zmienDodajStrona(res, params, id, userName, getUserLevelUserName(userName));
+                    zmienDodajStrona(req, res, params, id, userName, getUserLevelUserName(userName));
                     return;
                 }
             }
             // for example opowiadania/pokaz/1
             var id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9\-]+)$/);
             if (id) {
-                pokazStrona(res, params, id, userName);
+                pokazStrona(req, res, params, id, userName);
                 return;
             }
             // for example opowiadania//biblioteka/1
             var id = params["q"].match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
             if (id) {
-                pokazLista(res, params, id, userName, getUserLevelUserName(userName));
+                pokazLista(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             res.statusCode = 302;
@@ -881,7 +936,7 @@ const onRequestHandler = (req, res) => {
             res.end();
             return;
         }
-        pokazListaMain(res, "0", params, userName);
+        pokazListaMain(req, res, "0", params, userName);
         return;
     } else if (req.headers['content-type'] == "application/x-www-form-urlencoded") { // POST forms
         var body = "";
@@ -897,7 +952,7 @@ const onRequestHandler = (req, res) => {
         return;
     }
 
-    pokazListaMain(res, "0", new Array(), userName);
+    pokazListaMain(req, res, "0", new Array(), userName);
 };
 
 var cache = new Array();

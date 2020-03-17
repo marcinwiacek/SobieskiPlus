@@ -2,7 +2,7 @@
 <html><head>
 <meta charset='utf-8'>
 <title><!--TITLE--></title>
-<link rel='stylesheet' type='text/css' href='external/styles.css'>
+<!--STYLES-->
 </head><body>
 <!--MENU-->
 <div class=content>
@@ -112,7 +112,7 @@ document.textedit.onsubmit = function() {
   };
   http.onload = function() {
     if (<!--PAGEID--> == 0) {
-      window.location.href='?q=opowiadania/zmien/'+http.response;
+      window.location.href='?q='+http.response;
     } else {
       progressBar.value = progressBar.max;
       document.getElementById("progressinfo").style.display="none";
