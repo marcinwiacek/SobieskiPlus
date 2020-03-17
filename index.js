@@ -850,11 +850,13 @@ const onRequestHandler = (req, res) => {
     }
 
     var userName = "";
-    cookies.forEach(function(cookieInfo) {
-        req.headers['cookie'].split("; ").forEach(function(cookie) {
-            if ("login=" + cookieInfo[0] == cookie) userName = cookieInfo[1];
+    if (req.headers['cookie']) {
+        cookies.forEach(function(cookieInfo) {
+            req.headers['cookie'].split("; ").forEach(function(cookie) {
+                if ("login=" + cookieInfo[0] == cookie) userName = cookieInfo[1];
+            });
         });
-    });
+    }
     console.log('user name is ' + userName);
 
     if (req.method === 'GET') {
