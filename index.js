@@ -2,7 +2,6 @@
 
 const hostname = '127.0.0.1';
 const port = 3000;
-
 const onThePage = 5;
 
 //NOTE: adding Polish chars needs changing regular expressions
@@ -24,8 +23,13 @@ var specialTaxonomy = new Array("przyklejonegłówna", "główna", "przyklejone"
 
 const sortParam = new Array("ostatni", "ileKomentarzy", "autor", "ostatniKomentarz");
 
-//var callbackID = 0;
 var cacheID = 1; //ID for new files - cache
+var cacheTexts = new Array();
+var cacheUsers = new Array();
+var cacheFiles = new Array();
+
+var nonLogged = new Array();
+var logged = new Array();
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -33,21 +37,46 @@ const fs = require('fs');
 const http2 = require('http2');
 const path = require('path');
 const url = require('url');
+const zlib = require('zlib');
 
 function getUserLevelUserName(userName) {
     if (userName == "") return "0";
     var userLevel = "0";
-    users.forEach(function(user) {
+    cacheUsers.forEach(function(user) {
         if (userName == user["Author"]) userLevel = user["Level"];
     });
     return userLevel;
 }
 
-function readFileContent(fileName) {
+function readFileContentSync(fileName, callback) {
     //FIXME: checking if path is going out
-    var x = fs.readFileSync(path.normalize(__dirname + fileName), 'utf8');
-    if (x.charCodeAt(0) == 65279) x = x.substring(1);
-    return x;
+    if (callback) {
+        fs.readFile(path.normalize(__dirname + fileName), 'utf8', (err, data) => {
+            if (err) throw err;
+            if (data.charCodeAt(0) == 65279) {
+                callback(data.substring(1));
+            } else {
+                callback(data);
+            }
+        });
+    } else {
+        var x = fs.readFileSync(path.normalize(__dirname + fileName), 'utf8');
+        if (x.charCodeAt(0) == 65279) x = x.substring(1);
+        return x;
+    }
+}
+
+function getFileContentSync(fileName) {
+    if (!cacheFiles[fileName]) {
+        if (fileName.includes("_gzip")) {
+            cacheFiles[fileName] = zlib.gzipSync(readFileContentSync(fileName.replace("_gzip", "")));
+        } else if (fileName.includes("_deflate")) {
+            cacheFiles[fileName] = zlib.deflateSync(readFileContentSync(fileName.replace("_deflate", "")));
+        } else {
+            cacheFiles[fileName] = readFileContentSync(fileName);
+        }
+    }
+    return cacheFiles[fileName];
 }
 
 const DecodingLevel = {
@@ -128,10 +157,10 @@ function decodeFileContent(txt, allVersions) {
 }
 
 function addToCache(name) {
-    var x = decodeFileContent(readFileContent('\\teksty\\' + name + '.txt'), false);
+    var x = decodeFileContent(readFileContentSync('\\teksty\\' + name + '.txt'), false);
     x["filename"] = name;
     x["callback"] = new Array();
-    cache.push(x);
+    cacheTexts.push(x);
 }
 
 var months = new Array("Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
@@ -146,7 +175,7 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
     var result = new Array();
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
-    cache.forEach(function(entry) {
+    cacheTexts.forEach(function(entry) {
         if (typeList && !typeList.includes(entry["Type"])) return;
         if (!stateList.includes(entry["State"])) return;
         if (entry["State"] == "szkic" && userName != entry["Author"]) return;
@@ -204,7 +233,7 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
 
 function updateComment(comment, res) {
     console.log("jest callback");
-    var template = readFileContent('\\internal\\comment.txt');
+    var template = getFileContentSync('\\internal\\comment.txt');
     template = template.replace("<!--USER-->", comment["Author"]);
     template = template.replace("<!--TITLE-->", comment["Title"]);
     template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
@@ -236,7 +265,7 @@ function parsePOSTforms(params, req, res, userName) {
                 comment["When"] = t;
                 comment["Text"] = params["comment"];
 
-                cache.forEach(function(entry) {
+                cacheTexts.forEach(function(entry) {
                     if (params["tekst"] == entry["filename"]) {
                         entry["commentswhen"] = t;
                         entry["commentsnum"]++;
@@ -306,7 +335,7 @@ function parsePOSTforms(params, req, res, userName) {
                     params["text"]
                 );
                 //update cache
-                cache.forEach(function(entry) {
+                cacheTexts.forEach(function(entry) {
                     if (params["tekst"] == entry["filename"]) {
                         entry["Title"] = params["title"];
                         entry["State"] = params["state"];
@@ -333,15 +362,15 @@ function parsePOSTforms(params, req, res, userName) {
         var found = false;
         fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
             if (found) return;
-            var arr = decodeFileContent(readFileContent('\\uzytkownicy\\' + file), false);
-            sessions.forEach(function(session) {
+            var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+            nonLogged.forEach(function(session) {
                 if (found) return;
                 usr = crypto.createHash('sha256').update(session + arr["Author"]).digest("hex");
                 if (usr != params["user"]) return;
                 pass = crypto.createHash('sha256').update(session + arr["Password"]).digest("hex");
                 if (pass != params["password"]) return;
                 const salt = crypto.randomBytes(32).toString('base64');
-                cookies.push(new Array(salt, arr["Author"], file));
+                logged.push(new Array(salt, arr["Author"], file));
                 console.log("jest login");
                 res.setHeader('Set-Cookie', 'login=' + salt);
                 found = true;
@@ -362,14 +391,14 @@ function parsePOSTforms(params, req, res, userName) {
         res.setHeader('Set-Cookie', 'login=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-        cookies.forEach(function(cookieInfo, index) {
+        logged.forEach(function(cookieInfo, index) {
             if ("login=" + cookieInfo[0] == req.headers['cookie']) {
-                cookies.splice(index, 1);
+                logged.splice(index, 1);
             }
         });
-        cookies.forEach(function(cookieInfo) {
-            console.log(cookieInfo);
-        });
+        /*        logged.forEach(function(cookieInfo) {
+                    console.log(cookieInfo);
+                });*/
 
         res.end();
         return;
@@ -388,14 +417,20 @@ function isMobile(req) {
     return false;
 }
 
-function genericReplace(req, text, userName) {
+function genericReplace(req, res, text, userName) {
+    if (userName == "") {
+        res.setHeader("Link", "</external/styles.css>; rel=preload; as=style, </external/sha256.js>; rel=preload; as=script");
+    } else {
+        res.setHeader("Link", "</external/styles.css>; rel=preload; as=style");
+    }
+
     const session = crypto.randomBytes(32).toString('base64');
-    sessions.push(session);
+    nonLogged.push(session);
 
     if (getUserLevelUserName(userName) == "0") {
-        text = text.replace("<!--MENU-->", readFileContent('\\internal\\menu0.txt'));
+        text = text.replace("<!--MENU-->", getFileContentSync('\\internal\\menu0.txt'));
     } else {
-        text = text.replace("<!--MENU-->", readFileContent('\\internal\\menu12.txt'));
+        text = text.replace("<!--MENU-->", getFileContentSync('\\internal\\menu12.txt'));
     }
 
     txt = "<link rel=\'stylesheet\' type=\'text/css\' href=\'external/styles.css\'>";
@@ -418,12 +453,12 @@ function genericReplace(req, text, userName) {
         text = text.replace("<!--MOBILE-LINK-->", "<p><a href=?set=mobile1>Włącz mobile</a>");
     }
 
-    text = text.replace("<!--JS-->", readFileContent('\\internal\\js.txt'));
+    text = text.replace("<!--JS-->", getFileContentSync('\\internal\\js.txt'));
     if (userName == "") {
-        text = text.replace("<!--LOGIN-LOGOUT-->", readFileContent('\\internal\\login.txt'));
+        text = text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'));
         return text.replace("<!--HASH-->", session);
     } else {
-        return text.replace("<!--LOGIN-LOGOUT-->", readFileContent('\\internal\\logout.txt'));
+        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout.txt'));
     }
 }
 
@@ -437,7 +472,7 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
         return;
     }
     if (id[2]) {
-        var arr = decodeFileContent(readFileContent('\\teksty\\' + id[2] + '.txt'), true);
+        var arr = decodeFileContent(readFileContentSync('\\teksty\\' + id[2] + '.txt'), true);
         if (!podstronyType[id[1]].includes(arr["Type"])) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
@@ -446,8 +481,8 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
         }
     }
 
-    var text = readFileContent('\\internal\\entryedit.txt');
-    text = genericReplace(req, text, userName);
+    var text = getFileContentSync('\\internal\\entryedit.txt');
+    text = genericReplace(req, res, text, userName);
     text = text.replace("<!--RODZAJ-->", id[1]);
     if (id[2]) {
         text = text.replace("<!--TEXT-->", arr["Text"]);
@@ -496,7 +531,12 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    res.end(text);
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
+    }
 }
 
 // for example opowiadania/pokaz/1
@@ -508,57 +548,65 @@ function pokazStrona(req, res, params, id, userName, userLevel) {
         return;
     }
 
-    var arr = decodeFileContent(readFileContent('\\teksty\\' + id[2] + '.txt'), true);
-    if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Author"])) {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
-        return;
-    }
+    readFileContentSync('\\teksty\\' + id[2] + '.txt', (data) => {
+        var arr = decodeFileContent(data, true);
+        if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Author"])) {
+            res.statusCode = 302;
+            res.setHeader('Location', '/');
+            res.end();
+            return;
+        }
 
-    var text = readFileContent('\\internal\\entry.txt');
-    text = genericReplace(req, text, userName);
+        res.statusCode = 200;
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
 
-    text = text.replace(/<!--TITLE-->/g, arr["Title"]);
-    text = text.replace("<!--USER-->", arr["Author"]);
-    text = text.replace("<!--TEXT-->", arr["Text"]);
-    text = text.replace("<!--TYPE-->", arr["Type"]);
-    text = text.replace("<!--WHEN-->", formatDate(arr["When"]));
+        var text = getFileContentSync('\\internal\\entry.txt');
+        text = genericReplace(req, res, text, userName);
 
-    var lu = arr["When"];
-    if (arr["Comments"]) {
-        const template0 = readFileContent('\\internal\\comment.txt');
-        var txt = "";
-        arr["Comments"].forEach(function(comment) {
-            var template = template0;
-            template = template.replace("<!--USER-->", comment["Author"]);
-            template = template.replace("<!--TITLE-->", comment["Title"]);
-            template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
-            txt += template.replace("<!--TEXT-->", comment["Text"]);
-            lu = comment["When"];
-        });
-        text = text.replace("<!--COMMENTS-->", txt);
-    }
-    text = text.replace("<!--LASTUPDATE-->", formatDate(lu));
+        text = text.replace(/<!--TITLE-->/g, arr["Title"]);
+        text = text.replace("<!--USER-->", arr["Author"]);
+        text = text.replace("<!--TEXT-->", arr["Text"]);
+        text = text.replace("<!--TYPE-->", arr["Type"]);
+        text = text.replace("<!--WHEN-->", formatDate(arr["When"]));
 
-    if (userName != "") {
-        text = text.replace("<!--COMMENTEDIT-->", readFileContent('\\internal\\commentedit.txt'));
-        text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=" + params["q"].replace("pokaz", "zmien") + ">Edycja</a></div>");
-    }
+        var lu = arr["When"];
+        if (arr["Comments"]) {
+            const template0 = getFileContentSync('\\internal\\comment.txt');
+            var txt = "";
+            arr["Comments"].forEach(function(comment) {
+                var template = template0;
+                template = template.replace("<!--USER-->", comment["Author"]);
+                template = template.replace("<!--TITLE-->", comment["Title"]);
+                template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
+                txt += template.replace("<!--TEXT-->", comment["Text"]);
+                lu = comment["When"];
+            });
+            text = text.replace("<!--COMMENTS-->", txt);
+        }
+        text = text.replace("<!--LASTUPDATE-->", formatDate(lu));
 
-    text = text.replace(/<!--PAGEID-->/g, id[2]); //many entries
+        if (userName != "") {
+            text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'));
+            text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=" + params["q"].replace("pokaz", "zmien") + ">Edycja</a></div>");
+        }
 
-    res.statusCode = 200;
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    res.end(text);
+        text = text.replace(/<!--PAGEID-->/g, id[2]); //many entries
+
+        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+            res.setHeader('Content-Encoding', 'deflate');
+            res.end(zlib.deflateSync(text));
+        } else {
+            res.end(text);
+        }
+    });
 }
 
 function pokazListaMain(req, res, page, params, userName) {
-    var text = readFileContent('\\internal\\main.txt');
+    var text = getFileContentSync('\\internal\\main.txt');
 
     text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(req, text, userName);
+    text = genericReplace(req, res, text, userName);
 
     const list = getPageList(page,
         null,
@@ -570,7 +618,7 @@ function pokazListaMain(req, res, page, params, userName) {
         userName,
         "0");
 
-    const template0 = readFileContent('\\internal\\listentry.txt');
+    const template0 = getFileContentSync('\\internal\\listentry.txt');
 
     if (list[0]) {
         var txt = "";
@@ -643,7 +691,12 @@ function pokazListaMain(req, res, page, params, userName) {
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    res.end(text);
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
+    }
 }
 
 // rodzaj/typ/status
@@ -666,7 +719,32 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         sortLevel = params["s"];
     }
 
-    var text = readFileContent('\\internal\\list.txt');
+    const pageNum = id[4] ? parseInt(id[4].substring(1)) : 0;
+
+    const list2 = getPageList(pageNum,
+        id[2] ? new Array(id[2]) : podstronyType[id[1]],
+        id[3] ? new Array(id[3]) : podstronyState[id[1]],
+        null,
+        null,
+        "przyklejone",
+        sortLevel,
+        userName,
+        userLevel);
+
+    if (pageNum * onThePage > list2[1]) {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
+
+    res.statusCode = 200;
+    res.setHeader('Cache-Control', 'must-revalidate');
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+
+    const template0 = getFileContentSync('\\internal\\listentry.txt');
+
+    var text = getFileContentSync('\\internal\\list.txt');
 
     const list = getPageList(0,
         id[2] ? new Array(id[2]) : podstronyType[id[1]],
@@ -678,7 +756,23 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         userName,
         userLevel);
 
-    const template0 = readFileContent('\\internal\\listentry.txt');
+    if (list2[0]) {
+        var txt = "";
+        list2[0].forEach(function(arr) {
+            var template = template0;
+            template = template.replace("<!--USER-->", arr["Author"]);
+            template = template.replace("<!--TITLE-->",
+                "<a href=\"?q=" + id[1] + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
+            template = template.replace("<!--TYPE-->", arr["Type"]);
+            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
+            if (arr["commentsnum"] != "0") {
+                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
+            }
+            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            txt += template;
+        });
+        text = text.replace("<!--LIST-->", txt);
+    }
 
     if (list[0]) {
         var txt = "";
@@ -702,30 +796,11 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--LIST-GLUE-->", txt);
     }
 
-    const pageNum = id[4] ? parseInt(id[4].substring(1)) : 0;
-
-    const list2 = getPageList(pageNum,
-        id[2] ? new Array(id[2]) : podstronyType[id[1]],
-        id[3] ? new Array(id[3]) : podstronyState[id[1]],
-        null,
-        null,
-        "przyklejone",
-        sortLevel,
-        userName,
-        userLevel);
-
-    if (pageNum * onThePage > list2[1]) {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
-        return;
-    }
-
     text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(req, text, userName);
+    text = genericReplace(req, res, text, userName);
     text = text.replace("<!--RODZAJ-->", id[1]);
 
-    template = readFileContent("\\internal\\criteria.txt");
+    template = getFileContentSync("\\internal\\criteria.txt");
 
     txt = "";
     if (!id[2]) {
@@ -788,24 +863,6 @@ function pokazLista(req, res, params, id, userName, userLevel) {
 
     text = text.replace("<!--CRITERIA-->", template);
 
-    if (list2[0]) {
-        var txt = "";
-        list2[0].forEach(function(arr) {
-            var template = template0;
-            template = template.replace("<!--USER-->", arr["Author"]);
-            template = template.replace("<!--TITLE-->",
-                "<a href=\"?q=" + id[1] + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
-            template = template.replace("<!--TYPE-->", arr["Type"]);
-            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
-            if (arr["commentsnum"] != "0") {
-                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
-            }
-            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
-            txt += template;
-        });
-        text = text.replace("<!--LIST-->", txt);
-    }
-
     var txt = "";
     if (params["s"]) txt = "&s=" + params["s"];
     if (params["t"]) txt += "&t=" + params["t"];
@@ -824,22 +881,35 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=?q=" + id[1] + "/dodaj>Nowy tekst</a></div>");
     }
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    res.end(text);
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
+    }
 }
 
 const onRequestHandler = (req, res) => {
-    if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css" || req.url == "/external/dark.css") {
+    if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css" ||
+        req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
+        req.url == "/external/quill.min.js") {
         res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/css; charset=UTF-8');
-        res.end(readFileContent(req.url));
-        return;
-    }
-    if (req.url == "/external/sha256.js" || req.url == "/external/quill.min.js") {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/javascript; charset=UTF-8');
-        res.end(readFileContent(req.url));
+        if (req.url.includes('.js')) {
+            res.setHeader('Content-Type', 'text/javascript; charset=UTF-8');
+        } else {
+            res.setHeader('Content-Type', 'text/css; charset=UTF-8');
+        }
+        //        res.setHeader('Cache-Control', 'must-revalidate');
+        res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
+        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
+            res.setHeader('Content-Encoding', 'gzip');
+            res.end(getFileContentSync(req.url + "_gzip"));
+        } else if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+            res.setHeader('Content-Encoding', 'deflate');
+            res.end(getFileContentSync(req.url + "_deflate"));
+        } else {
+            res.end(getFileContentSync(req.url));
+        }
         return;
     }
     if (req.url == "/favicon.ico") {
@@ -851,7 +921,7 @@ const onRequestHandler = (req, res) => {
 
     var userName = "";
     if (req.headers['cookie']) {
-        cookies.forEach(function(cookieInfo) {
+        logged.forEach(function(cookieInfo) {
             req.headers['cookie'].split("; ").forEach(function(cookie) {
                 if ("login=" + cookieInfo[0] == cookie) userName = cookieInfo[1];
             });
@@ -879,14 +949,14 @@ const onRequestHandler = (req, res) => {
                 res.write("data: \n\n");
 
                 const session = crypto.randomBytes(32).toString('base64');
-                cache.forEach(function(entry) {
+                cacheTexts.forEach(function(entry) {
                     if (id[2] == entry["filename"]) {
                         entry["callback"][session] = res;
                         console.log("usuwa callback " + session);
                     }
                 });
                 res.on('close', function() {
-                    cache.forEach(function(entry) {
+                    cacheTexts.forEach(function(entry) {
                         if (id[2] == entry["filename"]) {
                             console.log("usuwa callback " + session);
                             delete entry["callback"][session];
@@ -977,18 +1047,13 @@ const onRequestHandler = (req, res) => {
     }
 };
 
-var cache = new Array();
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToCache(file.replace(".txt", ""));
 })
 
-var users = new Array();
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    users[file.replace(".txt", "")] = decodeFileContent(readFileContent('\\uzytkownicy\\' + file), false);
+    cacheUsers[file.replace(".txt", "")] = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
 })
-
-var sessions = new Array();
-var cookies = new Array();
 
 //const server = http.createServer(onRequestHandler);
 const server = http2.createSecureServer({
@@ -997,5 +1062,5 @@ const server = http2.createSecureServer({
 }, onRequestHandler);
 
 server.listen(port, hostname, () => {
-    console.log(`Server running at http(s)://${hostname}:${port}/`);
+    console.log(`Server running at https://${hostname}:${port}/`);
 });
