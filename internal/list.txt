@@ -4,12 +4,13 @@
 <title><!--TITLE--></title>
 <!--STYLES-->
 </head><body>
-<div class=content>
 <!--MENU-->
-<table border=0 width=100%><tr><td><!--RODZAJ--></td><td><!--LOGIN-NEW--></td></tr></table>
-<table border=1 width=100%><tr><td><!--CRITERIA--></td></tr></table>
-<table border=1 width=100%><tr><td><!--LIST-GLUE--></td></tr></table>
-<table border=1 width=100%><tr><td><!--LIST--></td></tr></table>
+<div class=content>
+<div class=ramki><table width=100%><tr><td><!--RODZAJ--></td><td><!--LOGIN-NEW--></td></tr></table></div>
+<div class=ramki><!--CRITERIA--></div>
+<!--LIST-GLUE-->
+<!--LIST-->
 <!--PREVLINK--><!--NEXTLINK-->
 <!--JS-->
+</div>
 </body></html>

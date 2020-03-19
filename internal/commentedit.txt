@@ -4,14 +4,14 @@
 <link type="text/css" rel="stylesheet" href="external/quill.snow.css">
 <script src="external/quill.min.js"></script>
 
-<table width=100% border=1><tr><td>
+<div class=ramki>
   <form id=commentedit name=commentedit method=post>
-      Tytuł: <input name="title" type="text" placeholder="Poproszę o ładny tytuł">
-      <div id="editor-container"></div>
+      Tytuł: <input name="title" type="text" id=title placeholder="Poproszę o ładny tytuł" size=50><p>
+      <div id="editor-container"></div><p>
       <button id=sub type="submit">Dodaj komentarz</button>
   </form>
-</td></tr></table>
-<div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
+  <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
+</div>
 <script async=async>
 
 var toolbarOptions = [
@@ -42,14 +42,18 @@ var quill = new Quill('#editor-container', {
   theme: 'snow'
 });
 
-document.getElementById('sub').disabled=true;
-quill.on('text-change', function(delta, oldDelta, source) {
+function sprawdz() {
   if (quill.getText().trim().length==0 || document.getElementById("commentedit").elements.namedItem("title").value=="") {
     document.getElementById('sub').disabled=true;
   } else {
     document.getElementById('sub').disabled=false;
   }
+}
+document.getElementById('sub').disabled=true;
+quill.on('text-change', function(delta, oldDelta, source) {
+  sprawdz();
 });
+document.getElementById("title").addEventListener("input", sprawdz);
 
 document.commentedit.onsubmit = function() {
   var progressBar = document.getElementById("progress");
@@ -83,5 +87,4 @@ document.commentedit.onsubmit = function() {
 
   return false;
 };
-
 </script>

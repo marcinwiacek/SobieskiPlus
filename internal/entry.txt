@@ -6,37 +6,33 @@
 </head><body>
 <!--MENU-->
 <div class=content>
-
-<!--TITLE-->
-<table width=100% border=1><tr><td>
+<table width=100%><tr><td><!--TITLE--></td><td><!--LOGIN-EDIT--></td></tr></table>
+<div class=ramki>
 Autor:<!--USER--><br>
 Typ:<!--TYPE--><br>
 Ostatnio zmienione:<!--WHEN-->
-</td></tr></table>
-<!--LOGIN-EDIT-->
-<p>
-<table width=100% border=1><tr><td>
+</div>
+<div class=ramki>
 <center><h1><!--TITLE--></h1></center>
 <hr>
 <!--TEXT-->
-</td></tr></table>
-<p>
+</div>
 <!--COMMENTS-->
 <div id=newcomments></div>
-<p>
 <!--COMMENTEDIT-->
 <!--JS-->
 <script>
   var source = new EventSource("?sse=1");
   source.addEventListener("c", function(event) {
     if (event.data!='') {
-      //parsing
+      /*parsing*/
       document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
       if (document.hidden && window.document.title.substring(0,2)!="* ") {
         window.document.title = "* "+window.document.title;
       }
     }
   });
-//  document.body.onbeforeunload = function(){source.close();};
+/*  document.body.onbeforeunload = function(){source.close();};*/
 </script>
+</div>
 </body></html>

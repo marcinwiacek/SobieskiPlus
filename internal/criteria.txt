@@ -2,4 +2,4 @@ Rodzaj: <!--TYPE--><br>
 Status: <!--STATE--><br>
 Taxonomy: <p>
 
-Sortowanie: <!--SORTBY--><p>
+Sortowanie: <!--SORTBY-->

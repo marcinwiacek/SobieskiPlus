@@ -7,9 +7,8 @@
 <!--MENU-->
 <div class=content>
 Dzień dobry, cześć i czołem, Welcome, Hallo, Bonjour, здрaвствуйте
-<p>
-<table border=1 width=100%><tr><td><!--LIST-GLUE--></td></tr></table>
-<table border=1 width=100%><tr><td><!--LIST--></td></tr></table>
+<!--LIST-GLUE-->
+<!--LIST-->
 <!--PREVLINK--><!--NEXTLINK-->
 </div>
 <!--JS-->

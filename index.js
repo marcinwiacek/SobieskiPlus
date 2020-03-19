@@ -66,14 +66,15 @@ function readFileContentSync(fileName, callback) {
     }
 }
 
+// CAN'T USE // comments in JS !!!! Use /* */ instead.
 function getFileContentSync(fileName) {
     if (!cacheFiles[fileName]) {
         if (fileName.includes("_gzip")) {
-            cacheFiles[fileName] = zlib.gzipSync(readFileContentSync(fileName.replace("_gzip", "")));
+            cacheFiles[fileName] = zlib.gzipSync(readFileContentSync(fileName.replace("_gzip", "").replace(/(\r\n|\n|\r)/gm, "")));
         } else if (fileName.includes("_deflate")) {
-            cacheFiles[fileName] = zlib.deflateSync(readFileContentSync(fileName.replace("_deflate", "")));
+            cacheFiles[fileName] = zlib.deflateSync(readFileContentSync(fileName.replace("_deflate", "").replace(/(\r\n|\n|\r)/gm, "")));
         } else {
-            cacheFiles[fileName] = readFileContentSync(fileName);
+            cacheFiles[fileName] = readFileContentSync(fileName).replace(/(\r\n|\n|\r)/gm, "");
         }
     }
     return cacheFiles[fileName];
@@ -442,15 +443,15 @@ function genericReplace(req, res, text, userName) {
     }
     text = text.replace("<!--STYLES-->", txt);
     if (req.headers['cookie'] && req.headers['cookie'].includes('dark=1')) {
-        text = text.replace("<!--DARK-LINK-->", "<p><a href=?set=dark0>Wyłącz ciemny kolor</a>");
+        text = text.replace("<!--DARK-LINK-->", "<p><a href=\"?set=dark0\">Wyłącz ciemny kolor</a>");
     } else {
-        text = text.replace("<!--DARK-LINK-->", "<p><a href=?set=dark1>Włącz ciemny kolor</a>");
+        text = text.replace("<!--DARK-LINK-->", "<p><a href=\"?set=dark1\">Włącz ciemny kolor</a>");
     }
 
     if (req.headers['cookie'] && req.headers['cookie'].includes('mobile=1')) {
-        text = text.replace("<!--MOBILE-LINK-->", "<p><a href=?set=mobile0>Wyłącz mobile</a>");
+        text = text.replace("<!--MOBILE-LINK-->", "<p><a href=\"?set=mobile0\">Wyłącz mobile</a>");
     } else {
-        text = text.replace("<!--MOBILE-LINK-->", "<p><a href=?set=mobile1>Włącz mobile</a>");
+        text = text.replace("<!--MOBILE-LINK-->", "<p><a href=\"?set=mobile1\">Włącz mobile</a>");
     }
 
     text = text.replace("<!--JS-->", getFileContentSync('\\internal\\js.txt'));
@@ -497,7 +498,7 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
     podstronyState[id[1]].forEach(function(state) {
         if (userLevel != "2" && state == "biblioteka" && id[1] != "hydepark" &&
             (!id[2] || (id[2] && arr["State"] != "biblioteka"))) return;
-        txt += "<input type=\"radio\" name=\"state\" value=\"" + state + "\"";
+        txt += "<input type=\"radio\" name=\"state\" id=state value=\"" + state + "\"";
         if ((!id[2] && state == "szkic" || id[2] && state == arr["State"])) txt += " checked";
         txt += "><label for=\"" + state + "\">" + state + "</label>";
     });
@@ -505,7 +506,7 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
 
     txt = "";
     podstronyType[id[1]].forEach(function(type) {
-        txt += "<input type=\"radio\" name=\"type\" value=\"" + type + "\"";
+        txt += "<input type=\"radio\" name=\"type\" id=type value=\"" + type + "\"";
         if (podstronyType[id[1]].length == 1 || (id[2] && arr["Type"] == type)) txt += " checked";
         txt += "><label for=\"" + type + "\">" + type + "</label>";
     });
@@ -588,7 +589,7 @@ function pokazStrona(req, res, params, id, userName, userLevel) {
 
         if (userName != "") {
             text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'));
-            text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=?q=" + params["q"].replace("pokaz", "zmien") + ">Edycja</a></div>");
+            text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" + params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
         }
 
         text = text.replace(/<!--PAGEID-->/g, id[2]); //many entries
@@ -637,9 +638,10 @@ function pokazListaMain(req, res, page, params, userName) {
                 template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
             }
             template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            if (txt != "") txt += "<hr>";
             txt += template;
         });
-        text = text.replace("<!--LIST-GLUE-->", txt);
+        text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
     }
 
     const list2 = getPageList(page,
@@ -669,9 +671,10 @@ function pokazListaMain(req, res, page, params, userName) {
                 template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
             }
             template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            if (txt != "") txt += "<hr>";
             txt += template;
         });
-        text = text.replace("<!--LIST-->", txt);
+        text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
     }
 
     console.log("page num is " + page);
@@ -680,12 +683,12 @@ function pokazListaMain(req, res, page, params, userName) {
     if (params["t"]) txt += "&t=" + params["t"];
     if (page != 0) {
         text = text.replace("<!--PREVLINK-->",
-            "<a href=?q=/" + (page - 1) + txt + ">&lt; Prev page</a>&nbsp;"
+            "<a href=\"?q=/" + (page - 1) + txt + "\">&lt; Prev page</a>&nbsp;"
         );
     }
     if ((page + 1) * onThePage < list2[1]) {
         text = text.replace("<!--NEXTLINK-->",
-            "<a href=?q=/" + (page + 1) + txt + ">Next page &gt;</a>"
+            "<a href=\"?q=/" + (page + 1) + txt + "\">Next page &gt;</a>"
         );
     }
 
@@ -769,9 +772,10 @@ function pokazLista(req, res, params, id, userName, userLevel) {
                 template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
             }
             template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            if (txt != "") txt += "<hr>";
             txt += template;
         });
-        text = text.replace("<!--LIST-->", txt);
+        text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
     }
 
     if (list[0]) {
@@ -791,9 +795,10 @@ function pokazLista(req, res, params, id, userName, userLevel) {
                 template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
             }
             template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+            if (txt != "") txt += "<hr>";
             txt += template;
         });
-        text = text.replace("<!--LIST-GLUE-->", txt);
+        text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
     }
 
     text = text.replace("<!--TITLE-->", "");
@@ -806,19 +811,19 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     if (!id[2]) {
         txt += "<b>wszystkie</b>, ";
     } else {
-        txt += "<a href=?q=" + id[1] + "//";
+        txt += "<a href=\"?q=" + id[1] + "//";
         if (id[3]) txt += id[3];
         if (params["s"]) txt += "&s=" + params["s"];
-        txt += ">wszystkie</a>, ";
+        txt += "\">wszystkie</a>, ";
     }
     podstronyType[id[1]].forEach(function(t) {
         if (id[2] && id[2] == t) {
             txt += "<b>" + t + "</b>, ";
         } else {
-            txt += "<a href=?q=" + id[1] + "/" + t + "/";
+            txt += "<a href=\"?q=" + id[1] + "/" + t + "/";
             if (id[3]) txt += id[3];
             if (params["s"]) txt += "&s=" + params["s"];
-            txt += ">" + t + "</a>, ";
+            txt += "\">" + t + "</a>, ";
         }
     });
     template = template.replace("<!--TYPE-->", txt);
@@ -827,20 +832,20 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     if (!id[3]) {
         txt += "<b>wszystkie</b>, ";
     } else {
-        txt += "<a href=?q=" + id[1] + "/";
+        txt += "<a href=\"?q=" + id[1] + "/";
         if (id[2]) txt += id[2];
         txt += "/";
         if (params["s"]) txt += "&s=" + params["s"];
-        txt += ">wszystkie</a>, ";
+        txt += "\">wszystkie</a>, ";
     }
     podstronyState[id[1]].forEach(function(t) {
         if (userName == "" && t == "szkic") return;
         if (id[3] && id[3] == t) {
             txt += "<b>" + t + "</b>, ";
         } else {
-            txt += "<a href=?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + t;
+            txt += "<a href=\"?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + t;
             if (params["s"]) txt += "&s=" + params["s"];
-            txt += ">" + t + "</a>, ";
+            txt += "\">" + t + "</a>, ";
         }
     });
     template = template.replace("<!--STATE-->", txt);
@@ -850,13 +855,13 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         if ((!params["s"] && t == "ostatni") || (params["s"] && params["s"] == t)) {
             txt += "<b>" + t + "</b>, ";
         } else {
-            txt += "<a href=?q=" + id[1] + "/";
+            txt += "<a href=\"?q=" + id[1] + "/";
             if (id[2]) txt += id[2];
             txt += "/";
             if (id[3]) txt += id[3];
             txt += "&s=" + t;
             if (params["t"]) txt += "&t=" + params["t"];
-            txt += ">" + t + "</a>, ";
+            txt += "\">" + t + "</a>, ";
         }
     });
     template = template.replace("<!--SORTBY-->", txt);
@@ -868,17 +873,17 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     if (params["t"]) txt += "&t=" + params["t"];
     if (pageNum != 0) {
         text = text.replace("<!--PREVLINK-->",
-            "<a href=?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + (id[3] ? id[3] : "") + "/" + (pageNum - 1) + txt + ">&lt; Prev page</a>&nbsp;"
+            "<a href=\"?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + (id[3] ? id[3] : "") + "/" + (pageNum - 1) + txt + "\">&lt; Prev page</a>&nbsp;"
         );
     }
     if ((pageNum + 1) * onThePage < list2[1]) {
         text = text.replace("<!--NEXTLINK-->",
-            "<a href=?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + (id[3] ? id[3] : "") + "/" + (pageNum + 1) + txt + ">Next page &gt;</a>"
+            "<a href=\"?q=" + id[1] + "/" + (id[2] ? id[2] : "") + "/" + (id[3] ? id[3] : "") + "/" + (pageNum + 1) + txt + "\">Next page &gt;</a>"
         );
     }
 
     if (userName != "") {
-        text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=?q=" + id[1] + "/dodaj>Nowy tekst</a></div>");
+        text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=\"?q=" + id[1] + "/dodaj\">Nowy tekst</a></div>");
     }
 
     if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
@@ -937,8 +942,9 @@ const onRequestHandler = (req, res) => {
         //check field format
         //check if session is OK
         if (params["sse"]) {
+            console.log(req.headers);
             //fixme - we need checking URL beginning
-            var id = req.headers['referer'].match(/.*([a-z]+)\/pokaz\/([0-9\-]+)$/);
+            var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9\-]+)$/);
             if (id && fs.existsSync(__dirname + "\\teksty\\" + id[2] + ".txt")) {
                 res.writeHead(200, {
                     'Cache-Control': 'no-cache',
@@ -952,7 +958,7 @@ const onRequestHandler = (req, res) => {
                 cacheTexts.forEach(function(entry) {
                     if (id[2] == entry["filename"]) {
                         entry["callback"][session] = res;
-                        console.log("usuwa callback " + session);
+                        console.log("dodaje callback " + session);
                     }
                 });
                 res.on('close', function() {

@@ -1,6 +1,6 @@
-<table border=1 width=100%><tr><td>
+<div class=ramki>
 <!--USER-->: <b><!--TITLE--></b><br>
 <!--WHEN-->
 <hr>
 <!--TEXT-->
-</td></tr></table>
+</div>
