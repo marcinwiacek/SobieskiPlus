@@ -1,19 +1,17 @@
-<!--
-function setClassForExternalLinks(tree) {
-for (index = 0; index < tree.length; ++index) {
-  if (tree[index].href.indexOf(window.location.protocol+'//'+window.location.hostname+':'+window.location.port)!=0
-      && tree[index].className=='') {
-   tree[index].className='ext';
-      }
-  }
-} 
-setClassForExternalLinks(document.querySelectorAll('.teaser a'));
-setClassForExternalLinks(document.querySelectorAll('.main a'));
-var images = document.getElementsByTagName('img');
-for(i = 0; i < images.length; i++) {images[i].style.height='auto';}
--->
-
 <script async="async">
+  function setClassForExternalLinks(tree) {
+  for (index = 0; index < tree.length; ++index) {
+    if (tree[index].href.indexOf(window.location.protocol+'//'+window.location.hostname+':'+window.location.port)!=0
+        && tree[index].className=='') {
+     tree[index].className='ext';
+        }
+    }
+  } 
+  setClassForExternalLinks(document.querySelectorAll('.content a'));
+
+  var images = document.getElementsByTagName('img');
+  for(i = 0; i < images.length; i++) {images[i].style.height='auto';}
+
   document.addEventListener( 'visibilitychange' , function() {
     /*fixme function for checking for login/logout (if it was done in meantime)*/
     if (!document.hidden && window.document.title.substring(0,2)=="* ") {

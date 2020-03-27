@@ -6,7 +6,9 @@
 </head><body>
 <!--MENU-->
 <div class=content>
+<div class=ramki>
 <table width=100%><tr><td><!--TITLE--></td><td><!--LOGIN-EDIT--></td></tr></table>
+</div>
 <div class=ramki>
 Autor:<!--USER--><br>
 Typ:<!--TYPE--><br>

@@ -6,11 +6,13 @@
 </head><body>
 <!--MENU-->
 <div class=content>
-<div class=ramki><table width=100%><tr><td><!--RODZAJ--></td><td><!--LOGIN-NEW--></td></tr></table></div>
+<div class=ramki>
+<table width=100%><tr><td><!--RODZAJ--></td><td><!--LOGIN-NEW--></td></tr></table>
+</div>
 <div class=ramki><!--CRITERIA--></div>
 <!--LIST-GLUE-->
 <!--LIST-->
-<!--PREVLINK--><!--NEXTLINK-->
+<!--PREVLINK-->&nbsp;<!--NEXTLINK-->
 <!--JS-->
 </div>
 </body></html>

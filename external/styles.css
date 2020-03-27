@@ -19,6 +19,9 @@ a {
 a:hover {
 	text-decoration: underline; color:red;
 }
+a.ext {
+        color:blue;
+}
 iframe, img {
 	max-width: 100%;
 }

@@ -9,7 +9,7 @@
 Dzień dobry, cześć i czołem, Welcome, Hallo, Bonjour, здрaвствуйте
 <!--LIST-GLUE-->
 <!--LIST-->
-<!--PREVLINK--><!--NEXTLINK-->
+<!--PREVLINK-->&nbsp;<!--NEXTLINK-->
 </div>
 <!--JS-->
 </body></html>

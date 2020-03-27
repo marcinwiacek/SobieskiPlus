@@ -9,13 +9,12 @@ Generacja kluczy do HTTPS:
 openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' \
   -keyout localhost-privkey.pem -out localhost-cert.pem
 
-
-Znane błędy:
-specialtaxonomy undefined
-zapisuje zawsze całość (a nie tylko zmienione elementy)
-save powinno bec enabled po każdej zmianie
-
-
+Znane:
+* specialtaxonomy undefined
+* zapisuje zawsze całość (a nie tylko zmienione elementy)
+* save powinno byc enabled po każdej zmianie i strona nie powinna pytac o opuszczanie po save
+* Quill - linki przy pisaniu żeby zamieniał (czy trzeba zamienić edytor?)
+* Quill - min. and max. length przy komentarzach
 
 Znane błędy PHP (ostatnia wersja 13.3.2020):
 1. przy przeładowaniu push.php teoretycznie możemy zgubić komentarz (?)

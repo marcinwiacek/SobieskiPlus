@@ -42,12 +42,20 @@ var toolbarOptions = [
   [{ 'font': [] }],
   [{ 'align': [] }],
 
+  ['link', 'image', 'video'],
+
   ['clean']
 ];
 
 var quill = new Quill('#editor-container', {
   modules: {
-    toolbar: toolbarOptions
+    toolbar: toolbarOptions,
+    history: {
+      delay: 2000,
+      maxStack: 500,
+      userOnly: true
+    }
+/* needs library: ,syntax: true */
   },
   placeholder: 'Bądź grzecznym misiem i zapodaj ładny tekst proszę...',
   theme: 'snow'

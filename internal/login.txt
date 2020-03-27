@@ -4,11 +4,24 @@
   var hash='<!--HASH-->';
 </script>
   <form method=post id=login name=login>
-      Użytkownik: <input name="user" type="text" value=""><br>
-      Hasło: <input name="password" type="text" value="">
-      <button type="submit" style='cursor: pointer;'>Login</button>
+      Użytkownik: <input name="user" type="text" id="user" value=""><br>
+      Hasło: <input name="password" type="text" id="password" value="">
+      <button type="submit" id="loginsub" style='cursor: pointer;'>Login</button>
   </form>
 <script>
+document.getElementById('loginsub').disabled=true;
+function sprawdzlogin() {
+  if (document.getElementById("login").elements.namedItem("user").value=="" ||
+      document.getElementById("login").elements.namedItem("password").value=="") {
+    document.getElementById('loginsub').disabled=true;
+  } else {
+    document.getElementById('loginsub').disabled=false;
+  }
+}
+document.getElementById("user").addEventListener("input", sprawdzlogin);
+document.getElementById("password").addEventListener("input", sprawdzlogin);
+
+
 document.login.onsubmit = function() {
   var user = document.getElementById("login").elements.namedItem("user").value; 
   var password = document.getElementById("login").elements.namedItem("password").value; 
