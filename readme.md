@@ -13,8 +13,10 @@ Znane:
 * specialtaxonomy undefined
 * zapisuje zawsze całość (a nie tylko zmienione elementy)
 * save powinno byc enabled po każdej zmianie i strona nie powinna pytac o opuszczanie po save
-* Quill - linki przy pisaniu żeby zamieniał (czy trzeba zamienić edytor?)
-* Quill - min. and max. length przy komentarzach
+
+* https://www.cssscript.com/minimal-wysiwyg-editor-pure-javascript-suneditor/
+** Quill - linki przy pisaniu żeby zamieniał (czy trzeba zamienić edytor?)
+** Quill - min. and max. length przy komentarzach
 
 Znane błędy PHP (ostatnia wersja 13.3.2020):
 1. przy przeładowaniu push.php teoretycznie możemy zgubić komentarz (?)

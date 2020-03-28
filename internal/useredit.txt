@@ -1,0 +1,66 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<!--STYLES-->
+</head><body>
+<!--MENU-->
+<div class=content>
+
+<table>
+<form id=textedit name=textedit method=post>
+  <tr><td>Username:</td><td><input name="username" id=username type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+  <tr><td>Mail:</td><td><input name="mail" id=mail type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+  <tr><td>Password:</td><td><input name="pass" id=pass type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+  <tr><td>Repeat password:</td><td><input name="pass2" id=pass2 type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+  <tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
+</form>
+</table>
+
+<script async=async>
+
+function sprawdz() {
+  if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
+document.getElementById("textedit").elements.namedItem("mail").value=="" ||
+document.getElementById("textedit").elements.namedItem("pass").value=="" ||
+document.getElementById("textedit").elements.namedItem("pass2").value=="") {
+    document.getElementById('sub').disabled=true;
+  } else {
+    document.getElementById('sub').disabled=false;
+  }
+}
+document.getElementById('sub').disabled=true;
+document.getElementById("username").addEventListener("input", sprawdz);
+document.getElementById("mail").addEventListener("input", sprawdz);
+document.getElementById("pass").addEventListener("input", sprawdz);
+document.getElementById("pass2").addEventListener("input", sprawdz);
+
+document.textedit.onsubmit = function() {
+  var pass = document.getElementById("textedit").elements.namedItem("pass").value; 
+  var pass2 = document.getElementById("textedit").elements.namedItem("pass2").value; 
+  if (pass != pass2) {
+	alert('Hasła muszą się zgadzać');
+	return false;
+  }
+  var username = document.getElementById("textedit").elements.namedItem("username").value; 
+  var mail = document.getElementById("textedit").elements.namedItem("mail").value; 
+
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = 'q=new_user&username='+username+'&pass='+pass+'&mail='+mail;
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onload = function() {
+    alert(http.response);
+/*      window.location.href='?q='+http.response; */
+  };
+  http.onerror = function () {
+    alert(http.response);
+  };
+
+  http.send(params);
+
+  return false;
+};
+</script>
+</div></body></html>

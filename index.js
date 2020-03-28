@@ -67,14 +67,15 @@ function readFileContentSync(fileName, callback) {
 }
 
 // CAN'T USE // comments in JS !!!! Use /* */ instead.
+//replace(/(\r\n|\n|\r)/gm, "")
 function getFileContentSync(fileName) {
     if (!cacheFiles[fileName]) {
         if (fileName.includes("_gzip")) {
-            cacheFiles[fileName] = zlib.gzipSync(readFileContentSync(fileName.replace("_gzip", "").replace(/(\r\n|\n|\r)/gm, "")));
+            cacheFiles[fileName] = zlib.gzipSync(readFileContentSync(fileName.replace("_gzip", "")));
         } else if (fileName.includes("_deflate")) {
-            cacheFiles[fileName] = zlib.deflateSync(readFileContentSync(fileName.replace("_deflate", "").replace(/(\r\n|\n|\r)/gm, "")));
+            cacheFiles[fileName] = zlib.deflateSync(readFileContentSync(fileName.replace("_deflate", "")));
         } else {
-            cacheFiles[fileName] = readFileContentSync(fileName).replace(/(\r\n|\n|\r)/gm, "");
+            cacheFiles[fileName] = readFileContentSync(fileName);
         }
     }
     return cacheFiles[fileName];
@@ -201,27 +202,23 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
 
     if (sortLevel == "ostatni") {
         result.sort(function(a, b) {
-            if (a["When"] == b["When"]) return 0;
-            return a["When"] > b["When"] ? -1 : 1;
+            return (a["When"] == b["When"]) ? 0 : (a["When"] > b["When"] ? -1 : 1);
         });
     } else if (sortLevel == "ostatniKomentarz") {
         result.sort(function(a, b) {
-            if (a["commentswhen"] == b["commentswhen"]) return 0;
-            return a["commentswhen"] > b["commentswhen"] ? -1 : 1;
+            return (a["commentswhen"] == b["commentswhen"]) ? 0 : (a["commentswhen"] > b["commentswhen"] ? -1 : 1);
         });
     } else if (sortLevel == "ileKomentarzy") {
         result.sort(function(a, b) {
             if (a["commentsnum"] == b["commentsnum"]) {
-                if (a["When"] == b["When"]) return 0;
-                return a["When"] > b["When"] ? -1 : 1;
+                return (a["When"] == b["When"]) ? 0 : (a["When"] > b["When"] ? -1 : 1);
             }
             return a["commentsnum"] > b["commentsnum"] ? -1 : 1;
         });
     } else if (sortLevel == "autor") {
         result.sort(function(a, b) {
             var x = a["Author"].localeCompare(b["Author"]);
-            if (x == 0) return a["When"] > b["When"] ? -1 : 1;
-            return x;
+            return (x == 0) ? (a["When"] > b["When"] ? -1 : 1) : x;
         });
     }
 
@@ -354,6 +351,44 @@ function parsePOSTforms(params, req, res, userName) {
                 return;
             }
         }
+        if (params["q"] == "new_user" && params["username"] && params["pass"] && params["mail"]) {
+            var al = "";
+            cacheUsers.forEach(function(user) {
+                if (user["Author"] == params["username"]) al = "User already exists";
+            });
+            console.log(al);
+            if (al != "") {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'text/plain');
+                res.end(al);
+                return;
+            }
+
+            var id = 1;
+            while (1) {
+                var fd;
+                try {
+                    var txt = "Author:" + params["username"] + "\n" +
+                        "Password:" + params["pass"] + "\n" +
+                        "Mail:" + params["mail"] + "\n" +
+                        "When:" + formatDate(Date.now()) + "\n" +
+                        "Level:1\n\n";
+                    fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
+                    fs.appendFileSync(fd, txt, 'utf8');
+                    cacheUsers.push(decodeFileContent(txt, true));
+                    break;
+                } catch (err) {
+                    id++;
+                } finally {
+                    if (fd !== undefined) fs.closeSync(fd);
+                }
+            }
+            console.log(id);
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end(id.toString());
+            return;
+        }
     }
     if (params["login"] && params["user"] && params["password"] && userName == "") {
         console.log("probuje login");
@@ -453,6 +488,19 @@ function addOption(idnamevalue, selected) {
     return "<option value=\"" + idnamevalue + "\"" + (selected ? " selected" : "") + ">" + idnamevalue + "</option>";
 }
 
+function zmienDodajUser(req, res, params, userName, userLevel) {
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
+    }
+}
+
 // for example opowiadania/dodaj
 // for example opowiadania/zmien/1
 function zmienDodajStrona(req, res, params, id, userName, userLevel) {
@@ -522,7 +570,7 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
 }
 
 // for example opowiadania/pokaz/1
-function pokazStrona(req, res, params, id, userName, userLevel) {
+function pokazStrona(req, res, params, id, userName) {
     if (!podstronyType[id[1]]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -603,7 +651,7 @@ function pokazListaMain(req, res, page, params, userName) {
     var text = genericReplace(req, res, getFileContentSync('\\internal\\main.txt'), userName)
         .replace("<!--TITLE-->", "");
 
-    const template0 = getFileContentSync('\\internal\\listentry.txt');
+    const template = getFileContentSync('\\internal\\listentry.txt');
 
     const listGlue = getPageList(page,
         null,
@@ -618,8 +666,7 @@ function pokazListaMain(req, res, page, params, userName) {
     var txt = "";
     if (listGlue[0]) {
         listGlue[0].forEach(function(arr) {
-            if (txt != "") txt += "<hr>";
-            txt += formatListaEntry(template0, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
         });
     }
     text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
@@ -637,8 +684,7 @@ function pokazListaMain(req, res, page, params, userName) {
     txt = "";
     if (list[0]) {
         list[0].forEach(function(arr) {
-            if (txt != "") txt += "<hr>";
-            txt += formatListaEntry(template0, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
         });
     }
     text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
@@ -660,10 +706,10 @@ function pokazListaMain(req, res, page, params, userName) {
 }
 
 function buildURL(tekst, rodzaj, typ, status, page, sorttype) {
-    var txt = "<a href=\"?q=" + rodzaj + "/" + typ + "/" + status;
-    if (page != 0) txt += "/" + page;
-    if (sorttype != "") txt += "&s=" + sorttype;
-    return txt + "\">" + tekst + "</a>";
+    return "<a href=\"?q=" + rodzaj + "/" + typ + "/" + status +
+        (page != 0 ? "/" + page : "") +
+        (sorttype != "" ? "&s=" + sorttype : "") +
+        "\">" + tekst + "</a>";
 }
 
 // rodzaj/typ/status
@@ -708,40 +754,41 @@ function pokazLista(req, res, params, id, userName, userLevel) {
 
     var text = genericReplace(req, res, getFileContentSync('\\internal\\list.txt'), userName)
         .replace("<!--TITLE-->", "")
-        .replace("<!--RODZAJ-->", rodzaj);
+        .replace("<!--RODZAJ-->", rodzaj)
+        .replace("<!--CRITERIA-->", getFileContentSync("\\internal\\criteria.txt"))
+        .replace("<!--PREVLINK-->", (pageNum != 0) ?
+            buildURL("&lt; Prev page", rodzaj, typ, status, (pageNum - 1), sortLevel) : "")
+        .replace("<!--NEXTLINK-->", ((pageNum + 1) * onThePage < list[1]) ?
+            buildURL("Next page &gt;", rodzaj, typ, status, (pageNum + 1), sortLevel) : "");
 
     if (userName != "") {
         text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=\"?q=" + rodzaj + "/dodaj\">Nowy tekst</a></div>");
     }
 
-    template = getFileContentSync("\\internal\\criteria.txt");
-
     var txt = typ ? buildURL("wszystkie", rodzaj, "", status, pageNum, sortLevel) : "<b>wszystkie</b>";
     podstronyType[rodzaj].forEach(function(t) {
-        if (txt != "") txt += " | ";
-        txt += (typ == t) ? "<b>" + t + "</b>" : buildURL(t, rodzaj, t, status, pageNum, sortLevel);
+        txt += (txt != "" ? " | " : "") +
+            (typ == t ? "<b>" + t + "</b>" : buildURL(t, rodzaj, t, status, pageNum, sortLevel));
     });
-    template = template.replace("<!--TYPE-->", txt);
+    text = text.replace("<!--TYPE-->", txt);
 
     txt = status ? buildURL("wszystkie", rodzaj, typ, "", pageNum, sortLevel) : "<b>wszystkie</b>";
     podstronyState[rodzaj].forEach(function(s) {
         if (userName == "" && s == "szkic") return;
-        if (txt != "") txt += " | ";
-        txt += (status == s) ? "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, s, pageNum, sortLevel);
+        txt += (txt != "" ? " | " : "") +
+            (status == s ? "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, s, pageNum, sortLevel));
     });
-    template = template.replace("<!--STATE-->", txt);
+    text = text.replace("<!--STATE-->", txt);
 
     txt = "";
     sortParam.forEach(function(s) {
-        if (txt != "") txt += " | ";
-        txt += ((!sortLevel && s == "ostatni") || (sortLevel == s)) ?
-            "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, status, pageNum, s);
+        txt += (txt != "" ? " | " : "") +
+            ((!sortLevel && s == "ostatni") || (sortLevel == s) ?
+                "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, status, pageNum, s));
     });
-    template = template.replace("<!--SORTBY-->", txt);
+    text = text.replace("<!--SORTBY-->", txt);
 
-    text = text.replace("<!--CRITERIA-->", template);
-
-    const template0 = getFileContentSync('\\internal\\listentry.txt');
+    const template = getFileContentSync('\\internal\\listentry.txt');
 
     const listGlue = getPageList(0,
         podstronyType[rodzaj],
@@ -756,7 +803,7 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     txt = "";
     if (listGlue[0]) {
         listGlue[0].forEach(function(arr) {
-            txt += ((txt != "") ? "<hr>" : "") + formatListaEntry(template0, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
         });
     }
     text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
@@ -764,15 +811,10 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     txt = "";
     if (list[0]) {
         list[0].forEach(function(arr) {
-            txt += ((txt != "") ? "<hr>" : "") + formatListaEntry(template0, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
         });
     }
     text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
-
-    text = text.replace("<!--PREVLINK-->", (pageNum != 0) ?
-            buildURL("&lt; Prev page", rodzaj, typ, status, (pageNum - 1), sortLevel) : "")
-        .replace("<!--NEXTLINK-->", ((pageNum + 1) * onThePage < list[1]) ?
-            buildURL("Next page &gt;", rodzaj, typ, status, (pageNum + 1), sortLevel) : "");
 
     if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
         res.setHeader('Content-Encoding', 'deflate');
@@ -884,6 +926,10 @@ const onRequestHandler = (req, res) => {
             return;
         }
         if (params["q"]) {
+            if (params["q"] == "newuser") {
+                zmienDodajUser(req, res, params, userName, getUserLevelUserName(userName));
+                return;
+            }
             if (userName != "") {
                 // for example opowiadania/zmien/1
                 var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9\-]+)$/);
@@ -944,6 +990,16 @@ fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt'
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     cacheUsers[file.replace(".txt", "")] = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
 })
+
+process.on('exit', function(code) {
+    return console.log("Non unique nicknames");
+});
+var temparr = new Array()
+cacheUsers.forEach(function(user) {
+    if (temparr.includes(user["Author"])) process.exit();
+    temparr.push(user["Author"]);
+});
+temparr = null;
 
 //http.createServer(onRequestHandler).listen
 http2.createSecureServer({

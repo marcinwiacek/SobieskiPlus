@@ -36,6 +36,8 @@
     <div class="menu-option-content menu-option-content-right">
 	<!--LOGIN-LOGOUT-->
         <hr>
+        <a href="?q=newuser">Nowy użytkownik</a>
+        <hr>
         <!--MOBILE-LINK-->
         <!--DARK-LINK-->
     </div>
