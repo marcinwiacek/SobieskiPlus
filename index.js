@@ -126,7 +126,7 @@ function decodeFileContent(txt, allVersions) {
                     }
                     arr["Text"] = "";
                 } else {
-                    var x = line.split(":");
+                    const x = line.split(":");
                     if (x.length >= 2) arr[x[0]] = line.substring(x[0].length + 1, line.length);
                 }
                 break;
@@ -137,7 +137,7 @@ function decodeFileContent(txt, allVersions) {
                 if (line == "") {
                     level = DecodingLevel.CommentText;
                 } else {
-                    var x = line.split(":");
+                    const x = line.split(":");
                     if (x.length >= 2) comment[x[0]] = line.substring(x[0].length + 1, line.length);
                 }
                 break;
@@ -177,9 +177,9 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
     cacheTexts.forEach(function(entry) {
-        if (typeList && !typeList.includes(entry["Type"])) return;
-        if (!stateList.includes(entry["State"])) return;
-        if (entry["State"] == "szkic" && userName != entry["Author"]) return;
+        if ((typeList && !typeList.includes(entry["Type"])) ||
+            !stateList.includes(entry["State"]) ||
+            (entry["State"] == "szkic" && userName != entry["Author"])) return;
         if (entry["SpecialTaxonomy"]) {
             var bad = false;
             if (plus) {
@@ -234,11 +234,12 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
 
 function updateComment(comment, res) {
     console.log("jest callback");
-    var template = getFileContentSync('\\internal\\comment.txt');
-    template = template.replace("<!--USER-->", comment["Author"]);
-    template = template.replace("<!--TITLE-->", comment["Title"]);
-    template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
-    template = template.replace("<!--TEXT-->", comment["Text"]);
+
+    const template = getFileContentSync('\\internal\\comment.txt')
+        .replace("<!--USER-->", comment["Author"])
+        .replace("<!--TITLE-->", comment["Title"])
+        .replace("<!--WHEN-->", formatDate(comment["When"]))
+        .replace("<!--TEXT-->", comment["Text"]);
 
     res.write("event: c\n");
     res.write("data: " + encodeURI(template) + "\n\n");
@@ -278,7 +279,7 @@ function parsePOSTforms(params, req, res, userName) {
                 });
             }
             res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+            res.setHeader('Content-Type', 'text/plain');
             res.end();
             return;
         }
@@ -312,7 +313,7 @@ function parsePOSTforms(params, req, res, userName) {
                     }
                 }
                 res.statusCode = 200;
-                res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+                res.setHeader('Content-Type', 'text/plain');
                 Object.keys(podstronyType).forEach(function(entry) {
                     if (podstronyType[entry].includes(params["type"])) {
                         res.end(entry + "/zmien/" + id.toString());
@@ -348,15 +349,11 @@ function parsePOSTforms(params, req, res, userName) {
                     }
                 });
                 res.statusCode = 200;
-                res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-                res.end();
-            } else {
-                res.statusCode = 404;
                 res.setHeader('Content-Type', 'text/plain');
                 res.end();
+                return;
             }
         }
-        return;
     }
     if (params["login"] && params["user"] && params["password"] && userName == "") {
         console.log("probuje login");
@@ -378,20 +375,15 @@ function parsePOSTforms(params, req, res, userName) {
             });
         });
 
-        if (!found) {
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'text/plain');
-        } else {
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-        }
+        res.statusCode = found ? 200 : 404;
+        res.setHeader('Content-Type', 'text/plain');
         res.end();
         return;
     }
     if (params["logout"] && userName != "") {
         res.setHeader('Set-Cookie', 'login=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
         res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        res.setHeader('Content-Type', 'text/plain');
         logged.forEach(function(cookieInfo, index) {
             if ("login=" + cookieInfo[0] == req.headers['cookie']) {
                 logged.splice(index, 1);
@@ -422,13 +414,6 @@ function genericReplace(req, res, text, userName) {
     res.setHeader("Link", "</external/styles.css>; rel=preload; as=style" +
         (userName == "" ? ", </external/sha256.js>; rel=preload; as=script" : ""));
 
-    const session = crypto.randomBytes(32).toString('base64');
-    nonLogged.push(session);
-
-    text = text.replace("<!--MENU-->", getFileContentSync('\\internal\\menu' +
-        ((getUserLevelUserName(userName) == "0") ? '0' : '12') +
-        '.txt'));
-
     txt = "<link rel=\'stylesheet\' type=\'text/css\' href=\'external/styles.css\'>";
     if (req.headers['cookie']) {
         if (req.headers['cookie'].includes('dark=1')) txt +=
@@ -436,19 +421,24 @@ function genericReplace(req, res, text, userName) {
     } else {
         //txt+= "<link rel=\'stylesheet\' type=\'text/css\' href=\'external/autodark.css\'>";
     }
-    text = text.replace("<!--STYLES-->", txt);
-    text = text.replace("<!--DARK-LINK-->", "<p><a href=\"?set=dark" +
-        ((req.headers['cookie'] && req.headers['cookie'].includes('dark=1')) ? "0\">Wy" : "1\">W") +
-        "łącz ciemny kolor</a>");
 
-    text = text.replace("<!--MOBILE-LINK-->", "<p><a href=\"?set=mobile" +
-        ((req.headers['cookie'] && req.headers['cookie'].includes('mobile=1')) ? "0\">Wy" : "1\">W") +
-        "łącz mobile</a>");
+    text = text.replace("<!--STYLES-->", txt)
+        .replace("<!--MENU-->", getFileContentSync('\\internal\\menu' +
+            ((getUserLevelUserName(userName) == "0") ? '0' : '12') +
+            '.txt'))
+        .replace("<!--DARK-LINK-->", "<p><a href=\"?set=dark" +
+            ((req.headers['cookie'] && req.headers['cookie'].includes('dark=1')) ? "0\">Wy" : "1\">W") +
+            "łącz ciemny kolor</a>")
+        .replace("<!--MOBILE-LINK-->", "<p><a href=\"?set=mobile" +
+            ((req.headers['cookie'] && req.headers['cookie'].includes('mobile=1')) ? "0\">Wy" : "1\">W") +
+            "łącz mobile</a>")
+        .replace("<!--JS-->", getFileContentSync('\\internal\\js.txt'));
 
-    text = text.replace("<!--JS-->", getFileContentSync('\\internal\\js.txt'));
     if (userName == "") {
-        text = text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'));
-        return text.replace("<!--HASH-->", session);
+        const session = crypto.randomBytes(32).toString('base64');
+        nonLogged.push(session);
+        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'))
+            .replace("<!--HASH-->", session);
     } else {
         return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout.txt'));
     }
@@ -482,16 +472,15 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
         }
     }
 
-    var text = getFileContentSync('\\internal\\entryedit.txt');
-    text = genericReplace(req, res, text, userName);
-    text = text.replace("<!--RODZAJ-->", id[1]);
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\entryedit.txt'), userName)
+        .replace("<!--RODZAJ-->", id[1]);
     if (id[2]) {
-        text = text.replace("<!--TEXT-->", arr["Text"]);
-        text = text.replace(/<!--TITLE-->/g, arr["Title"]); //many entries
-        text = text.replace(/<!--PAGEID-->/g, id[2]); //many entries
+        text = text.replace("<!--TEXT-->", arr["Text"])
+            .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
+            .replace(/<!--PAGEID-->/g, id[2]); //many entries
     } else {
-        text = text.replace(/<!--TITLE-->/g, ""); //many entries
-        text = text.replace(/<!--PAGEID-->/g, "0"); //many entries
+        text = text.replace(/<!--TITLE-->/g, "") //many entries
+            .replace(/<!--PAGEID-->/g, "0"); //many entries
     }
 
     txt = "";
@@ -557,22 +546,22 @@ function pokazStrona(req, res, params, id, userName, userLevel) {
         var text = getFileContentSync('\\internal\\entry.txt');
         text = genericReplace(req, res, text, userName);
 
-        text = text.replace(/<!--TITLE-->/g, arr["Title"]);
-        text = text.replace("<!--USER-->", arr["Author"]);
-        text = text.replace("<!--TEXT-->", arr["Text"]);
-        text = text.replace("<!--TYPE-->", arr["Type"]);
-        text = text.replace("<!--WHEN-->", formatDate(arr["When"]));
+        text = text.replace(/<!--TITLE-->/g, arr["Title"])
+            .replace("<!--USER-->", arr["Author"])
+            .replace("<!--TEXT-->", arr["Text"])
+            .replace("<!--TYPE-->", arr["Type"])
+            .replace("<!--WHEN-->", formatDate(arr["When"]))
+            .replace(/<!--PAGEID-->/g, id[2]); //many entries
 
         var lu = arr["When"];
         if (arr["Comments"]) {
             const template0 = getFileContentSync('\\internal\\comment.txt');
             var txt = "";
             arr["Comments"].forEach(function(comment) {
-                var template = template0;
-                template = template.replace("<!--USER-->", comment["Author"]);
-                template = template.replace("<!--TITLE-->", comment["Title"]);
-                template = template.replace("<!--WHEN-->", formatDate(comment["When"]));
-                txt += template.replace("<!--TEXT-->", comment["Text"]);
+                txt += template0.replace("<!--USER-->", comment["Author"])
+                    .replace("<!--TITLE-->", comment["Title"])
+                    .replace("<!--WHEN-->", formatDate(comment["When"]))
+                    .replace("<!--TEXT-->", comment["Text"]);
                 lu = comment["When"];
             });
             text = text.replace("<!--COMMENTS-->", txt);
@@ -580,12 +569,10 @@ function pokazStrona(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--LASTUPDATE-->", formatDate(lu));
 
         if (userName != "") {
-            text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'));
-            text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
-                params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
+            text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
+                .replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
+                    params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
         }
-
-        text = text.replace(/<!--PAGEID-->/g, id[2]); //many entries
 
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
             res.setHeader('Content-Encoding', 'deflate');
@@ -596,13 +583,29 @@ function pokazStrona(req, res, params, id, userName, userLevel) {
     });
 }
 
+function formatListaEntry(template, arr) {
+    Object.keys(podstronyType).forEach(function(entry) {
+        if (podstronyType[entry].includes(arr["Type"])) {
+            template = template.replace("<!--TITLE-->",
+                "<a href=\"?q=" + entry + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
+        }
+    });
+    if (arr["commentsnum"] != "0") {
+        template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
+    }
+    return template.replace("<!--USER-->", arr["Author"])
+        .replace("<!--TYPE-->", arr["Type"])
+        .replace("<!--COMMENTSNUM-->", arr["commentsnum"])
+        .replace("<!--WHEN-->", formatDate(arr["When"]));
+}
+
 function pokazListaMain(req, res, page, params, userName) {
-    var text = getFileContentSync('\\internal\\main.txt');
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\main.txt'), userName)
+        .replace("<!--TITLE-->", "");
 
-    text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(req, res, text, userName);
+    const template0 = getFileContentSync('\\internal\\listentry.txt');
 
-    const list = getPageList(page,
+    const listGlue = getPageList(page,
         null,
         new Array("biblioteka"),
         null,
@@ -612,32 +615,16 @@ function pokazListaMain(req, res, page, params, userName) {
         userName,
         "0");
 
-    const template0 = getFileContentSync('\\internal\\listentry.txt');
-
-    if (list[0]) {
-        var txt = "";
-        list[0].forEach(function(arr) {
-            var template = template0;
-            template = template.replace("<!--USER-->", arr["Author"]);
-            Object.keys(podstronyType).forEach(function(entry) {
-                if (podstronyType[entry].includes(arr["Type"])) {
-                    template = template.replace("<!--TITLE-->",
-                        "<a href=\"?q=" + entry + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
-                }
-            });
-            template = template.replace("<!--TYPE-->", arr["Type"]);
-            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
-            if (arr["commentsnum"] != "0") {
-                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
-            }
-            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+    var txt = "";
+    if (listGlue[0]) {
+        listGlue[0].forEach(function(arr) {
             if (txt != "") txt += "<hr>";
-            txt += template;
+            txt += formatListaEntry(template0, arr);
         });
-        text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
     }
+    text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
 
-    const list2 = getPageList(page,
+    const list = getPageList(page,
         null,
         new Array("biblioteka"),
         null,
@@ -647,40 +634,20 @@ function pokazListaMain(req, res, page, params, userName) {
         userName,
         "0");
 
-    if (list2[0]) {
-        var txt = "";
-        list2[0].forEach(function(arr) {
-            var template = template0;
-            template = template.replace("<!--USER-->", arr["Author"]);
-            Object.keys(podstronyType).forEach(function(entry) {
-                if (podstronyType[entry].includes(arr["Type"])) {
-                    template = template.replace("<!--TITLE-->",
-                        "<a href=\"?q=" + entry + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
-                }
-            });
-            template = template.replace("<!--TYPE-->", arr["Type"]);
-            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
-            if (arr["commentsnum"] != "0") {
-                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
-            }
-            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
+    txt = "";
+    if (list[0]) {
+        list[0].forEach(function(arr) {
             if (txt != "") txt += "<hr>";
-            txt += template;
+            txt += formatListaEntry(template0, arr);
         });
-        text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
     }
+    text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
 
     console.log("page num is " + page);
-    if (page != 0) {
-        text = text.replace("<!--PREVLINK-->",
-            "<a href=\"?q=/" + (page - 1) + "\">&lt; Prev page</a>"
-        );
-    }
-    if ((page + 1) * onThePage < list2[1]) {
-        text = text.replace("<!--NEXTLINK-->",
-            "<a href=\"?q=/" + (page + 1) + "\">Next page &gt;</a>"
-        );
-    }
+    text = text.replace("<!--PREVLINK-->", (page != 0) ?
+            "<a href=\"?q=/" + (page - 1) + "\">&lt; Prev page</a>" : "")
+        .replace("<!--NEXTLINK-->", ((page + 1) * onThePage < list[1]) ?
+            "<a href=\"?q=/" + (page + 1) + "\">Next page &gt;</a>" : "");
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
@@ -718,7 +685,7 @@ function pokazLista(req, res, params, id, userName, userLevel) {
 
     const pageNum = id[4] ? parseInt(id[4].substring(1)) : 0;
 
-    const list2 = getPageList(pageNum,
+    const list = getPageList(pageNum,
         typ ? new Array(typ) : podstronyType[rodzaj],
         status ? new Array(status) : podstronyState[rodzaj],
         null,
@@ -728,7 +695,7 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         userName,
         userLevel);
 
-    if (pageNum * onThePage > list2[1]) {
+    if (pageNum * onThePage > list[1]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
@@ -739,12 +706,45 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     res.setHeader('Cache-Control', 'must-revalidate');
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
 
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\list.txt'), userName)
+        .replace("<!--TITLE-->", "")
+        .replace("<!--RODZAJ-->", rodzaj);
+
+    if (userName != "") {
+        text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=\"?q=" + rodzaj + "/dodaj\">Nowy tekst</a></div>");
+    }
+
+    template = getFileContentSync("\\internal\\criteria.txt");
+
+    var txt = typ ? buildURL("wszystkie", rodzaj, "", status, pageNum, sortLevel) : "<b>wszystkie</b>";
+    podstronyType[rodzaj].forEach(function(t) {
+        if (txt != "") txt += " | ";
+        txt += (typ == t) ? "<b>" + t + "</b>" : buildURL(t, rodzaj, t, status, pageNum, sortLevel);
+    });
+    template = template.replace("<!--TYPE-->", txt);
+
+    txt = status ? buildURL("wszystkie", rodzaj, typ, "", pageNum, sortLevel) : "<b>wszystkie</b>";
+    podstronyState[rodzaj].forEach(function(s) {
+        if (userName == "" && s == "szkic") return;
+        if (txt != "") txt += " | ";
+        txt += (status == s) ? "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, s, pageNum, sortLevel);
+    });
+    template = template.replace("<!--STATE-->", txt);
+
+    txt = "";
+    sortParam.forEach(function(s) {
+        if (txt != "") txt += " | ";
+        txt += ((!sortLevel && s == "ostatni") || (sortLevel == s)) ?
+            "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, status, pageNum, s);
+    });
+    template = template.replace("<!--SORTBY-->", txt);
+
+    text = text.replace("<!--CRITERIA-->", template);
+
     const template0 = getFileContentSync('\\internal\\listentry.txt');
 
-    var text = getFileContentSync('\\internal\\list.txt');
-
-    const list = getPageList(0,
-        typ ? new Array(typ) : podstronyType[rodzaj],
+    const listGlue = getPageList(0,
+        podstronyType[rodzaj],
         new Array("biblioteka"),
         null,
         "przyklejone",
@@ -753,93 +753,26 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         userName,
         userLevel);
 
-    if (list2[0]) {
-        var txt = "";
-        list2[0].forEach(function(arr) {
-            var template = template0;
-            template = template.replace("<!--USER-->", arr["Author"]);
-            template = template.replace("<!--TITLE-->",
-                "<a href=\"?q=" + rodzaj + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
-            template = template.replace("<!--TYPE-->", arr["Type"]);
-            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
-            if (arr["commentsnum"] != "0") {
-                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
-            }
-            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
-            if (txt != "") txt += "<hr>";
-            txt += template;
+    txt = "";
+    if (listGlue[0]) {
+        listGlue[0].forEach(function(arr) {
+            txt += ((txt != "") ? "<hr>" : "") + formatListaEntry(template0, arr);
         });
-        text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
     }
-
-    if (list[0]) {
-        var txt = "";
-        list[0].forEach(function(arr) {
-            var template = template0;
-            template = template.replace("<!--USER-->", arr["Author"]);
-            Object.keys(podstronyType).forEach(function(entry) {
-                if (podstronyType[entry].includes(arr["Type"])) {
-                    template = template.replace("<!--TITLE-->",
-                        "<a href=\"?q=" + entry + "/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
-                }
-            });
-            template = template.replace("<!--TYPE-->", arr["Type"]);
-            template = template.replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
-            if (arr["commentsnum"] != "0") {
-                template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
-            }
-            template = template.replace("<!--WHEN-->", formatDate(arr["When"]));
-            if (txt != "") txt += "<hr>";
-            txt += template;
-        });
-        text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
-    }
-
-    text = text.replace("<!--TITLE-->", "");
-    text = genericReplace(req, res, text, userName);
-    text = text.replace("<!--RODZAJ-->", rodzaj);
-
-    template = getFileContentSync("\\internal\\criteria.txt");
-
-    txt = typ ? buildURL("wszystkie", rodzaj, "", status, pageNum, sortLevel) : "<b>wszystkie</b>";
-    podstronyType[rodzaj].forEach(function(t) {
-        if (txt != "") txt += " | ";
-        txt += (typ == t) ? "<b>" + t + "</b>" : buildURL(t, rodzaj, t, status, pageNum, sortLevel);
-    });
-    template = template.replace("<!--TYPE-->", txt);
-
-    txt = status ? buildURL("wszystkie", rodzaj, typ, "", pageNum, sortLevel) : "<b>wszystkie</b>";
-    podstronyState[rodzaj].forEach(function(t) {
-        if (userName == "" && t == "szkic") return;
-        if (txt != "") txt += " | ";
-        txt += (status == t) ? "<b>" + t + "</b>" : buildURL(t, rodzaj, typ, t, pageNum, sortLevel);
-    });
-    template = template.replace("<!--STATE-->", txt);
+    text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
 
     txt = "";
-    sortParam.forEach(function(sortL) {
-        if (txt != "") txt += " | ";
-        txt += ((!sortLevel && sortL == "ostatni") || (sortLevel == sortL)) ?
-            "<b>" + sortL + "</b>" : buildURL(sortL, rodzaj, typ, status, pageNum, sortL);
-    });
-    template = template.replace("<!--SORTBY-->", txt);
-
-    text = text.replace("<!--CRITERIA-->", template);
-
-    if (pageNum != 0) {
-        text = text.replace("<!--PREVLINK-->",
-            buildURL("&lt; Prev page", rodzaj, typ, status, (pageNum - 1), sortLevel)
-        );
+    if (list[0]) {
+        list[0].forEach(function(arr) {
+            txt += ((txt != "") ? "<hr>" : "") + formatListaEntry(template0, arr);
+        });
     }
-    if ((pageNum + 1) * onThePage < list2[1]) {
-        text = text.replace("<!--NEXTLINK-->",
-            buildURL("Next page &gt;", rodzaj, typ, status, (pageNum + 1), sortLevel)
-        );
-    }
+    text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
 
-    if (userName != "") {
-        text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=\"?q=" + rodzaj + "/dodaj\">Nowy tekst</a></div>");
-    }
+    text = text.replace("<!--PREVLINK-->", (pageNum != 0) ?
+            buildURL("&lt; Prev page", rodzaj, typ, status, (pageNum - 1), sortLevel) : "")
+        .replace("<!--NEXTLINK-->", ((pageNum + 1) * onThePage < list[1]) ?
+            buildURL("Next page &gt;", rodzaj, typ, status, (pageNum + 1), sortLevel) : "");
 
     if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
         res.setHeader('Content-Encoding', 'deflate');
@@ -854,11 +787,7 @@ const onRequestHandler = (req, res) => {
         req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
         req.url == "/external/quill.min.js") {
         res.statusCode = 200;
-        if (req.url.includes('.js')) {
-            res.setHeader('Content-Type', 'text/javascript; charset=UTF-8');
-        } else {
-            res.setHeader('Content-Type', 'text/css; charset=UTF-8');
-        }
+        res.setHeader('Content-Type', 'text/' + (req.url.includes('.js') ? 'javascript' : 'css') + '; charset=UTF-8');
         //        res.setHeader('Cache-Control', 'must-revalidate');
         res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
