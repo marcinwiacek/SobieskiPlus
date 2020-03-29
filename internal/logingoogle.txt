@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<meta name="google-signin-client_id" content="<!--SIGN-IN-TOKEN-->">
+<!--STYLES-->
+</head><body>
+<!--MENU-->
+<div class=content>
+Wymaga założenia konta w serwisie z używanym przez Ciebie adresem email i typem logowania przez Google!<p>
+        <a href="?q=newuser">Nowe konto</a><p>&nbsp;<p>
+
+<div class="g-signin2" data-onsuccess="onSignIn" id=but></div>
+<script>
+function onSignIn(googleUser) {
+  var profile = googleUser.getBasicProfile();
+
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = "glogin=1&id="+googleUser.getAuthResponse().id_token;
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onload = function() {
+    if (http.status != 200) {
+      alert('login error');
+    } else {
+      window.location.href=document.referrer;
+    }
+  };
+  http.onerror = function () {
+    alert('login error');
+  };
+
+  http.send(params);
+  return false;
+
+}
+</script>
+<script src="https://apis.google.com/js/platform.js" async defer></script>
+
+</div>
+
+</div></body></html>

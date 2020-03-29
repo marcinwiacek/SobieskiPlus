@@ -21,6 +21,12 @@ var specialTaxonomy = new Array("przyklejonegłówna", "główna", "przyklejone"
 
 // internals
 
+const enableGoogleWithToken = true;
+
+//if (enableGoogleWithToken) {
+const GoogleSignInToken = "YOUR_CLIENT_ID.apps.googleusercontent.com";
+//}
+
 const sortParam = new Array("ostatni", "ileKomentarzy", "autor", "ostatniKomentarz");
 
 var cacheID = 1; //ID for new files - cache
@@ -35,9 +41,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 //const http = require('http');
 const http2 = require('http2');
+const https = require('https');
 const path = require('path');
 const url = require('url');
 const zlib = require('zlib');
+//const OAuth2Client = require(path.normalize(process.argv[0].replace("node.exe","")+'\\node_modules\\google-auth-library'));
 
 function getUserLevelUserName(userName) {
     if (userName == "") return "0";
@@ -242,7 +250,8 @@ function updateComment(comment, res) {
     res.write("data: " + encodeURI(template) + "\n\n");
 }
 
-function parsePOSTforms(params, req, res, userName) {
+
+async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
     if (params["q"]) {
         if (params["q"] == "upload_comment" && params["tekst"] && params["comment"]) {
@@ -398,15 +407,59 @@ function parsePOSTforms(params, req, res, userName) {
             var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
             nonLogged.forEach(function(session) {
                 if (found) return;
-                usr = crypto.createHash('sha256').update(session + arr["Author"]).digest("hex");
-                if (usr != params["user"]) return;
-                pass = crypto.createHash('sha256').update(session + arr["Password"]).digest("hex");
-                if (pass != params["password"]) return;
-                const salt = crypto.randomBytes(32).toString('base64');
-                logged.push(new Array(salt, arr["Author"], file));
-                console.log("jest login");
-                res.setHeader('Set-Cookie', 'login=' + salt);
-                found = true;
+                if (!arr["Type"] || arr["Type"] == "wlasny") {
+                    usr = crypto.createHash('sha256').update(session + arr["Author"]).digest("hex");
+                    if (usr != params["user"]) return;
+                    pass = crypto.createHash('sha256').update(session + arr["Password"]).digest("hex");
+                    if (pass != params["password"]) return;
+                    const salt = crypto.randomBytes(32).toString('base64');
+                    logged.push(new Array(salt, arr["Author"], file));
+                    console.log("jest login");
+                    res.setHeader('Set-Cookie', 'login=' + salt);
+                    found = true;
+                }
+            });
+        });
+
+        res.statusCode = found ? 200 : 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    if (enableGoogleWithToken && params["glogin"] && params["id"] && userName == "") {
+        // this is not preffered version according to Google, but good enough for this milestone
+        const premise = new Promise((resolve, reject) => {
+            https.get('https://oauth2.googleapis.com/tokeninfo?id_token=' + params["id"], (resp) => {
+                var data = '';
+                resp.on('data', (chunk) => data += chunk);
+                resp.on('end', () => resolve(data));
+            }).on('error', e => reject(e))
+        });
+        const txt = await premise;
+        console.log(txt);
+        const json = JSON.parse(txt);
+
+        if (json.azp != GoogleSignInToken || json.aud != GoogleSignInToken) {
+            console.log("bylo zle");
+            res.statusCode = 404;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end();
+            return;
+        }
+        console.log("probuje login2");
+        var found = false;
+        fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+            if (found) return;
+            var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+            nonLogged.forEach(function(session) {
+                if (found) return;
+                if (arr["Type"] == "google" && json.email == arr["Mail"]) {
+                    const salt = crypto.randomBytes(32).toString('base64');
+                    logged.push(new Array(salt, arr["Author"], file, params["id"]));
+                    console.log("jest login2");
+                    res.setHeader('Set-Cookie', 'login=' + salt);
+                    found = true;
+                }
             });
         });
 
@@ -490,6 +543,20 @@ function addOption(idnamevalue, selected) {
 
 function zmienDodajUser(req, res, params, userName, userLevel) {
     var text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
+    }
+}
+
+function zmienDodajUserGoogle(req, res, params, userName, userLevel) {
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\logingoogle.txt'), userName)
+        .replace("<!--SIGN-IN-TOKEN-->", GoogleSignInToken);
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
@@ -827,11 +894,12 @@ function pokazLista(req, res, params, id, userName, userLevel) {
 const onRequestHandler = (req, res) => {
     if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css" ||
         req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
-        req.url == "/external/quill.min.js") {
+        req.url == "/external/quill.min.js" || req.url == "//googlelogin.txt") {
         res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/' + (req.url.includes('.js') ? 'javascript' : 'css') + '; charset=UTF-8');
+        res.setHeader('Content-Type', 'text/' +
+            (req.url.includes('.js') ? 'javascript' : (req.url.includes('.txt') ? 'html' : 'css')) + '; charset=UTF-8');
         //        res.setHeader('Cache-Control', 'must-revalidate');
-        res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
+        //        res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
             res.setHeader('Content-Encoding', 'gzip');
             res.end(getFileContentSync(req.url + "_gzip"));
@@ -930,6 +998,10 @@ const onRequestHandler = (req, res) => {
                 zmienDodajUser(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
+            if (params["q"] == "logingoogle") {
+                zmienDodajUserGoogle(req, res, params, userName, getUserLevelUserName(userName));
+                return;
+            }
             if (userName != "") {
                 // for example opowiadania/zmien/1
                 var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9\-]+)$/);
@@ -983,6 +1055,10 @@ const onRequestHandler = (req, res) => {
     }
 };
 
+process.on('exit', function(code) {
+    return console.log("Non unique nicknames");
+});
+
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToCache(file.replace(".txt", ""));
 })
@@ -991,9 +1067,6 @@ fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '
     cacheUsers[file.replace(".txt", "")] = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
 })
 
-process.on('exit', function(code) {
-    return console.log("Non unique nicknames");
-});
 var temparr = new Array()
 cacheUsers.forEach(function(user) {
     if (temparr.includes(user["Author"])) process.exit();

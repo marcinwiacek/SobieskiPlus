@@ -9,15 +9,47 @@
 
 <table>
 <form id=textedit name=textedit method=post>
-  <tr><td>Username:</td><td><input name="username" id=username type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
-  <tr><td>Mail:</td><td><input name="mail" id=mail type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
-  <tr><td>Password:</td><td><input name="pass" id=pass type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
-  <tr><td>Repeat password:</td><td><input name="pass2" id=pass2 type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+  <tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+  <tr><td>Unikalny mail w serwisie:</td><td><input name="mail" id=mail type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+
+<tr><td colspan=2>
+<input type="radio" name="typ" id="typ" value="wlasne" onClick="setWlasne()"><label for=typ>Konto z własnym hasłem (wymaga weryfikacji email)</label><p>
+<input type="radio" name="typ" id="typ" value="google" onClick="setGoogle()"><label for=typ>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; email nie jest weryfikowany)</label>
+</td></tr>
+
+<tr><td colspan=2>
+<div id=wlasne>
+  Password:<input name="pass" id=pass type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50><br>
+  Repeat password:<input name="pass2" id=pass2 type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50>
+</div>
+<div id=google>
+</div>
+</td></tr>
   <tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
 </form>
 </table>
 
 <script async=async>
+
+function load(){
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname+'/googlelogin.txt';
+  http.open("GET", url , false);
+  http.send();
+alert(http.responseText);
+  return http.responseText;
+}
+
+function setWlasne() {
+document.getElementById('wlasne').style.display="block";
+document.getElementById('google').style.display="none";
+}
+
+function setGoogle() {
+document.getElementById('google').style.display="block";
+document.getElementById('wlasne').style.display="none";
+}
+
 
 function sprawdz() {
   if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
