@@ -1,3 +1,8 @@
+# Artykuły
+* Milestone 1 (22.3.2020)
+** http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
+** https://www.fantastyka.pl/hydepark/pokaz/24257
+
 # Tworzenie wielu plików z danymi z istniejących:
 
 ```

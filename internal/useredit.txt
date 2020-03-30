@@ -9,53 +9,42 @@
 
 <table>
 <form id=textedit name=textedit method=post>
-  <tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
-  <tr><td>Unikalny mail w serwisie:</td><td><input name="mail" id=mail type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
 
 <tr><td colspan=2>
-<input type="radio" name="typ" id="typ" value="wlasne" onClick="setWlasne()"><label for=typ>Konto z własnym hasłem (wymaga weryfikacji email)</label><p>
-<input type="radio" name="typ" id="typ" value="google" onClick="setGoogle()"><label for=typ>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; email nie jest weryfikowany)</label>
+<input type="radio" checked name="typ" id="typ" value="wlasne" onClick="setWlasne()"><label for=typ>Konto z własnym hasłem (wymaga weryfikacji email)</label><p>
+<input type="radio" name="typ" id="typ" value="google" onClick="setGoogle()"><label for=typ>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; weryfikacja maila przez Google)</label>
 </td></tr>
 
-<tr><td colspan=2>
-<div id=wlasne>
-  Password:<input name="pass" id=pass type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50><br>
-  Repeat password:<input name="pass2" id=pass2 type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50>
-</div>
-<div id=google>
-</div>
-</td></tr>
-  <tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
+<tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+<tr><td>Unikalny mail w serwisie:</td><td><input name="mail" id=mail type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+
+<tr id=wlasne><td >Password:</td><td><input name="pass" id=pass type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50><br></td></tr>
+<tr id=wlasne2><td>Repeat password:</td><td><input name="pass2" id=pass2 type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+
+<tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
 </form>
 </table>
 
 <script async=async>
 
-function load(){
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname+'/googlelogin.txt';
-  http.open("GET", url , false);
-  http.send();
-alert(http.responseText);
-  return http.responseText;
+function getRadio() {
+  var r = "";
+  var e = document.getElementsByTagName('input');               
+  for(i = 0; i < e.length; i++) {                   
+    if(e[i].type=="radio" && e[i].checked) {
+	r = e[i].value;
+	break;
+    } 
+  }
+  return r;
 }
-
-function setWlasne() {
-document.getElementById('wlasne').style.display="block";
-document.getElementById('google').style.display="none";
-}
-
-function setGoogle() {
-document.getElementById('google').style.display="block";
-document.getElementById('wlasne').style.display="none";
-}
-
 
 function sprawdz() {
   if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
-document.getElementById("textedit").elements.namedItem("mail").value=="" ||
-document.getElementById("textedit").elements.namedItem("pass").value=="" ||
-document.getElementById("textedit").elements.namedItem("pass2").value=="") {
+     document.getElementById("textedit").elements.namedItem("mail").value=="" ||
+     (getRadio() == "wlasne" && (
+      document.getElementById("textedit").elements.namedItem("pass").value=="" ||
+      document.getElementById("textedit").elements.namedItem("pass2").value==""))) {
     document.getElementById('sub').disabled=true;
   } else {
     document.getElementById('sub').disabled=false;
@@ -67,19 +56,39 @@ document.getElementById("mail").addEventListener("input", sprawdz);
 document.getElementById("pass").addEventListener("input", sprawdz);
 document.getElementById("pass2").addEventListener("input", sprawdz);
 
+function setWlasne() {
+  document.getElementById('wlasne').style.visibility="visible";
+  document.getElementById('wlasne2').style.visibility="visible";
+  sprawdz();
+}
+
+function setGoogle() {
+  document.getElementById('wlasne').style.visibility="collapse";
+  document.getElementById('wlasne2').style.visibility="collapse";
+  sprawdz();
+}
+
 document.textedit.onsubmit = function() {
-  var pass = document.getElementById("textedit").elements.namedItem("pass").value; 
-  var pass2 = document.getElementById("textedit").elements.namedItem("pass2").value; 
-  if (pass != pass2) {
-	alert('Hasła muszą się zgadzać');
-	return false;
+  if (getRadio() == "wlasne") {
+    var pass = document.getElementById("textedit").elements.namedItem("pass").value; 
+    var pass2 = document.getElementById("textedit").elements.namedItem("pass2").value; 
+    if (pass != pass2) {
+      alert('Hasła muszą się zgadzać');
+      return false;
+    }
   }
   var username = document.getElementById("textedit").elements.namedItem("username").value; 
   var mail = document.getElementById("textedit").elements.namedItem("mail").value; 
 
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=new_user&username='+username+'&pass='+pass+'&mail='+mail;
+  var params = 'q=new_user&username='+username+'&mail='+mail;
+  if (getRadio()=="wlasne") {
+     params += '&typ=w&pass='+pass;
+  } else {
+     params += '&typ=g';
+  }
+
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   http.onload = function() {

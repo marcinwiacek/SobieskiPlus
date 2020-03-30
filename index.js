@@ -360,7 +360,13 @@ async function parsePOSTforms(params, req, res, userName) {
                 return;
             }
         }
-        if (params["q"] == "new_user" && params["username"] && params["pass"] && params["mail"]) {
+        if (params["q"] == "new_user" && params["username"] && params["typ"] && params["mail"]) {
+            if ((params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'text/plain');
+                res.end();
+                return;
+            }
             var al = "";
             cacheUsers.forEach(function(user) {
                 if (user["Author"] == params["username"]) al = "User already exists";
@@ -378,9 +384,10 @@ async function parsePOSTforms(params, req, res, userName) {
                 var fd;
                 try {
                     var txt = "Author:" + params["username"] + "\n" +
-                        "Password:" + params["pass"] + "\n" +
+                        (params["typ"] == "w" ? "Password:" + params["pass"] + "\n" : "") +
                         "Mail:" + params["mail"] + "\n" +
                         "When:" + formatDate(Date.now()) + "\n" +
+                        (params["typ"] == "g" ? "Type:google\n" : "") +
                         "Level:1\n\n";
                     fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
                     fs.appendFileSync(fd, txt, 'utf8');
@@ -528,7 +535,14 @@ function genericReplace(req, res, text, userName) {
         return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'))
             .replace("<!--HASH-->", session);
     } else {
-        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout.txt'));
+        var found = false;
+        cacheUsers.forEach(function(user) {
+            if (userName == user["Author"] && user["Type"] == "google") {
+                found = true;
+            }
+        });
+        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' + (found ? "google" : "") + '.txt')
+            .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
     }
 }
 
