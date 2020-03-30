@@ -61,32 +61,57 @@ var quill = new Quill('#editor-container', {
   theme: 'snow'
 });
 
+  var type0 = document.getElementById("textedit").elements.namedItem("type").value; 
+  var state0 = document.getElementById("textedit").elements.namedItem("state").value; 
+  var title0 = document.getElementById("textedit").elements.namedItem("title").value; 
+  var taxonomy0 = getListValues("taxonomy");
+  if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
+    var specialtaxonomy0 = getListValues("specialtaxonomy"); 
+  } else {
+    var specialtaxonomy0 = "";
+  }
+  var text0 = quill.root.innerHTML;
+
+  document.getElementById('sub').disabled=true;
+  document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
+
+
 var updated = false;
 function sprawdz() {
   updated = true;
   if (quill.getText().trim().length==0 || document.getElementById("textedit").elements.namedItem("title").value=="") {
     document.getElementById('sub').disabled=true;
   } else {
+    if (type0 != document.getElementById("textedit").elements.namedItem("type").value ||
+      state0 != document.getElementById("textedit").elements.namedItem("state").value ||
+      title0 != document.getElementById("textedit").elements.namedItem("title").value ||
+      taxonomy0 != getListValues("taxonomy") ||
+      (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null &&
+           specialtaxonomy0 != getListValues("specialtaxonomy")) ||
+      text0 != quill.root.innerHTML) {
     document.getElementById('sub').disabled=false;
+  } else {
+    document.getElementById('sub').disabled=true;
+  }
+
   }
   document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
 }
 
-document.getElementById('sub').disabled=true;
-document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
 quill.on('text-change', function(delta, oldDelta, source) {
   sprawdz();
 });
-document.getElementById("title").addEventListener("input", sprawdz);
-document.getElementById("state").addEventListener("change", sprawdz);
-document.getElementById("type").addEventListener("change", sprawdz);
-document.getElementById("taxonomy").addEventListener("change", sprawdz);
-if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
-  document.getElementById("specialtaxonomy").addEventListener("change", sprawdz);
+var e = document.getElementsByTagName("input");
+for (var i=0;i<e.length;i++) {
+  e[i].addEventListener("click", sprawdz);
+}
+var e = document.getElementsByTagName("option");
+for (var i=0;i<e.length;i++) {
+  e[i].addEventListener("click", sprawdz);
 }
 
 window.onbeforeunload = function(){
-  if (updated) return 'Tekst jest niezapisany. Czy na pewno chcesz opuścić edytor?';
+  if (document.getElementById('sub').disabled==false) return 'Tekst jest niezapisany. Czy na pewno chcesz opuścić edytor?';
 };
 
 function getListValues(name) {
@@ -109,14 +134,19 @@ document.textedit.onsubmit = function() {
   var taxonomy = getListValues("taxonomy");
   if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
     var specialtaxonomy = getListValues("specialtaxonomy"); 
+  } else {
+    var specialtaxonomy ="";
   }
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=upload_text&tekst=<!--PAGEID-->&state='+state+'&title='+title+'&type='+type+'&taxonomy='+taxonomy+'&text='+decodeURIComponent(quill.root.innerHTML);
-  if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
-    params +='&specialtaxonomy='+specialtaxonomy;
-  }
+  var params = 'q=upload_text&tekst=<!--PAGEID-->';
+  if (<!--PAGEID-->==0 || state!=state0) params+='&state='+state;
+  if (title!=title0) params+='&title='+title;
+  if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;
+  if (taxonomy!=taxonomy0) params+='&taxonomy='+taxonomy;
+  if (quill.root.innerHTML!=text0) params+='&text='+decodeURIComponent(quill.root.innerHTML);
+  if (specialtaxonomy!=specialtaxonomy0) params+='&specialtaxonomy='+specialtaxonomy;
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   http.onprogress = function(e) {
@@ -136,6 +166,7 @@ document.textedit.onsubmit = function() {
     } else {
       progressBar.value = progressBar.max;
       document.getElementById("progressinfo").style.display="none";
+      document.getElementById('sub').disabled=true;
     }
   };
   http.onerror = function () {

@@ -27,8 +27,6 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' \
 * https://developers.google.com/identity/sign-in/web/backend-auth
 
 # Znane rzeczy z node.JS:
-* zapisuje zawsze całość (a nie tylko zmienione elementy) -> częściowo done
-* save powinno byc enabled po każdej zmianie i strona nie powinna pytac o opuszczanie po save
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * https://www.cssscript.com/minimal-wysiwyg-editor-pure-javascript-suneditor/
 ** Quill - linki przy pisaniu żeby zamieniał (czy trzeba zamienić edytor?)
