@@ -95,7 +95,7 @@ function getListValues(name) {
         opt = document.getElementById(name).options[i];
         if (opt.selected) result += opt.value+",";
   }
-  return result;
+  return result.slice(0, -1);
 }
 
 document.textedit.onsubmit = function() {

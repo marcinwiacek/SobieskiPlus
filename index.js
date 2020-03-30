@@ -11,7 +11,7 @@ podstronyType["publicystyka"] = new Array("artykuł", "felieton", "poradnik");
 podstronyType["książki"] = new Array("książka", "recenzja");
 podstronyType["hydepark"] = new Array("inne");
 var podstronyState = new Array();
-podstronyState["opowiadania"] = new Array("szkic", "beta", "poczekalnia", "biblioteka");
+podstronyState["opowiadania"] = new Array("szkic", "biblioteka", "poczekalnia", "beta");
 podstronyState["publicystyka"] = new Array("szkic", "poczekalnia", "biblioteka");
 podstronyState["książki"] = new Array("szkic", "poczekalnia", "biblioteka");
 podstronyState["hydepark"] = new Array("szkic", "biblioteka");
@@ -60,8 +60,9 @@ function readFileContentSync(fileName, callback) {
     //FIXME: checking if path is going out
     if (callback) {
         fs.readFile(path.normalize(__dirname + fileName), 'utf8', (err, data) => {
-            if (err) throw err;
-            if (data.charCodeAt(0) == 65279) {
+            if (err) {
+                callback("");
+            } else if (data.charCodeAt(0) == 65279) {
                 callback(data.substring(1));
             } else {
                 callback(data);
@@ -178,7 +179,7 @@ var months = new Array("Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "
 function formatDate(date) {
     const d = new Date(date);
     return ret = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' +
-        (d.getHours()) + ':' + (d.getMinutes() + 1) + ':' + d.getSeconds();
+        d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds();
 }
 
 function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, userLevel) {
@@ -254,21 +255,21 @@ function updateComment(comment, res) {
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
     if (params["q"]) {
-        if (params["q"] == "upload_comment" && params["tekst"] && params["comment"]) {
+        if (params["q"] == "upload_comment" && params["tekst"] && params["comment"] && params["title"]) {
             //checking for login
             //checking for correct filename protection
             if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
                 const t = Date.now();
                 fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                     "\n<!--comment-->\n" +
-                    "Title:ala\n" +
+                    "Title:" + params["title"] + "\n" +
                     "When:" + formatDate(t) + "\n" +
                     "Author:" + userName + "\n\n" +
                     params["comment"]
                 );
 
                 comment = new Array();
-                comment["Title"] = "ala";
+                comment["Title"] = params["title"];
                 comment["Author"] = userName;
                 comment["When"] = t;
                 comment["Text"] = params["comment"];
@@ -289,16 +290,22 @@ async function parsePOSTforms(params, req, res, userName) {
             res.end();
             return;
         }
-        if (params["q"] == "upload_text" && params["tekst"] && params["text"] && params["state"] &&
-            params["type"] && params["title"] && params["taxonomy"] !== 'undefined' && params["specialtaxonomy"] !== 'undefined') {
+        if (params["q"] == "upload_text" && params["tekst"]) {
             if (params["tekst"] == "0") {
+                if (!params["text"] || !params["state"] ||
+                    !params["type"] || !params["title"]) {
+                    res.statusCode = 404;
+                    res.setHeader('Content-Type', 'text/plain');
+                    res.end();
+                    return;
+                }
                 var id = cacheID;
                 while (1) {
                     var fd;
                     try {
                         txt = "";
-                        if (params["taxonomy"] !== 'undefined') txt += "Taxonomy:" + params["taxonomy"] + "\n";
-                        if (params["specialtaxonomy"] !== 'undefined') txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+                        if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
+                        if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
 
                         fd = fs.openSync(__dirname + "\\teksty\\" + id + ".txt", 'wx');
                         fs.appendFileSync(fd,
@@ -327,29 +334,37 @@ async function parsePOSTforms(params, req, res, userName) {
                 });
                 return;
             }
+            if (!params["text"] && !params["state"] && !params["type"] &&
+                !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"]) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'text/plain');
+                res.end();
+                return;
+            }
             if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
                 const t = Date.now();
                 txt = "";
-                if (params["taxonomy"] !== 'undefined') txt += "Taxonomy:" + params["taxonomy"] + "\n";
-                if (params["specialtaxonomy"] !== 'undefined') txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+                if (params["title"]) txt += "Title:" + params["title"] + "\n";
+                if (params["state"]) txt += "State:" + params["state"] + "\n";
+                if (params["type"]) txt += "Type:" + params["type"] + "\n";
+                if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
+                if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+                if (params["text"]) txt += "\n" + params["text"];
                 fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                     "\n<!--change-->\n" +
-                    "Title:" + params["title"] + "\n" +
-                    "State:" + params["state"] + "\n" +
-                    "Type:" + params["type"] + "\n" +
-                    txt +
                     "When:" + formatDate(t) + "\n" +
-                    "Author:" + userName + "\n\n" +
-                    params["text"]
+                    "Author:" + userName + "\n" +
+                    txt
                 );
                 //update cache
                 cacheTexts.forEach(function(entry) {
                     if (params["tekst"] == entry["filename"]) {
-                        entry["Title"] = params["title"];
-                        entry["State"] = params["state"];
-                        entry["Type"] = params["type"];
-                        if (params["taxonomy"] !== 'undefined') entry["Taxonomy"] = params["taxonomy"];
-                        if (params["specialtaxonomy"] !== 'undefined') entry["SpecialTaxonomy"] = params["specialtaxonomy"];
+                        if (params["title"]) entry["Title"] = params["title"];
+                        if (params["state"]) entry["State"] = params["state"];
+                        if (params["type"]) entry["Type"] = params["type"];
+                        if (params["taxonomy"]) entry["Taxonomy"] = params["taxonomy"];
+                        if (params["specialtaxonomy"]) entry["SpecialTaxonomy"] = params["specialtaxonomy"];
+                        if (params["text"]) entry["Text"] = params["text"];
                         entry["When"] = t;
                         entry["Author"] = userName;
                     }
@@ -628,14 +643,14 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
 
     txt = "<select id=\"taxonomy\" name=\"taxonomy\" size=5 multiple>";
     taxonomy.forEach(function(tax) {
-        txt += addOption(tax, (id[2] && arr["Taxonomy"].split(",").includes(tax)));
+        txt += addOption(tax, (id[2] && arr["Taxonomy"] && arr["Taxonomy"].split(",").includes(tax)));
     });
     text = text.replace("<!--TAXONOMY-->", txt + "</select><p>");
 
     if (userLevel == "2") {
         txt = "<select id=\"specialtaxonomy\" name=\"specialtaxonomy\" size=5 multiple>";
         specialTaxonomy.forEach(function(tax) {
-            txt += addOption(tax, (id[2] && arr["SpecialTaxonomy"].split(",").includes(tax)));
+            txt += addOption(tax, (id[2] && arr["SpecialTaxonomy"] && arr["SpecialTaxonomy"].split(",").includes(tax)));
         });
         text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
     }
@@ -679,8 +694,7 @@ function pokazStrona(req, res, params, id, userName) {
             .replace("<!--USER-->", arr["Author"])
             .replace("<!--TEXT-->", arr["Text"])
             .replace("<!--TYPE-->", arr["Type"])
-            .replace("<!--WHEN-->", formatDate(arr["When"]))
-            .replace(/<!--PAGEID-->/g, id[2]); //many entries
+            .replace("<!--WHEN-->", formatDate(arr["When"]));
 
         var lu = arr["When"];
         if (arr["Comments"]) {
@@ -699,6 +713,7 @@ function pokazStrona(req, res, params, id, userName) {
 
         if (userName != "") {
             text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
+                .replace(/<!--PAGEID-->/g, id[2]) //many entries
                 .replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
                     params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
         }

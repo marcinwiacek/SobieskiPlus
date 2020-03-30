@@ -1,7 +1,7 @@
 # Artykuły
 * Milestone 1 (22.3.2020)
-** http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
-** https://www.fantastyka.pl/hydepark/pokaz/24257
+* http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
+* https://www.fantastyka.pl/hydepark/pokaz/24257
 
 # Tworzenie wielu plików z danymi z istniejących:
 
@@ -27,8 +27,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' \
 * https://developers.google.com/identity/sign-in/web/backend-auth
 
 # Znane rzeczy z node.JS:
-* specialtaxonomy undefined
-* zapisuje zawsze całość (a nie tylko zmienione elementy)
+* zapisuje zawsze całość (a nie tylko zmienione elementy) -> częściowo done
 * save powinno byc enabled po każdej zmianie i strona nie powinna pytac o opuszczanie po save
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * https://www.cssscript.com/minimal-wysiwyg-editor-pure-javascript-suneditor/
