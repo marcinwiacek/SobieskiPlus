@@ -161,12 +161,12 @@ document.textedit.onsubmit = function() {
     progressBar.value = 0;
   };
   http.onload = function() {
+    document.getElementById('sub').disabled=true;
     if (<!--PAGEID--> == 0) {
       window.location.href='?q='+http.response;
     } else {
       progressBar.value = progressBar.max;
       document.getElementById("progressinfo").style.display="none";
-      document.getElementById('sub').disabled=true;
     }
   };
   http.onerror = function () {

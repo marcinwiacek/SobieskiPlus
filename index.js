@@ -179,17 +179,33 @@ var months = new Array("Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "
 function formatDate(date) {
     const d = new Date(date);
     return ret = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' +
-        d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds();
+        (d.getHours() < 10 ? "0" : "") + d.getHours() + ':' +
+        (d.getMinutes() < 10 ? "0" : "") + d.getMinutes() + ':' +
+        (d.getSeconds() < 10 ? "0" : "") + d.getSeconds();
 }
 
 function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, userLevel) {
     var result = new Array();
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
+    const tax = taxonomy ? taxonomy.split(",") : null;
     cacheTexts.forEach(function(entry) {
         if ((typeList && !typeList.includes(entry["Type"])) ||
             !stateList.includes(entry["State"]) ||
             (entry["State"] == "szkic" && userName != entry["Author"])) return;
+
+        if (entry["Taxonomy"]) {
+            if (tax) {
+                var bad = false;
+                tax.forEach(function(special) {
+                    if (!entry["Taxonomy"].split(",").includes(special)) bad = true;
+                });
+                if (bad) return;
+            }
+        } else {
+            if (tax) return;
+        }
+
         if (entry["SpecialTaxonomy"]) {
             var bad = false;
             if (plus) {
@@ -801,10 +817,11 @@ function pokazListaMain(req, res, page, params, userName) {
     }
 }
 
-function buildURL(tekst, rodzaj, typ, status, page, sorttype) {
+function buildURL(tekst, rodzaj, typ, status, page, sorttype, tax) {
     return "<a href=\"?q=" + rodzaj + "/" + typ + "/" + status +
         (page != 0 ? "/" + page : "") +
         (sorttype != "" ? "&s=" + sorttype : "") +
+        (tax != "" ? "&t=" + tax : "") +
         "\">" + tekst + "</a>";
 }
 
@@ -814,6 +831,7 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     const typ = id[2] ? id[2] : "";
     const status = id[3] ? id[3] : "";
     const sortLevel = params["s"] ? params["s"] : "";
+    const tax = params["t"] ? params["t"] : "";
 
     if (!podstronyState[rodzaj] ||
         (typ && !podstronyType[rodzaj].includes(typ)) ||
@@ -830,7 +848,7 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     const list = getPageList(pageNum,
         typ ? new Array(typ) : podstronyType[rodzaj],
         status ? new Array(status) : podstronyState[rodzaj],
-        null,
+        tax,
         null,
         "przyklejone",
         sortLevel == "" ? "ostatni" : sortLevel,
@@ -853,26 +871,26 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         .replace("<!--RODZAJ-->", rodzaj)
         .replace("<!--CRITERIA-->", getFileContentSync("\\internal\\criteria.txt"))
         .replace("<!--PREVLINK-->", (pageNum != 0) ?
-            buildURL("&lt; Prev page", rodzaj, typ, status, (pageNum - 1), sortLevel) : "")
+            buildURL("&lt; Prev page", rodzaj, typ, status, (pageNum - 1), sortLevel, tax) : "")
         .replace("<!--NEXTLINK-->", ((pageNum + 1) * onThePage < list[1]) ?
-            buildURL("Next page &gt;", rodzaj, typ, status, (pageNum + 1), sortLevel) : "");
+            buildURL("Next page &gt;", rodzaj, typ, status, (pageNum + 1), sortLevel, tax) : "");
 
     if (userName != "") {
         text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=\"?q=" + rodzaj + "/dodaj\">Nowy tekst</a></div>");
     }
 
-    var txt = typ ? buildURL("wszystkie", rodzaj, "", status, pageNum, sortLevel) : "<b>wszystkie</b>";
+    var txt = typ ? buildURL("wszystkie", rodzaj, "", status, pageNum, sortLevel, tax) : "<b>wszystkie</b>";
     podstronyType[rodzaj].forEach(function(t) {
         txt += (txt != "" ? " | " : "") +
-            (typ == t ? "<b>" + t + "</b>" : buildURL(t, rodzaj, t, status, pageNum, sortLevel));
+            (typ == t ? "<b>" + t + "</b>" : buildURL(t, rodzaj, t, status, pageNum, sortLevel, tax));
     });
     text = text.replace("<!--TYPE-->", txt);
 
-    txt = status ? buildURL("wszystkie", rodzaj, typ, "", pageNum, sortLevel) : "<b>wszystkie</b>";
+    txt = status ? buildURL("wszystkie", rodzaj, typ, "", pageNum, sortLevel, tax) : "<b>wszystkie</b>";
     podstronyState[rodzaj].forEach(function(s) {
         if (userName == "" && s == "szkic") return;
         txt += (txt != "" ? " | " : "") +
-            (status == s ? "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, s, pageNum, sortLevel));
+            (status == s ? "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, s, pageNum, sortLevel, tax));
     });
     text = text.replace("<!--STATE-->", txt);
 
@@ -880,9 +898,16 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     sortParam.forEach(function(s) {
         txt += (txt != "" ? " | " : "") +
             ((!sortLevel && s == "ostatni") || (sortLevel == s) ?
-                "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, status, pageNum, s));
+                "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, status, pageNum, s, tax));
     });
     text = text.replace("<!--SORTBY-->", txt);
+
+    txt = "";
+    taxonomy.forEach(function(t) {
+        txt += (txt != "" ? " | " : "") +
+            (tax == t ? "<b>" + t + "</b>" : buildURL(t, rodzaj, typ, status, pageNum, sortLevel, t));
+    });
+    text = text.replace("<!--TAXONOMY-->", txt);
 
     const template = getFileContentSync('\\internal\\listentry.txt');
 

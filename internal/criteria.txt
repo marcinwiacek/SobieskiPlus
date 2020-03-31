@@ -1,7 +1,7 @@
 <table>
 <tr><td align=right>Rodzaj:</td><td><!--TYPE--></td></tr>
 <tr><td align=right>Status:</td><td><!--STATE--></td></tr>
-<tr><td align=right>Taxonomy:<p></td><td></td></tr>
+<tr><td align=right>Taxonomy:</td><td><!--TAXONOMY--></td></tr>
 
-<tr><td align=right>Sortowanie:</td><td><!--SORTBY--></td></tr>
+<tr><td align=right><p>Sortowanie:</td><td><p><!--SORTBY--></td></tr>
 </table>
