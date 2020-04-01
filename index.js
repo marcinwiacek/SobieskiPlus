@@ -1,33 +1,32 @@
 //formatted with js-beautify
 
-const hostname = '127.0.0.1';
-const port = 3000;
-const onThePage = 5;
+const crypto = require('crypto');
+const fs = require('fs');
+//const http = require('http');
+const http2 = require('http2');
+const https = require('https');
+const path = require('path');
+const url = require('url');
+const zlib = require('zlib');
+const vm = require('vm')
 
-//NOTE: adding Polish chars needs changing regular expressions
-var podstronyType = new Array();
-podstronyType["opowiadania"] = new Array("opowiadanie", "szort");
-podstronyType["publicystyka"] = new Array("artykuł", "felieton", "poradnik");
-podstronyType["książki"] = new Array("książka", "recenzja");
-podstronyType["hydepark"] = new Array("inne");
-var podstronyState = new Array();
-podstronyState["opowiadania"] = new Array("szkic", "biblioteka", "poczekalnia", "beta");
-podstronyState["publicystyka"] = new Array("szkic", "poczekalnia", "biblioteka");
-podstronyState["książki"] = new Array("szkic", "poczekalnia", "biblioteka");
-podstronyState["hydepark"] = new Array("szkic", "biblioteka");
+vm.runInThisContext(fs.readFileSync(__dirname + '\\config.js'));
 
-var taxonomy = new Array("postapo", "upadek cywilizacji", "mrok");
-var specialTaxonomy = new Array("przyklejonegłówna", "główna", "przyklejone", "złoto", "srebro"); //wymaga uprawnien admina
+if (mailSupport) {
+    const nodemailer = require(path.normalize(process.argv[0].replace("node.exe", "") + '\\node_modules\\nodemailer'));
 
-// internals
+    let testMailAccount = nodemailer.createTestAccount();
 
-const enableGoogleWithToken = true;
-
-//if (enableGoogleWithToken) {
-const GoogleSignInToken = "YOUR_CLIENT_ID.apps.googleusercontent.com";
-//}
-
-const sortParam = new Array("ostatni", "ileKomentarzy", "autor", "ostatniKomentarz");
+    let smtp = nodemailer.createTransport({
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false,
+        auth: {
+            user: testMailAccount.user,
+            pass: testMailAccount.pass
+        }
+    });
+}
 
 var cacheID = 1; //ID for new files - cache
 var cacheTexts = new Array();
@@ -37,23 +36,9 @@ var cacheFiles = new Array();
 var nonLogged = new Array();
 var logged = new Array();
 
-const crypto = require('crypto');
-const fs = require('fs');
-//const http = require('http');
-const http2 = require('http2');
-const https = require('https');
-const path = require('path');
-const url = require('url');
-const zlib = require('zlib');
-//const OAuth2Client = require(path.normalize(process.argv[0].replace("node.exe","")+'\\node_modules\\google-auth-library'));
-
 function getUserLevelUserName(userName) {
     if (userName == "") return "0";
-    var userLevel = "0";
-    cacheUsers.forEach(function(user) {
-        if (userName == user["Author"]) userLevel = user["Level"];
-    });
-    return userLevel;
+    return cacheUsers[userName][1]["Level"];
 }
 
 function readFileContentSync(fileName, callback) {
@@ -398,15 +383,10 @@ async function parsePOSTforms(params, req, res, userName) {
                 res.end();
                 return;
             }
-            var al = "";
-            cacheUsers.forEach(function(user) {
-                if (user["Author"] == params["username"]) al = "User already exists";
-            });
-            console.log(al);
-            if (al != "") {
+            if (cacheUsers[params["username"]]) {
                 res.statusCode = 404;
                 res.setHeader('Content-Type', 'text/plain');
-                res.end(al);
+                res.end("User already exists");
                 return;
             }
 
@@ -418,16 +398,28 @@ async function parsePOSTforms(params, req, res, userName) {
                         (params["typ"] == "w" ? "Password:" + params["pass"] + "\n" : "") +
                         "Mail:" + params["mail"] + "\n" +
                         "When:" + formatDate(Date.now()) + "\n" +
+                        (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
                         (params["typ"] == "g" ? "Type:google\n" : "") +
                         "Level:1\n\n";
                     fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
                     fs.appendFileSync(fd, txt, 'utf8');
-                    cacheUsers.push(decodeFileContent(txt, true));
+                    cacheUsers.push(new Array(id, decodeFileContent(txt, true)));
                     break;
                 } catch (err) {
                     id++;
                 } finally {
                     if (fd !== undefined) fs.closeSync(fd);
+                }
+            }
+            if (params["typ"] != "g") {
+                if (mailSupport) {
+                    let info = await smtp.sendMail({
+                        from: 'marcin@mwiacek.com',
+                        to: params["mail"],
+                        subject: "Zweryfikuj swoje konto w systemie",
+                        text: "Link jest ważny przez godzinę: https://${hostname}:${port}/verify/" + crypto.randomBytes(32).toString('base64')
+                    });
+                    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
                 }
             }
             console.log(id);
@@ -566,13 +558,8 @@ function genericReplace(req, res, text, userName) {
         return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'))
             .replace("<!--HASH-->", session);
     } else {
-        var found = false;
-        cacheUsers.forEach(function(user) {
-            if (userName == user["Author"] && user["Type"] == "google") {
-                found = true;
-            }
-        });
-        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' + (found ? "google" : "") + '.txt')
+        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
+                (cacheUsers[userName][1]["Type"] == "google" ? "google" : "") + '.txt')
             .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
     }
 }
@@ -584,6 +571,10 @@ function addRadio(idname, value, checked) {
 
 function addOption(idnamevalue, selected) {
     return "<option value=\"" + idnamevalue + "\"" + (selected ? " selected" : "") + ">" + idnamevalue + "</option>";
+}
+
+function addUserLink(name) {
+    return "<a href=?q=profil/pokaz/" + cacheUsers[name][0] + ">" + name + "</a>";
 }
 
 function zmienDodajUser(req, res, params, userName, userLevel) {
@@ -681,6 +672,37 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
     }
 }
 
+// for example profil/pokaz/1
+function pokazProfil(req, res, params, id, userName) {
+    readFileContentSync('\\uzytkownicy\\' + id[1] + '.txt', (data) => {
+        if (data == "") {
+            res.statusCode = 302;
+            res.setHeader('Location', '/');
+            res.end();
+            return;
+        }
+
+        var arr = decodeFileContent(data, true);
+
+        res.statusCode = 200;
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+
+        var text = getFileContentSync('\\internal\\user.txt');
+        text = genericReplace(req, res, text, userName);
+
+        text = text.replace(/<!--TITLE-->/g, arr["Title"])
+            .replace("<!--USER-->", arr["Author"]);
+
+        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+            res.setHeader('Content-Encoding', 'deflate');
+            res.end(zlib.deflateSync(text));
+        } else {
+            res.end(text);
+        }
+    });
+}
+
 // for example opowiadania/pokaz/1
 function pokazStrona(req, res, params, id, userName) {
     if (!podstronyType[id[1]]) {
@@ -707,7 +729,7 @@ function pokazStrona(req, res, params, id, userName) {
         text = genericReplace(req, res, text, userName);
 
         text = text.replace(/<!--TITLE-->/g, arr["Title"])
-            .replace("<!--USER-->", arr["Author"])
+            .replace("<!--USER-->", addUserLink(arr["Author"]))
             .replace("<!--TEXT-->", arr["Text"])
             .replace("<!--TYPE-->", arr["Type"])
             .replace("<!--WHEN-->", formatDate(arr["When"]));
@@ -717,7 +739,7 @@ function pokazStrona(req, res, params, id, userName) {
             const template0 = getFileContentSync('\\internal\\comment.txt');
             var txt = "";
             arr["Comments"].forEach(function(comment) {
-                txt += template0.replace("<!--USER-->", comment["Author"])
+                txt += template0.replace("<!--USER-->", addUserLink(comment["Author"]))
                     .replace("<!--TITLE-->", comment["Title"])
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
                     .replace("<!--TEXT-->", comment["Text"]);
@@ -753,7 +775,7 @@ function formatListaEntry(template, arr) {
     if (arr["commentsnum"] != "0") {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
-    return template.replace("<!--USER-->", arr["Author"])
+    return template.replace("<!--USER-->", addUserLink(arr["Author"]))
         .replace("<!--TYPE-->", arr["Type"])
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"])
         .replace("<!--WHEN-->", formatDate(arr["When"]));
@@ -894,6 +916,13 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     });
     text = text.replace("<!--STATE-->", txt);
 
+    txt = tax ? buildURL("wszystkie", rodzaj, typ, status, pageNum, sortLevel, "") : "<b>wszystkie</b>";
+    taxonomy.forEach(function(t) {
+        txt += (txt != "" ? " | " : "") +
+            (tax == t ? "<b>" + t + "</b>" : buildURL(t, rodzaj, typ, status, pageNum, sortLevel, t));
+    });
+    text = text.replace("<!--TAXONOMY-->", txt);
+
     txt = "";
     sortParam.forEach(function(s) {
         txt += (txt != "" ? " | " : "") +
@@ -901,13 +930,6 @@ function pokazLista(req, res, params, id, userName, userLevel) {
                 "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, status, pageNum, s, tax));
     });
     text = text.replace("<!--SORTBY-->", txt);
-
-    txt = "";
-    taxonomy.forEach(function(t) {
-        txt += (txt != "" ? " | " : "") +
-            (tax == t ? "<b>" + t + "</b>" : buildURL(t, rodzaj, typ, status, pageNum, sortLevel, t));
-    });
-    text = text.replace("<!--TAXONOMY-->", txt);
 
     const template = getFileContentSync('\\internal\\listentry.txt');
 
@@ -1058,7 +1080,7 @@ const onRequestHandler = (req, res) => {
             }
             if (userName != "") {
                 // for example opowiadania/zmien/1
-                var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9\-]+)$/);
+                var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
                 if (id) {
                     zmienDodajStrona(req, res, params, id, userName, getUserLevelUserName(userName));
                     return;
@@ -1070,8 +1092,13 @@ const onRequestHandler = (req, res) => {
                     return;
                 }
             }
+            var id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
+            if (id) {
+                pokazProfil(req, res, params, id, userName);
+                return;
+            }
             // for example opowiadania/pokaz/1
-            var id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9\-]+)$/);
+            var id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)$/);
             if (id) {
                 pokazStrona(req, res, params, id, userName);
                 return;
@@ -1118,15 +1145,12 @@ fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt'
 })
 
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    cacheUsers[file.replace(".txt", "")] = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+    arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+    if (cacheUsers[arr["Author"]]) {
+        process.exit(); // duplicate user
+    }
+    cacheUsers[arr["Author"]] = new Array(file.replace(".txt", ""), arr);
 })
-
-var temparr = new Array()
-cacheUsers.forEach(function(user) {
-    if (temparr.includes(user["Author"])) process.exit();
-    temparr.push(user["Author"]);
-});
-temparr = null;
 
 //http.createServer(onRequestHandler).listen
 http2.createSecureServer({

@@ -3,6 +3,20 @@
 * http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
 * https://www.fantastyka.pl/hydepark/pokaz/24257
 
+MIlestone2
+Strona użytkownika
+weryfikacja maila
+sesje Google - szukanie czy user wylogowany
+auto odswiezanie stron
+Quill ->
+deaktywacja użytkownika
+facebook
+PW
+Shoutbox
++- (punkty)
+teaser w tekstach
+notka na stronie usera
+
 # Tworzenie wielu plików z danymi z istniejących:
 
 ```
