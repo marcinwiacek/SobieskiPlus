@@ -4,15 +4,12 @@
 * https://www.fantastyka.pl/hydepark/pokaz/24257
 
 MIlestone2
-Strona użytkownika
 weryfikacja maila
 sesje Google - szukanie czy user wylogowany
 auto odswiezanie stron
 Quill ->
 deaktywacja użytkownika
 facebook
-PW
-Shoutbox
 +- (punkty)
 teaser w tekstach
 notka na stronie usera

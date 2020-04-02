@@ -44,6 +44,7 @@
     <div class="menu-option-content menu-option-content-right">
 	<!--LOGIN-LOGOUT-->
         <hr>
+        <a href="?q=profil/pokaz/<!--ID-USER-->">Moja strona</a><p>
         <a href="?q=newuser">Nowe konto</a><p>
         <hr>
         <!--MOBILE-LINK-->

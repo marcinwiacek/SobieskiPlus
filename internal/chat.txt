@@ -6,13 +6,14 @@
 </head><body>
 <!--MENU-->
 <div class=content>
+Chat<br>
 <div class=ramki>
 Autor:<!--USERS--><br>
 Tytuł:<!--TITLE-->
 </div>
-<!--COMMENTS-->
-<div id=newcomments></div>
 <!--COMMENTEDIT-->
+<div id=newcomments></div>
+<!--COMMENTS-->
 <!--JS-->
 <script>
   var source = new EventSource("?sse=1");

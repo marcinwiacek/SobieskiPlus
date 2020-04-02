@@ -32,6 +32,7 @@ var cacheID = 1; //ID for new files - cache
 var cacheTexts = new Array();
 var cacheUsers = new Array();
 var cacheFiles = new Array();
+var cacheChat = new Array();
 
 var callbackChat = new Array();
 var callbackText = new Array();
@@ -582,9 +583,10 @@ function genericReplace(req, res, text, userName) {
         return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'))
             .replace("<!--HASH-->", session);
     } else {
-        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
-                (cacheUsers[userName][1]["Type"] == "google" ? "google" : "") + '.txt')
-            .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
+        return text.replace("<!--ID-USER-->", cacheUsers[userName][0])
+            .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
+                    (cacheUsers[userName][1]["Type"] == "google" ? "google" : "") + '.txt')
+                .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
     }
 }
 
@@ -697,6 +699,13 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
 }
 
 function pokazChat(req, res, params, id, userName) {
+    if (userName == "") {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
+
     readFileContentSync('\\chat\\' + id[1] + '.txt', (data) => {
         if (data == "") {
             res.statusCode = 302;
@@ -707,6 +716,13 @@ function pokazChat(req, res, params, id, userName) {
 
         var arr = decodeFileContent(data, true);
 
+        if (arr["Author"] && !arr["Author"].split(",").includes(userName)) {
+            res.statusCode = 302;
+            res.setHeader('Location', '/');
+            res.end();
+            return;
+        }
+
         res.statusCode = 200;
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('Content-Type', 'text/html; charset=UTF-8');
@@ -715,16 +731,18 @@ function pokazChat(req, res, params, id, userName) {
         text = genericReplace(req, res, text, userName)
             .replace(/<!--TITLE-->/g, arr["Title"]); // multiple
 
-        txt = "";
-        arr["Author"].split(",").forEach(function(autor) {
-            txt += (txt != "" ? "," : "") + addUserLink(autor);
-        });
-        text = text.replace("<!--USERS-->", txt);
+        if (arr["Author"]) {
+            txt = "";
+            arr["Author"].split(",").forEach(function(autor) {
+                txt += (txt != "" ? "," : "") + addUserLink(autor);
+            });
+            text = text.replace("<!--USERS-->", txt);
+        }
 
         if (arr["Comments"]) {
             const template0 = getFileContentSync('\\internal\\comment.txt');
             var txt = "";
-            arr["Comments"].forEach(function(comment) {
+            arr["Comments"].reverse().forEach(function(comment) {
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Author"]))
                     .replace("<!--TITLE-->", comment["Title"])
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
@@ -733,11 +751,9 @@ function pokazChat(req, res, params, id, userName) {
             text = text.replace("<!--COMMENTS-->", txt);
         }
 
-        //        if (userName != "") {
         text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
             .replace(/<!--PAGEID-->/g, '1') //many entries
             .replace("<!--OBJECT-->", "chat");
-        //      }
 
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
             res.setHeader('Content-Encoding', 'deflate');
@@ -746,6 +762,40 @@ function pokazChat(req, res, params, id, userName) {
             res.end(text);
         }
     });
+}
+
+function getChatList(pageNum, userName) {
+    var result = new Array();
+
+    cacheChat.forEach((entry, key) => {
+        if (!entry["Author"] || entry["Author"].split(",").includes(userName)) {
+            console.log("jest2");
+            result.push(entry);
+        }
+    });
+
+    result.sort(function(a, b) {
+        return (a["commentswhen"] == b["commentswhen"]) ? 0 : (a["commentswhen"] < b["commentswhen"] ? -1 : 1);
+    });
+
+    return new Array(result.slice(pageNum * onThePage, (pageNum + 1) * onThePage), result.length);
+}
+
+function formatChatEntry(template, arr) {
+    template = template.replace("<!--TITLE-->",
+        "<a href=\"?q=chat/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
+    if (arr["commentsnum"] != "0") {
+        template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
+    }
+    if (arr["Author"]) {
+        txt = "";
+        arr["Author"].split(",").forEach(entry => {
+            txt += (txt != "" ? ", " : "") + addUserLink(entry);
+        });
+        template = template.replace("<!--USER-->", txt);
+    }
+    return template.replace("<!--TYPE-->", arr["Type"])
+        .replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
 }
 
 // for example profil/pokaz/1
@@ -768,6 +818,19 @@ function pokazProfil(req, res, params, id, userName) {
         text = genericReplace(req, res, text, userName)
             .replace(/<!--TITLE-->/g, arr["Title"])
             .replace("<!--USER-->", arr["Author"]);
+
+
+        const template = getFileContentSync('\\internal\\listentry.txt');
+
+        const list = getChatList(0, userName);
+
+        txt = "";
+        if (list[0]) {
+            list[0].forEach(function(arr) {
+                txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr);
+            });
+        }
+        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
 
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
             res.setHeader('Content-Encoding', 'deflate');
@@ -1254,6 +1317,8 @@ fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '
 })
 
 fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+    cacheChat[file.replace(".txt", "")] = decodeFileContent(readFileContentSync('\\chat\\' + file), false);
+    cacheChat[file.replace(".txt", "")]["filename"] = file.replace(".txt", "");
     callbackChat[file.replace(".txt", "")] = new Array();
 })
 

@@ -7,5 +7,6 @@
 <!--MENU-->
 <div class=content>
 <!--USER-->
+<!--CHAT-LIST-->
 </div>
 </body></html>
