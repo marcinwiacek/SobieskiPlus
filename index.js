@@ -799,7 +799,7 @@ function formatChatEntry(template, arr) {
 }
 
 // for example profil/pokaz/1
-function pokazProfil(req, res, params, id, userName) {
+function pokazProfil(req, res, params, id, userName, userLevel) {
     readFileContentSync('\\uzytkownicy\\' + id[1] + '.txt', (data) => {
         if (data == "") {
             res.statusCode = 302;
@@ -830,7 +830,28 @@ function pokazProfil(req, res, params, id, userName) {
                 txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr);
             });
         }
-        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
+        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>Ostatnie chaty</div><div class=ramki>" + txt + "</div>" : "");
+
+        txt = "";
+        for (var rodzaj in podstronyType) {
+            console.log(rodzaj);
+            const list = getPageList(0,
+                podstronyType[rodzaj],
+                (userName == "") ? new Array("biblioteka") : podstronyState[rodzaj],
+                null,
+                null,
+                "ostatni",
+                userName,
+                userLevel);
+            var t = "";
+            if (list[0]) {
+                list[0].forEach(function(arr) {
+                    t += (t != "" ? "<hr>" : "") + formatListaEntry(template, arr);
+                });
+            }
+            if (t != "") txt += "<div class=ramki>Ostatnie teksty - " + rodzaj + "</div><div class=ramki>" + t + "</div>";
+        }
+        text = text.replace("<!--TEXT-LIST-->", txt);
 
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
             res.setHeader('Content-Encoding', 'deflate');
@@ -1253,7 +1274,7 @@ const onRequestHandler = (req, res) => {
             }
             var id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
             if (id) {
-                pokazProfil(req, res, params, id, userName);
+                pokazProfil(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             // for example opowiadania/pokaz/1
