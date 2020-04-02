@@ -33,6 +33,10 @@ var cacheTexts = new Array();
 var cacheUsers = new Array();
 var cacheFiles = new Array();
 
+var callbackChat = new Array();
+var callbackText = new Array();
+var callbackList = new Array();
+
 var nonLogged = new Array();
 var logged = new Array();
 
@@ -153,10 +157,9 @@ function decodeFileContent(txt, allVersions) {
 }
 
 function addToCache(name) {
-    var x = decodeFileContent(readFileContentSync('\\teksty\\' + name + '.txt'), false);
-    x["filename"] = name;
-    x["callback"] = new Array();
-    cacheTexts.push(x);
+    cacheTexts[name] = decodeFileContent(readFileContentSync('\\teksty\\' + name + '.txt'), false);
+    cacheTexts[name]["filename"] = name;
+    callbackText[name] = new Array();
 }
 
 var months = new Array("Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
@@ -174,7 +177,8 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
     const tax = taxonomy ? taxonomy.split(",") : null;
-    cacheTexts.forEach(function(entry) {
+
+    cacheTexts.forEach((entry, key) => {
         if ((typeList && !typeList.includes(entry["Type"])) ||
             !stateList.includes(entry["State"]) ||
             (entry["State"] == "szkic" && userName != entry["Author"])) return;
@@ -252,44 +256,68 @@ function updateComment(comment, res) {
     res.write("data: " + encodeURI(template) + "\n\n");
 }
 
-
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
     if (params["q"]) {
-        if (params["q"] == "upload_comment" && params["tekst"] && params["comment"] && params["title"]) {
-            //checking for login
-            //checking for correct filename protection
-            if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
-                const t = Date.now();
-                fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
-                    "\n<!--comment-->\n" +
-                    "Title:" + params["title"] + "\n" +
-                    "When:" + formatDate(t) + "\n" +
-                    "Author:" + userName + "\n\n" +
-                    params["comment"]
-                );
+        if (params["q"] == "upload_comment" && params["obj"] && params["tekst"] && params["comment"] && params["title"]) {
+            if (params["obj"] == "chat") {
+                if (fs.existsSync(__dirname + "\\chat\\" + params["tekst"] + ".txt")) {
+                    const t = Date.now();
+                    fs.appendFileSync(__dirname + "\\chat\\" + params["tekst"] + ".txt",
+                        "\n<!--comment-->\n" +
+                        "Title:" + params["title"] + "\n" +
+                        "When:" + formatDate(t) + "\n" +
+                        "Author:" + userName + "\n\n" +
+                        params["comment"]
+                    );
 
-                comment = new Array();
-                comment["Title"] = params["title"];
-                comment["Author"] = userName;
-                comment["When"] = t;
-                comment["Text"] = params["comment"];
+                    comment = new Array();
+                    comment["Title"] = params["title"];
+                    comment["Author"] = userName;
+                    comment["When"] = t;
+                    comment["Text"] = params["comment"];
 
-                cacheTexts.forEach(function(entry) {
-                    if (params["tekst"] == entry["filename"]) {
-                        entry["commentswhen"] = t;
-                        entry["commentsnum"]++;
-                        console.log("probuje callback");
-                        for (var index in entry["callback"]) {
-                            updateComment(comment, entry["callback"][index]);
-                        }
+                    for (var index in callbackChat[params["tekst"]]) {
+                        updateComment(comment, callbackChat[params["tekst"]][index]);
                     }
-                });
+
+                    res.statusCode = 200;
+                } else {
+                    res.statusCode = 404;
+                }
+            } else if (params["obj"] == "teksty") {
+                //checking for login
+                //checking for correct filename protection
+                if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
+                    const t = Date.now();
+                    fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
+                        "\n<!--comment-->\n" +
+                        "Title:" + params["title"] + "\n" +
+                        "When:" + formatDate(t) + "\n" +
+                        "Author:" + userName + "\n\n" +
+                        params["comment"]
+                    );
+
+                    comment = new Array();
+                    comment["Title"] = params["title"];
+                    comment["Author"] = userName;
+                    comment["When"] = t;
+                    comment["Text"] = params["comment"];
+
+                    cacheTexts[params["tekst"]]["commentswhen"] = t;
+                    cacheTexts[params["tekst"]]["commentsnum"]++;
+
+                    for (var index in callbackText[params["tekst"]]) {
+                        updateComment(comment, callbackText[params["tekst"]][index]);
+                    }
+                    res.statusCode = 200;
+                } else {
+                    res.statusCode = 404;
+                }
+                res.setHeader('Content-Type', 'text/plain');
+                res.end();
+                return;
             }
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end();
-            return;
         }
         if (params["q"] == "upload_text" && params["tekst"]) {
             if (params["tekst"] == "0") {
@@ -358,18 +386,14 @@ async function parsePOSTforms(params, req, res, userName) {
                     txt
                 );
                 //update cache
-                cacheTexts.forEach(function(entry) {
-                    if (params["tekst"] == entry["filename"]) {
-                        if (params["title"]) entry["Title"] = params["title"];
-                        if (params["state"]) entry["State"] = params["state"];
-                        if (params["type"]) entry["Type"] = params["type"];
-                        if (params["taxonomy"]) entry["Taxonomy"] = params["taxonomy"];
-                        if (params["specialtaxonomy"]) entry["SpecialTaxonomy"] = params["specialtaxonomy"];
-                        if (params["text"]) entry["Text"] = params["text"];
-                        entry["When"] = t;
-                        entry["Author"] = userName;
-                    }
-                });
+                if (params["title"]) cacheTexts[params["tekst"]]["Title"] = params["title"];
+                if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
+                if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
+                if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
+                if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
+                if (params["text"]) cacheTexts[params["tekst"]]["Text"] = params["text"];
+                cacheTexts[params["tekst"]]["When"] = t;
+                cacheTexts[params["tekst"]]["Author"] = userName;
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'text/plain');
                 res.end();
@@ -672,6 +696,58 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
     }
 }
 
+function pokazChat(req, res, params, id, userName) {
+    readFileContentSync('\\chat\\' + id[1] + '.txt', (data) => {
+        if (data == "") {
+            res.statusCode = 302;
+            res.setHeader('Location', '/');
+            res.end();
+            return;
+        }
+
+        var arr = decodeFileContent(data, true);
+
+        res.statusCode = 200;
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+
+        var text = getFileContentSync('\\internal\\chat.txt');
+        text = genericReplace(req, res, text, userName)
+            .replace(/<!--TITLE-->/g, arr["Title"]); // multiple
+
+        txt = "";
+        arr["Author"].split(",").forEach(function(autor) {
+            txt += (txt != "" ? "," : "") + addUserLink(autor);
+        });
+        text = text.replace("<!--USERS-->", txt);
+
+        if (arr["Comments"]) {
+            const template0 = getFileContentSync('\\internal\\comment.txt');
+            var txt = "";
+            arr["Comments"].forEach(function(comment) {
+                txt += template0.replace("<!--USER-->", addUserLink(comment["Author"]))
+                    .replace("<!--TITLE-->", comment["Title"])
+                    .replace("<!--WHEN-->", formatDate(comment["When"]))
+                    .replace("<!--TEXT-->", comment["Text"]);
+            });
+            text = text.replace("<!--COMMENTS-->", txt);
+        }
+
+        //        if (userName != "") {
+        text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
+            .replace(/<!--PAGEID-->/g, '1') //many entries
+            .replace("<!--OBJECT-->", "chat");
+        //      }
+
+        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+            res.setHeader('Content-Encoding', 'deflate');
+            res.end(zlib.deflateSync(text));
+        } else {
+            res.end(text);
+        }
+    });
+}
+
 // for example profil/pokaz/1
 function pokazProfil(req, res, params, id, userName) {
     readFileContentSync('\\uzytkownicy\\' + id[1] + '.txt', (data) => {
@@ -689,9 +765,8 @@ function pokazProfil(req, res, params, id, userName) {
         res.setHeader('Content-Type', 'text/html; charset=UTF-8');
 
         var text = getFileContentSync('\\internal\\user.txt');
-        text = genericReplace(req, res, text, userName);
-
-        text = text.replace(/<!--TITLE-->/g, arr["Title"])
+        text = genericReplace(req, res, text, userName)
+            .replace(/<!--TITLE-->/g, arr["Title"])
             .replace("<!--USER-->", arr["Author"]);
 
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
@@ -752,6 +827,7 @@ function pokazStrona(req, res, params, id, userName) {
         if (userName != "") {
             text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
                 .replace(/<!--PAGEID-->/g, id[2]) //many entries
+                .replace("<!--OBJECT-->", "teksty")
                 .replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
                     params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
         }
@@ -901,20 +977,24 @@ function pokazLista(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--LOGIN-NEW-->", "<div align=right><a href=\"?q=" + rodzaj + "/dodaj\">Nowy tekst</a></div>");
     }
 
+    var num = 0;
     var txt = typ ? buildURL("wszystkie", rodzaj, "", status, pageNum, sortLevel, tax) : "<b>wszystkie</b>";
     podstronyType[rodzaj].forEach(function(t) {
         txt += (txt != "" ? " | " : "") +
             (typ == t ? "<b>" + t + "</b>" : buildURL(t, rodzaj, t, status, pageNum, sortLevel, tax));
+        num++;
     });
-    text = text.replace("<!--TYPE-->", txt);
+    if (num != 1) text = text.replace("<!--TYPE-->", "<tr><td align=right>Rodzaj:</td><td>" + txt + "</td></tr>");
 
+    num = 0;
     txt = status ? buildURL("wszystkie", rodzaj, typ, "", pageNum, sortLevel, tax) : "<b>wszystkie</b>";
     podstronyState[rodzaj].forEach(function(s) {
         if (userName == "" && s == "szkic") return;
         txt += (txt != "" ? " | " : "") +
             (status == s ? "<b>" + s + "</b>" : buildURL(s, rodzaj, typ, s, pageNum, sortLevel, tax));
+        num++;
     });
-    text = text.replace("<!--STATE-->", txt);
+    if (num != 1) text = text.replace("<!--STATE-->", "<tr><td align=right>Status:</td><td>" + txt + "</td></tr>");
 
     txt = tax ? buildURL("wszystkie", rodzaj, typ, status, pageNum, sortLevel, "") : "<b>wszystkie</b>";
     taxonomy.forEach(function(t) {
@@ -970,10 +1050,10 @@ function pokazLista(req, res, params, id, userName, userLevel) {
 const onRequestHandler = (req, res) => {
     if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css" ||
         req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
-        req.url == "/external/quill.min.js" || req.url == "//googlelogin.txt") {
+        req.url == "/external/quill.min.js") {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/' +
-            (req.url.includes('.js') ? 'javascript' : (req.url.includes('.txt') ? 'html' : 'css')) + '; charset=UTF-8');
+            (req.url.includes('.js') ? 'javascript' : 'css') + '; charset=UTF-8');
         //        res.setHeader('Cache-Control', 'must-revalidate');
         //        res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
@@ -1014,7 +1094,28 @@ const onRequestHandler = (req, res) => {
         if (params["sse"]) {
             console.log(req.headers);
             //fixme - we need checking URL beginning
-            var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9\-]+)$/);
+            var id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
+            if (id && fs.existsSync(__dirname + "\\chat\\" + id[1] + ".txt")) {
+                res.writeHead(200, {
+                    'Cache-Control': 'no-cache',
+                    'Content-Type': 'text/event-stream',
+                    'Connection': 'keep-alive',
+                });
+                res.write("event: c\n");
+                res.write("data: \n\n");
+
+                const session = crypto.randomBytes(32).toString('base64');
+                callbackChat[id[1]][session] = res;
+                res.on('close', function() {
+                    delete callbackChat[id[1]][session];
+                });
+                setTimeout(function() {
+                    res.end();
+                }, 60000); //60 seconds
+
+                return;
+            }
+            var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
             if (id && fs.existsSync(__dirname + "\\teksty\\" + id[2] + ".txt")) {
                 res.writeHead(200, {
                     'Cache-Control': 'no-cache',
@@ -1025,20 +1126,10 @@ const onRequestHandler = (req, res) => {
                 res.write("data: \n\n");
 
                 const session = crypto.randomBytes(32).toString('base64');
-                cacheTexts.forEach(function(entry) {
-                    if (id[2] == entry["filename"]) {
-                        entry["callback"][session] = res;
-                        console.log("dodaje callback " + session);
-                    }
-                });
+                callbackText[id[2]][session] = res;
                 res.on('close', function() {
-                    cacheTexts.forEach(function(entry) {
-                        if (id[2] == entry["filename"]) {
-                            console.log("usuwa callback " + session);
-                            delete entry["callback"][session];
-                        }
-                    });
-                })
+                    delete callbackText[id[2]][session];
+                });
                 setTimeout(function() {
                     res.end();
                 }, 60000); //60 seconds
@@ -1076,6 +1167,11 @@ const onRequestHandler = (req, res) => {
             }
             if (params["q"] == "logingoogle") {
                 zmienDodajUserGoogle(req, res, params, userName, getUserLevelUserName(userName));
+                return;
+            }
+            var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
+            if (id) {
+                pokazChat(req, res, params, id, userName);
                 return;
             }
             if (userName != "") {
@@ -1137,7 +1233,12 @@ const onRequestHandler = (req, res) => {
 };
 
 process.on('exit', function(code) {
-    return console.log("Non unique nicknames");
+    switch (code) {
+        case 1:
+            return console.log("Non unique nicknames");
+        default:
+            return;
+    }
 });
 
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
@@ -1147,9 +1248,13 @@ fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt'
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
     if (cacheUsers[arr["Author"]]) {
-        process.exit(); // duplicate user
+        process.exit(1); // duplicate user
     }
     cacheUsers[arr["Author"]] = new Array(file.replace(".txt", ""), arr);
+})
+
+fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+    callbackChat[file.replace(".txt", "")] = new Array();
 })
 
 //http.createServer(onRequestHandler).listen

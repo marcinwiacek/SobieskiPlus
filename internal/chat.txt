@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<!--STYLES-->
+</head><body>
+<!--MENU-->
+<div class=content>
+<div class=ramki>
+Autor:<!--USERS--><br>
+Tytuł:<!--TITLE-->
+</div>
+<!--COMMENTS-->
+<div id=newcomments></div>
+<!--COMMENTEDIT-->
+<!--JS-->
+<script>
+  var source = new EventSource("?sse=1");
+  source.addEventListener("c", function(event) {
+    if (event.data!='') {
+      /*parsing*/
+      document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+      if (document.hidden && window.document.title.substring(0,2)!="* ") {
+        window.document.title = "* "+window.document.title;
+      }
+    }
+  });
+/*  document.body.onbeforeunload = function(){source.close();};*/
+</script>
+</div>
+</body></html>
