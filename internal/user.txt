@@ -8,5 +8,6 @@
 <div class=content>
 <!--USER-->
 <!--CHAT-LIST-->
+<!--TEXT-LIST-->
 </div>
 </body></html>

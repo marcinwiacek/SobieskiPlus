@@ -38,7 +38,7 @@ document.login.onsubmit = function() {
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   http.onload = function() {
     if (http.status != 200) {
-      alert('login error');
+      alert('login error ' + http.response);
     } else {
       window.location.reload();
     }

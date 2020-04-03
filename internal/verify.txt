@@ -1,0 +1,60 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<!--STYLES-->
+</head><body>
+<!--MENU-->
+<div class=content>
+
+<table width=100% border=0><tr><td>
+<script src="external/sha256.js"></script>
+<script>
+  var hash='<!--HASH-->';
+</script>
+  Proszę podać hasło do weryfikowanego konta użytkownika, żeby dokończyć weryfikację jego adresu email.<p>
+  <form method=post id=confirm name=confirm>
+      Hasło: <input name="confirmpassword" type="text" id="confirmpassword" value="">
+      <button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button>
+  </form>
+<script>
+document.getElementById('confirmsub').disabled=true;
+function sprawdzlogin() {
+  if (document.getElementById("confirm").elements.namedItem("confirmpassword").value=="") {
+    document.getElementById('confirmsub').disabled=true;
+  } else {
+    document.getElementById('confirmsub').disabled=false;
+  }
+}
+document.getElementById("confirmpassword").addEventListener("input", sprawdzlogin);
+
+document.confirm.onsubmit = function() {
+  var password = document.getElementById("confirm").elements.namedItem("confirmpassword").value; 
+
+  if (password == '') return false;
+
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = "verify=1&token="+sha256(hash+password);
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onload = function() {
+    if (http.status != 200) {
+      alert('verification error');
+    } else {
+      alert('mail verified OK');
+      window.location.reload();
+    }
+  };
+  http.onerror = function () {
+    alert('verification error');
+  };
+
+  http.send(params);
+  return false;
+};
+</script>
+</td></tr></table>
+</div>
+</body></html>

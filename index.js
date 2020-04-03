@@ -12,19 +12,23 @@ const vm = require('vm')
 
 vm.runInThisContext(fs.readFileSync(__dirname + '\\config.js'));
 
+var smtp = "";
+const nodemailer = require(path.normalize(process.argv[0].replace("node.exe", "") + '\\node_modules\\nodemailer'));
 if (mailSupport) {
-    const nodemailer = require(path.normalize(process.argv[0].replace("node.exe", "") + '\\node_modules\\nodemailer'));
-
-    let testMailAccount = nodemailer.createTestAccount();
-
-    let smtp = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-            user: testMailAccount.user,
-            pass: testMailAccount.pass
+    nodemailer.createTestAccount((err, account) => {
+        if (err) {
+            console.error('No test account ' + err.message);
+            return process.exit(1);
         }
+        smtp = nodemailer.createTransport({
+            host: account.smtp.host,
+            port: account.smtp.port,
+            secure: account.smtp.secure,
+            auth: {
+                user: account.user,
+                pass: account.pass
+            }
+        });
     });
 }
 
@@ -40,6 +44,7 @@ var callbackList = new Array();
 
 var nonLogged = new Array();
 var logged = new Array();
+var verifyToken = new Array();
 
 function getUserLevelUserName(userName) {
     if (userName == "") return "0";
@@ -257,6 +262,19 @@ function updateComment(comment, res) {
     res.write("data: " + encodeURI(template) + "\n\n");
 }
 
+async function verifyMail(mail, username) {
+    var x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+    let info = await smtp.sendMail({
+        from: 'marcin@mwiacek.com',
+        to: mail,
+        subject: "Zweryfikuj swoje konto w systemie",
+        text: "Link jest ważny przez godzinę: q=verifymail/" + x +
+            "\n Jeżeli straci ważność, spróbuj się zalogować i dostaniesz kolejny mail"
+    });
+    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+    verifyToken.push(new Array(x, username, Date.now() + 1000 * 60 * 60, ""));
+}
+
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
     if (params["q"]) {
@@ -428,7 +446,7 @@ async function parsePOSTforms(params, req, res, userName) {
                         "Level:1\n\n";
                     fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
                     fs.appendFileSync(fd, txt, 'utf8');
-                    cacheUsers.push(new Array(id, decodeFileContent(txt, true)));
+                    cacheUsers[params["username"]] = new Array(id, decodeFileContent(txt, true));
                     break;
                 } catch (err) {
                     id++;
@@ -438,13 +456,7 @@ async function parsePOSTforms(params, req, res, userName) {
             }
             if (params["typ"] != "g") {
                 if (mailSupport) {
-                    let info = await smtp.sendMail({
-                        from: 'marcin@mwiacek.com',
-                        to: params["mail"],
-                        subject: "Zweryfikuj swoje konto w systemie",
-                        text: "Link jest ważny przez godzinę: https://${hostname}:${port}/verify/" + crypto.randomBytes(32).toString('base64')
-                    });
-                    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+                    verifyMail(params["mail"], params["username"]);
                 }
             }
             console.log(id);
@@ -456,24 +468,56 @@ async function parsePOSTforms(params, req, res, userName) {
     }
     if (params["login"] && params["user"] && params["password"] && userName == "") {
         console.log("probuje login");
-        var found = false;
+        var found = "";
         fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-            if (found) return;
+            if (found != "") return;
             var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
             nonLogged.forEach(function(session) {
-                if (found) return;
+                if (found != "") return;
                 if (!arr["Type"] || arr["Type"] == "wlasny") {
                     usr = crypto.createHash('sha256').update(session + arr["Author"]).digest("hex");
                     if (usr != params["user"]) return;
                     pass = crypto.createHash('sha256').update(session + arr["Password"]).digest("hex");
                     if (pass != params["password"]) return;
                     const salt = crypto.randomBytes(32).toString('base64');
-                    logged.push(new Array(salt, arr["Author"], file));
-                    console.log("jest login");
-                    res.setHeader('Set-Cookie', 'login=' + salt);
-                    found = true;
+                    if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
+                        verifyMail(arr["Mail"], arr["Author"]);
+                        found = "Konto niezweryfikowane. Kliknij na link w mailu";
+                    } else {
+                        logged.push(new Array(salt, arr["Author"], file));
+                        console.log("jest login");
+                        res.setHeader('Set-Cookie', 'login=' + salt);
+                        found = true;
+                    }
                 }
             });
+        });
+
+        res.statusCode = found ? 200 : 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end(found);
+        return;
+    }
+    if (params["verify"] && params["token"]) {
+        found = false;
+        verifyToken.forEach(function(session) {
+            if (session[2] < Date.now()) {
+                return;
+            }
+            if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
+                if (cacheUsers[session[1]][1]["ConfirmMail"] == "0") {
+                    token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Password"]).digest("hex");
+                    if (token != params["token"]) return;
+                    console.log("verified" + session[0]);
+                    fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[session[1]][0] + ".txt",
+                        "\n<!--change-->\n" +
+                        "When:" + formatDate(Date.now()) + "\n" +
+                        "ConfirmMail:1\n"
+                    );
+                    cacheUsers[session[1]][1]["ConfirmMail"] = "1";
+                    found = true;
+                }
+            }
         });
 
         res.statusCode = found ? 200 : 404;
@@ -587,6 +631,49 @@ function genericReplace(req, res, text, userName) {
             .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
                     (cacheUsers[userName][1]["Type"] == "google" ? "google" : "") + '.txt')
                 .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
+    }
+}
+
+function verifyMail2(req, res, params, id, userName, userLevel) {
+    found = false;
+    verifyToken.forEach(function(session) {
+        console.log("sprawdza " + session[1] + " " + session[2] + " " + Date.now());
+        if (session[2] < Date.now()) {
+            return;
+        }
+        console.log("porównuje " + id[1] + " " + session[0]);
+        if (id[1] == decodeURIComponent(session[0])) {
+            console.log("sprawdza typ");
+            if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
+                console.log("typ ok");
+                console.log(cacheUsers[session[1]][1]["ConfirmMail"]);
+                if (cacheUsers[session[1]][1]["ConfirmMail"] == 0) {
+                    console.log("confirm ok");
+                    salt = crypto.randomBytes(32).toString('base64');
+                    session[3] = salt;
+                    found = true;
+                }
+            }
+        }
+    });
+
+    if (!found) {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
+
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\verify.txt'), userName).
+    replace("<!--HASH-->", salt);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
     }
 }
 
@@ -1253,6 +1340,14 @@ const onRequestHandler = (req, res) => {
                 zmienDodajUserGoogle(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
+            console.log(params["q"]);
+            var id = params["q"].match(/^verifymail\/([A-Za-z0-9+\/=]+)$/);
+            if (id) {
+                console.log("ma match");
+                verifyMail2(req, res, params, id, userName, getUserLevelUserName(userName));
+                return;
+            }
+            console.log("nie ma match");
             var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
             if (id) {
                 pokazChat(req, res, params, id, userName);
