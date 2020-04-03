@@ -1,0 +1,64 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title><!--TITLE--></title>
+<!--STYLES-->
+</head><body>
+<!--MENU-->
+<div class=content>
+
+<table width=100% border=0><tr><td>
+<script src="external/sha256.js"></script>
+<script>
+  var hash='<!--HASH-->';
+</script>
+  Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<p>
+  (dla kont używających Google trzeba skorzystać z odpowiedniej funkcji Google!)<p>
+  <form method=post id=confirm name=confirm>
+      Nazwa konta: <input name="confirmuser" type="text" id="confirmuser" value="">
+      Adres email konta: <input name="confirmemail" type="text" id="confirmemail" value="">
+      <button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button>
+  </form>
+<script>
+document.getElementById('confirmsub').disabled=true;
+function sprawdzlogin() {
+  if (document.getElementById("confirm").elements.namedItem("confirmuser").value=="" ||
+     document.getElementById("confirm").elements.namedItem("confirmemail").value=="") {
+    document.getElementById('confirmsub').disabled=true;
+  } else {
+    document.getElementById('confirmsub').disabled=false;
+  }
+}
+document.getElementById("confirmuser").addEventListener("input", sprawdzlogin);
+document.getElementById("confirmemail").addEventListener("input", sprawdzlogin);
+
+document.confirm.onsubmit = function() {
+  var user = document.getElementById("confirm").elements.namedItem("confirmuser").value; 
+  var email = document.getElementById("confirm").elements.namedItem("confirmemail").value; 
+
+  if (user == '' || email=='') return false;
+
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = "remind=1&token1="+sha256(hash+user)+"&token2="+sha256(hash+email);
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onload = function() {
+    if (http.status != 200) {
+      alert('verification error');
+    } else {
+      window.location.reload();
+    }
+  };
+  http.onerror = function () {
+    alert('verification error');
+  };
+
+  http.send(params);
+  return false;
+};
+</script>
+</td></tr></table>
+</div>
+</body></html>

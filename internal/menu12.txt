@@ -46,6 +46,7 @@
         <hr>
         <a href="?q=profil/pokaz/<!--ID-USER-->">Moja strona</a><p>
         <a href="?q=newuser">Nowe konto</a><p>
+        <a href="?q=remind">Zapomniane hasło</a><p>
         <hr>
         <!--MOBILE-LINK-->
         <!--DARK-LINK-->

@@ -45,6 +45,7 @@ var callbackList = new Array();
 var nonLogged = new Array();
 var logged = new Array();
 var verifyToken = new Array();
+var remindToken = new Array();
 
 function getUserLevelUserName(userName) {
     if (userName == "") return "0";
@@ -275,6 +276,17 @@ async function verifyMail(mail, username) {
     verifyToken.push(new Array(x, username, Date.now() + 1000 * 60 * 60, ""));
 }
 
+async function sendMailHaslo(mail, token) {
+    let info = await smtp.sendMail({
+        from: 'marcin@mwiacek.com',
+        to: mail,
+        subject: "Zmien haslo",
+        text: "Link jest ważny przez godzinę: q=changepass/" + token +
+            "\n Jeżeli straci ważność, spróbuj użyć funkcji przypominania i dostaniesz kolejny mail"
+    });
+    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+}
+
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
     if (params["q"]) {
@@ -498,6 +510,60 @@ async function parsePOSTforms(params, req, res, userName) {
         res.end(found);
         return;
     }
+    if (params["remind"] && params["token1"] && params["token2"]) {
+        found = false;
+
+        //    remindToken.push(new Array(x, Date.now() + 1000 * 60 * 60,""));
+
+        remindToken.forEach(function(session) {
+            if (found) return;
+            if (session[1] < Date.now()) {
+                return;
+            }
+            fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+                if (found) return;
+                var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+                usr = crypto.createHash('sha256').update(session[0] + arr["Author"]).digest("hex");
+                if (usr != params["token1"]) return;
+                pass = crypto.createHash('sha256').update(session[0] + arr["Mail"]).digest("hex");
+                if (pass != params["token2"]) return;
+
+                session[2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+                session[3] = arr["Author"];
+                session[4] = file;
+                sendMailHaslo(arr["Mail"], session[2]);
+                found = true;
+            });
+        });
+
+        res.statusCode = found ? 200 : 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    if (params["changepass"] && params["hash"] && params["token"]) {
+        found = false;
+        remindToken.forEach(function(session) {
+            if (session[1] < Date.now()) {
+                return;
+            }
+            console.log(params["hash"] + " " + decodeURIComponent(session[2]) + " " + session[0]);
+            if (params["hash"] == decodeURIComponent(session[2])) {
+                fs.appendFileSync(__dirname + "\\uzytkownicy\\" + session[4],
+                    "\n<!--change-->\n" +
+                    "When:" + formatDate(Date.now()) + "\n" +
+                    "Pass:" + params["token"] + "\n"
+                );
+
+                cacheUsers[session[3]][1]["Pass"] = params["token"];
+                found = true;
+            }
+        });
+        res.statusCode = found ? 200 : 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
     if (params["verify"] && params["token"]) {
         found = false;
         verifyToken.forEach(function(session) {
@@ -631,6 +697,57 @@ function genericReplace(req, res, text, userName) {
             .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
                     (cacheUsers[userName][1]["Type"] == "google" ? "google" : "") + '.txt')
                 .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
+    }
+}
+
+function remindPass(req, res, params, userName, userLevel) {
+    var x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+    remindToken.push(new Array(x, Date.now() + 1000 * 60 * 60, "", "", ""));
+
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\remind1.txt'), userName)
+        .replace("<!--HASH-->", x);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
+    }
+}
+
+function remindPass2(req, res, params, id, userName, userLevel) {
+    found = false;
+    remindToken.forEach(function(session) {
+        if (session[1] < Date.now()) {
+            return;
+        }
+        console.log("porównuje " + id[1] + " " + session[2]);
+        if (id[1] == decodeURIComponent(session[2])) {
+            salt = crypto.randomBytes(32).toString('base64');
+            session[2] = salt;
+            found = true;
+        }
+    });
+
+    if (!found) {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
+
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\remind2.txt'), userName).
+    replace("<!--HASH-->", salt);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
     }
 }
 
@@ -1340,10 +1457,17 @@ const onRequestHandler = (req, res) => {
                 zmienDodajUserGoogle(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
-            console.log(params["q"]);
+            if (params["q"] == "remind") {
+                remindPass(req, res, params, userName, getUserLevelUserName(userName));
+                return;
+            }
+            var id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
+            if (id) {
+                remindPass2(req, res, params, id, userName, getUserLevelUserName(userName));
+                return;
+            }
             var id = params["q"].match(/^verifymail\/([A-Za-z0-9+\/=]+)$/);
             if (id) {
-                console.log("ma match");
                 verifyMail2(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
