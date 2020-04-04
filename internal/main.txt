@@ -1,7 +1,7 @@
 ﻿<!doctype html>
 <html><head>
 <meta charset='utf-8'>
-<title><!--TITLE--></title>
+<title>Główna</title>
 <!--STYLES-->
 </head><body>
 <!--MENU-->

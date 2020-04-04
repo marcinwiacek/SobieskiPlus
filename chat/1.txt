@@ -1,21 +1,21 @@
-Author:marcin,admin
+Who:marcin,admin
 Title:x
 
 <!--comment-->
 Title:zzzzz
 When:2 Apr 2020 00:45:33
-Author:marcin
+Who:marcin
 
 <p>z</p>
 <!--comment-->
 Title:chat
 When:2 Apr 2020 12:47:33
-Author:marcin
+Who:marcin
 
 <p>c</p>
 <!--comment-->
 Title:dddddd
 When:2 Apr 2020 12:49:40
-Author:marcin
+Who:marcin
 
 <p>d</p>

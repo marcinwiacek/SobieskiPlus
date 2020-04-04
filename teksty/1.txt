@@ -4,7 +4,7 @@ Type:inne
 Taxonomy:
 SpecialTaxonomy:główna,przyklejone
 When:16 Mar 2020 21:32:50
-Author:admin
+Who:admin
 
 <p>welcome</p>
 <!--change-->
@@ -14,6 +14,6 @@ Type:inne
 Taxonomy:
 SpecialTaxonomy:główna,przyklejone
 When:16 Mar 2020 21:34:56
-Author:admin
+Who:admin
 
 <p>welcome2</p>

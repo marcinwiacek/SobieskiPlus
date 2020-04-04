@@ -188,7 +188,7 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
     cacheTexts.forEach((entry, key) => {
         if ((typeList && !typeList.includes(entry["Type"])) ||
             !stateList.includes(entry["State"]) ||
-            (entry["State"] == "szkic" && userName != entry["Author"])) return;
+            (entry["State"] == "szkic" && userName != entry["Who"])) return;
 
         if (entry["Taxonomy"]) {
             if (tax) {
@@ -238,7 +238,7 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
         });
     } else if (sortLevel == "autor") {
         result.sort(function(a, b) {
-            var x = a["Author"].localeCompare(b["Author"]);
+            var x = a["Who"].localeCompare(b["Who"]);
             return (x == 0) ? (a["When"] > b["When"] ? -1 : 1) : x;
         });
     }
@@ -254,7 +254,7 @@ function updateComment(comment, res) {
     console.log("jest callback");
 
     const template = getFileContentSync('\\internal\\comment.txt')
-        .replace("<!--USER-->", comment["Author"])
+        .replace("<!--USER-->", comment["Who"])
         .replace("<!--TITLE-->", comment["Title"])
         .replace("<!--WHEN-->", formatDate(comment["When"]))
         .replace("<!--TEXT-->", comment["Text"]);
@@ -298,13 +298,13 @@ async function parsePOSTforms(params, req, res, userName) {
                         "\n<!--comment-->\n" +
                         "Title:" + params["title"] + "\n" +
                         "When:" + formatDate(t) + "\n" +
-                        "Author:" + userName + "\n\n" +
+                        "Who:" + userName + "\n\n" +
                         params["comment"]
                     );
 
                     comment = new Array();
                     comment["Title"] = params["title"];
-                    comment["Author"] = userName;
+                    comment["Who"] = userName;
                     comment["When"] = t;
                     comment["Text"] = params["comment"];
 
@@ -325,13 +325,13 @@ async function parsePOSTforms(params, req, res, userName) {
                         "\n<!--comment-->\n" +
                         "Title:" + params["title"] + "\n" +
                         "When:" + formatDate(t) + "\n" +
-                        "Author:" + userName + "\n\n" +
+                        "Who:" + userName + "\n\n" +
                         params["comment"]
                     );
 
                     comment = new Array();
                     comment["Title"] = params["title"];
-                    comment["Author"] = userName;
+                    comment["Who"] = userName;
                     comment["When"] = t;
                     comment["Text"] = params["comment"];
 
@@ -374,7 +374,7 @@ async function parsePOSTforms(params, req, res, userName) {
                             "Type:" + params["type"] + "\n" +
                             txt +
                             "When:" + formatDate(Date.now()) + "\n" +
-                            "Author:" + userName + "\n\n" +
+                            "Who:" + userName + "\n\n" +
                             params["text"], 'utf8');
                         addToCache(id);
                         cacheID = id + 1;
@@ -413,7 +413,7 @@ async function parsePOSTforms(params, req, res, userName) {
                 fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                     "\n<!--change-->\n" +
                     "When:" + formatDate(t) + "\n" +
-                    "Author:" + userName + "\n" +
+                    "Who:" + userName + "\n" +
                     txt
                 );
                 //update cache
@@ -424,7 +424,7 @@ async function parsePOSTforms(params, req, res, userName) {
                 if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
                 if (params["text"]) cacheTexts[params["tekst"]]["Text"] = params["text"];
                 cacheTexts[params["tekst"]]["When"] = t;
-                cacheTexts[params["tekst"]]["Author"] = userName;
+                cacheTexts[params["tekst"]]["Who"] = userName;
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'text/plain');
                 res.end();
@@ -449,7 +449,7 @@ async function parsePOSTforms(params, req, res, userName) {
             while (1) {
                 var fd;
                 try {
-                    var txt = "Author:" + params["username"] + "\n" +
+                    var txt = "Who:" + params["username"] + "\n" +
                         (params["typ"] == "w" ? "Password:" + params["pass"] + "\n" : "") +
                         "Mail:" + params["mail"] + "\n" +
                         "When:" + formatDate(Date.now()) + "\n" +
@@ -477,44 +477,66 @@ async function parsePOSTforms(params, req, res, userName) {
             res.end(id.toString());
             return;
         }
+        if (params["q"] == "edit_user" && params["typ"] && params["mail"] && userName != "") {
+            if (params["typ"] != "g" && params["typ"] != "w") {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'text/plain');
+                res.end();
+                return;
+            }
+            var t = Date.now();
+            var txt = "\n<!--update-->\n" +
+                (params["typ"] == "w" && params["pass"] ? "Password:" + params["pass"] + "\n" : "") +
+                (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
+                "Mail:" + params["mail"] + "\n" +
+                "When:" + formatDate(t) + "\n\n";
+            fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[userName][0] + ".txt", txt);
+
+            if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName][1]["Password"] = params["pass"];
+            cacheUsers[userName][1]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
+            cacheUsers[userName][1]["Mail"] = params["mail"];
+            cacheUsers[userName][1]["When"] = t;
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end();
+            return;
+        }
     }
     if (params["login"] && params["user"] && params["password"] && userName == "") {
         console.log("probuje login");
-        var found = "";
+        var found = "-";
         fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-            if (found != "") return;
+            if (found != "-") return;
             var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
             nonLogged.forEach(function(session) {
-                if (found != "") return;
+                if (found != "-") return;
                 if (!arr["Type"] || arr["Type"] == "wlasny") {
-                    usr = crypto.createHash('sha256').update(session + arr["Author"]).digest("hex");
+                    usr = crypto.createHash('sha256').update(session + arr["Who"]).digest("hex");
                     if (usr != params["user"]) return;
                     pass = crypto.createHash('sha256').update(session + arr["Password"]).digest("hex");
                     if (pass != params["password"]) return;
                     const salt = crypto.randomBytes(32).toString('base64');
                     if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
-                        verifyMail(arr["Mail"], arr["Author"]);
+                        verifyMail(arr["Mail"], arr["Who"]);
                         found = "Konto niezweryfikowane. Kliknij na link w mailu";
                     } else {
-                        logged.push(new Array(salt, arr["Author"], file));
+                        logged.push(new Array(salt, arr["Who"], file));
                         console.log("jest login");
                         res.setHeader('Set-Cookie', 'login=' + salt);
-                        found = true;
+                        found = "";
                     }
                 }
             });
         });
 
-        res.statusCode = found ? 200 : 404;
+        res.statusCode = (found == "") ? 200 : 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end(found);
         return;
     }
     if (params["remind"] && params["token1"] && params["token2"]) {
         found = false;
-
-        //    remindToken.push(new Array(x, Date.now() + 1000 * 60 * 60,""));
-
         remindToken.forEach(function(session) {
             if (found) return;
             if (session[1] < Date.now()) {
@@ -523,13 +545,13 @@ async function parsePOSTforms(params, req, res, userName) {
             fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
                 if (found) return;
                 var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
-                usr = crypto.createHash('sha256').update(session[0] + arr["Author"]).digest("hex");
+                usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
                 if (usr != params["token1"]) return;
                 pass = crypto.createHash('sha256').update(session[0] + arr["Mail"]).digest("hex");
                 if (pass != params["token2"]) return;
 
                 session[2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
-                session[3] = arr["Author"];
+                session[3] = arr["Who"];
                 session[4] = file;
                 sendMailHaslo(arr["Mail"], session[2]);
                 found = true;
@@ -544,17 +566,14 @@ async function parsePOSTforms(params, req, res, userName) {
     if (params["changepass"] && params["hash"] && params["token"]) {
         found = false;
         remindToken.forEach(function(session) {
-            if (session[1] < Date.now()) {
-                return;
-            }
-            console.log(params["hash"] + " " + decodeURIComponent(session[2]) + " " + session[0]);
+            if (found) return;
+            if (session[1] < Date.now()) return;
             if (params["hash"] == decodeURIComponent(session[2])) {
                 fs.appendFileSync(__dirname + "\\uzytkownicy\\" + session[4],
                     "\n<!--change-->\n" +
                     "When:" + formatDate(Date.now()) + "\n" +
                     "Pass:" + params["token"] + "\n"
                 );
-
                 cacheUsers[session[3]][1]["Pass"] = params["token"];
                 found = true;
             }
@@ -567,9 +586,8 @@ async function parsePOSTforms(params, req, res, userName) {
     if (params["verify"] && params["token"]) {
         found = false;
         verifyToken.forEach(function(session) {
-            if (session[2] < Date.now()) {
-                return;
-            }
+            if (found) return;
+            if (session[2] < Date.now()) return;
             if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
                 if (cacheUsers[session[1]][1]["ConfirmMail"] == "0") {
                     token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Password"]).digest("hex");
@@ -620,7 +638,7 @@ async function parsePOSTforms(params, req, res, userName) {
                 if (found) return;
                 if (arr["Type"] == "google" && json.email == arr["Mail"]) {
                     const salt = crypto.randomBytes(32).toString('base64');
-                    logged.push(new Array(salt, arr["Author"], file, params["id"]));
+                    logged.push(new Array(salt, arr["Who"], file, params["id"]));
                     console.log("jest login2");
                     res.setHeader('Set-Cookie', 'login=' + salt);
                     found = true;
@@ -642,10 +660,6 @@ async function parsePOSTforms(params, req, res, userName) {
                 logged.splice(index, 1);
             }
         });
-        /*        logged.forEach(function(cookieInfo) {
-                    console.log(cookieInfo);
-                });*/
-
         res.end();
         return;
     }
@@ -723,7 +737,6 @@ function remindPass2(req, res, params, id, userName, userLevel) {
         if (session[1] < Date.now()) {
             return;
         }
-        console.log("porównuje " + id[1] + " " + session[2]);
         if (id[1] == decodeURIComponent(session[2])) {
             salt = crypto.randomBytes(32).toString('base64');
             session[2] = salt;
@@ -754,18 +767,12 @@ function remindPass2(req, res, params, id, userName, userLevel) {
 function verifyMail2(req, res, params, id, userName, userLevel) {
     found = false;
     verifyToken.forEach(function(session) {
-        console.log("sprawdza " + session[1] + " " + session[2] + " " + Date.now());
-        if (session[2] < Date.now()) {
-            return;
-        }
-        console.log("porównuje " + id[1] + " " + session[0]);
+        if (found) return;
+        if (session[2] < Date.now()) return;
         if (id[1] == decodeURIComponent(session[0])) {
-            console.log("sprawdza typ");
             if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
-                console.log("typ ok");
                 console.log(cacheUsers[session[1]][1]["ConfirmMail"]);
                 if (cacheUsers[session[1]][1]["ConfirmMail"] == 0) {
-                    console.log("confirm ok");
                     salt = crypto.randomBytes(32).toString('base64');
                     session[3] = salt;
                     found = true;
@@ -808,7 +815,35 @@ function addUserLink(name) {
 }
 
 function zmienDodajUser(req, res, params, userName, userLevel) {
+    if (params["q"] == "edituser" && userName == "") {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
+
     var text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
+
+    if (params["q"] == "edituser") {
+        if (!cacheUsers[userName][1]["Type"] || cacheUsers[userName][1]["Type"] == "wlasny") {
+            text = text.replace("<!--CHECKED-WLASNE-->", " checked")
+                .replace("<!--CHECKED-GOOGLE-->", "");
+        } else {
+            text = text.replace("<!--CHECKED-WLASNE-->", "")
+                .replace("<!--CHECKED-GOOGLE-->", " checked");
+        }
+        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
+            .replace("<!--MAIL-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Mail"] + "\" placeholder=\"Cannot be empty\"")
+            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
+            .replace(/<!--OPERATION-->/g, "edit_user");
+    } else {
+        text = text.replace("<!--CHECKED-WLASNE-->", " checked")
+            .replace("<!--CHECKED-GOOGLE-->", "")
+            .replace("<!--USER-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
+            .replace("<!--MAIL-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
+            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Cannot be empty\"")
+            .replace(/<!--OPERATION-->/g, "new_user");
+    }
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
@@ -820,7 +855,7 @@ function zmienDodajUser(req, res, params, userName, userLevel) {
     }
 }
 
-function zmienDodajUserGoogle(req, res, params, userName, userLevel) {
+function loginGoogle(req, res, params, userName, userLevel) {
     var text = genericReplace(req, res, getFileContentSync('\\internal\\logingoogle.txt'), userName)
         .replace("<!--SIGN-IN-TOKEN-->", GoogleSignInToken);
 
@@ -920,7 +955,7 @@ function pokazChat(req, res, params, id, userName) {
 
         var arr = decodeFileContent(data, true);
 
-        if (arr["Author"] && !arr["Author"].split(",").includes(userName)) {
+        if (arr["Who"] && !arr["Who"].split(",").includes(userName)) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
             res.end();
@@ -935,9 +970,9 @@ function pokazChat(req, res, params, id, userName) {
         text = genericReplace(req, res, text, userName)
             .replace(/<!--TITLE-->/g, arr["Title"]); // multiple
 
-        if (arr["Author"]) {
+        if (arr["Who"]) {
             txt = "";
-            arr["Author"].split(",").forEach(function(autor) {
+            arr["Who"].split(",").forEach(function(autor) {
                 txt += (txt != "" ? "," : "") + addUserLink(autor);
             });
             text = text.replace("<!--USERS-->", txt);
@@ -947,7 +982,7 @@ function pokazChat(req, res, params, id, userName) {
             const template0 = getFileContentSync('\\internal\\comment.txt');
             var txt = "";
             arr["Comments"].reverse().forEach(function(comment) {
-                txt += template0.replace("<!--USER-->", addUserLink(comment["Author"]))
+                txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--TITLE-->", comment["Title"])
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
                     .replace("<!--TEXT-->", comment["Text"]);
@@ -972,8 +1007,7 @@ function getChatList(pageNum, userName) {
     var result = new Array();
 
     cacheChat.forEach((entry, key) => {
-        if (!entry["Author"] || entry["Author"].split(",").includes(userName)) {
-            console.log("jest2");
+        if (!entry["Who"] || entry["Who"].split(",").includes(userName)) {
             result.push(entry);
         }
     });
@@ -991,9 +1025,9 @@ function formatChatEntry(template, arr) {
     if (arr["commentsnum"] != "0") {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
-    if (arr["Author"]) {
+    if (arr["Who"]) {
         txt = "";
-        arr["Author"].split(",").forEach(entry => {
+        arr["Who"].split(",").forEach(entry => {
             txt += (txt != "" ? ", " : "") + addUserLink(entry);
         });
         template = template.replace("<!--USER-->", txt);
@@ -1021,7 +1055,7 @@ function pokazProfil(req, res, params, id, userName, userLevel) {
         var text = getFileContentSync('\\internal\\user.txt');
         text = genericReplace(req, res, text, userName)
             .replace(/<!--TITLE-->/g, arr["Title"])
-            .replace("<!--USER-->", arr["Author"]);
+            .replace("<!--USER-->", arr["Who"]);
 
 
         const template = getFileContentSync('\\internal\\listentry.txt');
@@ -1036,9 +1070,10 @@ function pokazProfil(req, res, params, id, userName, userLevel) {
         }
         text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>Ostatnie chaty</div><div class=ramki>" + txt + "</div>" : "");
 
+        text = text.replace("<!--USER-EDIT-->", "<a href=?q=edituser>Edycja</a>");
+
         txt = "";
         for (var rodzaj in podstronyType) {
-            console.log(rodzaj);
             const list = getPageList(0,
                 podstronyType[rodzaj],
                 (userName == "") ? new Array("biblioteka") : podstronyState[rodzaj],
@@ -1077,7 +1112,7 @@ function pokazStrona(req, res, params, id, userName) {
 
     readFileContentSync('\\teksty\\' + id[2] + '.txt', (data) => {
         var arr = decodeFileContent(data, true);
-        if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Author"])) {
+        if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Who"])) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
             res.end();
@@ -1092,7 +1127,7 @@ function pokazStrona(req, res, params, id, userName) {
         text = genericReplace(req, res, text, userName);
 
         text = text.replace(/<!--TITLE-->/g, arr["Title"])
-            .replace("<!--USER-->", addUserLink(arr["Author"]))
+            .replace("<!--USER-->", addUserLink(arr["Who"]))
             .replace("<!--TEXT-->", arr["Text"])
             .replace("<!--TYPE-->", arr["Type"])
             .replace("<!--WHEN-->", formatDate(arr["When"]));
@@ -1102,7 +1137,7 @@ function pokazStrona(req, res, params, id, userName) {
             const template0 = getFileContentSync('\\internal\\comment.txt');
             var txt = "";
             arr["Comments"].forEach(function(comment) {
-                txt += template0.replace("<!--USER-->", addUserLink(comment["Author"]))
+                txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--TITLE-->", comment["Title"])
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
                     .replace("<!--TEXT-->", comment["Text"]);
@@ -1139,7 +1174,7 @@ function formatListaEntry(template, arr) {
     if (arr["commentsnum"] != "0") {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
-    return template.replace("<!--USER-->", addUserLink(arr["Author"]))
+    return template.replace("<!--USER-->", addUserLink(arr["Who"]))
         .replace("<!--TYPE-->", arr["Type"])
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"])
         .replace("<!--WHEN-->", formatDate(arr["When"]));
@@ -1185,10 +1220,8 @@ function pokazListaMain(req, res, page, params, userName) {
             txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
         });
     }
-    text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
-
-    console.log("page num is " + page);
-    text = text.replace("<!--PREVLINK-->", (page != 0) ?
+    text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "")
+        .replace("<!--PREVLINK-->", (page != 0) ?
             "<a href=\"?q=/" + (page - 1) + "\">&lt; Prev page</a>" : "")
         .replace("<!--NEXTLINK-->", ((page + 1) * onThePage < list[1]) ?
             "<a href=\"?q=/" + (page + 1) + "\">Next page &gt;</a>" : "");
@@ -1453,8 +1486,12 @@ const onRequestHandler = (req, res) => {
                 zmienDodajUser(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
+            if (params["q"] == "edituser") {
+                zmienDodajUser(req, res, params, userName, getUserLevelUserName(userName));
+                return;
+            }
             if (params["q"] == "logingoogle") {
-                zmienDodajUserGoogle(req, res, params, userName, getUserLevelUserName(userName));
+                loginGoogle(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
             if (params["q"] == "remind") {
@@ -1471,7 +1508,6 @@ const onRequestHandler = (req, res) => {
                 verifyMail2(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
-            console.log("nie ma match");
             var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
             if (id) {
                 pokazChat(req, res, params, id, userName);
@@ -1550,10 +1586,10 @@ fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt'
 
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
-    if (cacheUsers[arr["Author"]]) {
+    if (cacheUsers[arr["Who"]]) {
         process.exit(1); // duplicate user
     }
-    cacheUsers[arr["Author"]] = new Array(file.replace(".txt", ""), arr);
+    cacheUsers[arr["Who"]] = new Array(file.replace(".txt", ""), arr);
 })
 
 fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {

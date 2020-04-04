@@ -1,7 +1,7 @@
 <!doctype html>
 <html><head>
 <meta charset='utf-8'>
-<title><!--TITLE--></title>
+<title>Dokończenie weryfikacji konta email</title>
 <!--STYLES-->
 </head><body>
 <!--MENU-->
@@ -14,7 +14,7 @@
 </script>
   Proszę podać hasło do weryfikowanego konta użytkownika, żeby dokończyć weryfikację jego adresu email.<p>
   <form method=post id=confirm name=confirm>
-      Hasło: <input name="confirmpassword" type="text" id="confirmpassword" value="">
+      Hasło: <input name="confirmpassword" type="text" id="confirmpassword" value=""><br>
       <button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button>
   </form>
 <script>

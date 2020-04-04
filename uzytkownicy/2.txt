@@ -1,4 +1,4 @@
-﻿Author:admin
+﻿Who:admin
 When:23 Apr 1999
 Mail:marcin@mwiacek.com
 Password:321

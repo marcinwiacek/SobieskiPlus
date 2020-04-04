@@ -4,6 +4,6 @@ Type:inne
 Taxonomy:upadek cywilizacji,mrok
 SpecialTaxonomy:
 When:16 Mar 2020 21:41:42
-Author:marcin
+Who:marcin
 
 <p>nie przyklejone</p>

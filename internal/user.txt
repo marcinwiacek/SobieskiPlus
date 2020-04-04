@@ -7,6 +7,7 @@
 <!--MENU-->
 <div class=content>
 <!--USER-->
+<!--USER-EDIT-->
 <!--CHAT-LIST-->
 <!--TEXT-LIST-->
 </div>

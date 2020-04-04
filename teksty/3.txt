@@ -4,6 +4,6 @@ Type:inne
 Taxonomy:
 SpecialTaxonomy:przyklejone
 When:16 Mar 2020 21:42:39
-Author:admin
+Who:admin
 
 <p>tutaj</p>

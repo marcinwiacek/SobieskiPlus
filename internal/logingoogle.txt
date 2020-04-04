@@ -1,14 +1,16 @@
 <!doctype html>
 <html><head>
 <meta charset='utf-8'>
-<title><!--TITLE--></title>
+<title>Zaloguj konto Google</title>
 <meta name="google-signin-client_id" content="<!--SIGN-IN-TOKEN-->">
 <!--STYLES-->
 </head><body>
 <!--MENU-->
 <div class=content>
-Wymaga założenia konta w serwisie z używanym przez Ciebie adresem email i typem logowania przez Google!<p>
-        <a href="?q=newuser">Nowe konto</a><p>&nbsp;<p>
+<ul><li>Wymaga założenia konta w serwisie z używanym przez Ciebie adresem email i typem logowania przez Google!<p>
+        <a href="?q=newuser">Nowe konto</a>
+<li>Wymaga odblokowania skryptów Google w Twoim AdBlockerze.
+</ul>
 
 <div class="g-signin2" data-onsuccess="onSignIn" id=but></div>
 <script>
@@ -36,8 +38,9 @@ function onSignIn(googleUser) {
   return false;
 
 }
+
 </script>
-<script src="https://apis.google.com/js/platform.js" async defer></script>
+<script src="https://apis.google.com/js/platform.js" async defer onError="alert('Loading Google scripts blocked');"></script>
 
 </div>
 

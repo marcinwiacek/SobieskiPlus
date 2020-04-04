@@ -4,7 +4,7 @@ Type:opowiadanie
 Taxonomy:postapo,
 SpecialTaxonomy:undefined
 When:16 Mar 2020 21:51:10
-Author:marcin
+Who:marcin
 
 <p>postapo</p>
 <!--change-->
@@ -14,13 +14,13 @@ Type:opowiadanie
 Taxonomy:postapo,
 SpecialTaxonomy:
 When:16 Mar 2020 21:51:44
-Author:admin
+Who:admin
 
 <p>postapo</p>
 <!--comment-->
 Title:ala
 When:16 Mar 2020 21:52:0
-Author:admin
+Who:admin
 
 <p>komentarze</p>
 <!--change-->
@@ -30,6 +30,6 @@ Type:opowiadanie
 Taxonomy:postapo,
 SpecialTaxonomy:główna,
 When:16 Mar 2020 21:52:23
-Author:admin
+Who:admin
 
 <p>postapoo</p>

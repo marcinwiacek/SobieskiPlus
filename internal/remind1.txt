@@ -1,7 +1,7 @@
 <!doctype html>
 <html><head>
 <meta charset='utf-8'>
-<title><!--TITLE--></title>
+<title>Zmiana hasła do konta</title>
 <!--STYLES-->
 </head><body>
 <!--MENU-->
@@ -14,11 +14,14 @@
 </script>
   Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<p>
   (dla kont używających Google trzeba skorzystać z odpowiedniej funkcji Google!)<p>
+
+<table>
   <form method=post id=confirm name=confirm>
-      Nazwa konta: <input name="confirmuser" type="text" id="confirmuser" value="">
-      Adres email konta: <input name="confirmemail" type="text" id="confirmemail" value="">
-      <button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button>
+      <tr><td>Nazwa konta:</td><td><input name="confirmuser" type="text" id="confirmuser" value=""></td></tr>
+      <tr><td>Adres email konta:</td><td><input name="confirmemail" type="text" id="confirmemail" value=""></td></tr>
+      <tr><td colspan=2><button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button></td></tr>
   </form>
+</table>
 <script>
 document.getElementById('confirmsub').disabled=true;
 function sprawdzlogin() {

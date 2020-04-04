@@ -1,7 +1,7 @@
 <!doctype html>
 <html><head>
 <meta charset='utf-8'>
-<title><!--TITLE--></title>
+<title>Nowe konto</title>
 <!--STYLES-->
 </head><body>
 <!--MENU-->
@@ -11,15 +11,15 @@
 <form id=textedit name=textedit method=post>
 
 <tr><td colspan=2>
-<input type="radio" checked name="typ" id="typ" value="wlasne" onClick="setWlasne()"><label for=typ>Konto z własnym hasłem (wymaga weryfikacji email)</label><p>
-<input type="radio" name="typ" id="typ" value="google" onClick="setGoogle()"><label for=typ>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; weryfikacja maila przez Google)</label>
+<input type="radio" <!--CHECKED-WLASNE--> name="typ" id="typ" value="wlasne" onClick="setWlasne()"><label for=typ>Konto z własnym hasłem (wymaga weryfikacji email)</label><p>
+<input type="radio" <!--CHECKED-GOOGLE--> name="typ" id="typ" value="google" onClick="setGoogle()"><label for=typ>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; weryfikacja maila przez Google)</label>
 </td></tr>
 
-<tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
-<tr><td>Unikalny mail w serwisie:</td><td><input name="mail" id=mail type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+<tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" size=50 <!--USER-PARAMS--></td></tr>
+<tr><td>Unikalny mail w serwisie:</td><td><input name="mail" id=mail type="text" <!--MAIL-PARAMS--> size=50></td></tr>
 
-<tr id=wlasne><td >Password:</td><td><input name="pass" id=pass type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50><br></td></tr>
-<tr id=wlasne2><td>Repeat password:</td><td><input name="pass2" id=pass2 type="text" value="" placeholder="Bez tytułu się nie obędzie" size=50></td></tr>
+<tr id=wlasne><td>Password:</td><td><input name="pass" id=pass type="text" value="" <!--PASS-PARAMS--> size=50><br></td></tr>
+<tr id=wlasne2><td>Repeat password:</td><td><input name="pass2" id=pass2 type="text" value="" <!--PASS-PARAMS--> size=50></td></tr>
 
 <tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
 </form>
@@ -40,17 +40,25 @@ function getRadio() {
 }
 
 function sprawdz() {
-  if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
-     document.getElementById("textedit").elements.namedItem("mail").value=="" ||
-     (getRadio() == "wlasne" && (
-      document.getElementById("textedit").elements.namedItem("pass").value=="" ||
-      document.getElementById("textedit").elements.namedItem("pass2").value==""))) {
-    document.getElementById('sub').disabled=true;
+  if ("new_user"=="<!--OPERATION-->") {
+    if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
+       document.getElementById("textedit").elements.namedItem("mail").value=="" ||
+       (getRadio() == "wlasne" && (
+        document.getElementById("textedit").elements.namedItem("pass").value=="" ||
+        document.getElementById("textedit").elements.namedItem("pass2").value==""))) {
+      document.getElementById('sub').disabled=true;
+    } else {
+      document.getElementById('sub').disabled=false;
+    }
   } else {
-    document.getElementById('sub').disabled=false;
+    if (document.getElementById("textedit").elements.namedItem("mail").value=="") {
+      document.getElementById('sub').disabled=true;
+    } else {
+      document.getElementById('sub').disabled=false;
+    }
   }
 }
-document.getElementById('sub').disabled=true;
+sprawdz();
 document.getElementById("username").addEventListener("input", sprawdz);
 document.getElementById("mail").addEventListener("input", sprawdz);
 document.getElementById("pass").addEventListener("input", sprawdz);
@@ -82,11 +90,21 @@ document.textedit.onsubmit = function() {
 
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=new_user&username='+username+'&mail='+mail;
-  if (getRadio()=="wlasne") {
-     params += '&typ=w&pass='+pass;
+  if ("new_user"=="<!--OPERATION-->") {
+    var params = 'q=<!--OPERATION-->&username='+username+'&mail='+mail;
+    if (getRadio()=="wlasne") {
+       params += '&typ=w&pass='+pass;
+    } else {
+       params += '&typ=g';
+    }
   } else {
-     params += '&typ=g';
+    var params = 'q=<!--OPERATION-->&mail='+mail;
+    if (getRadio()=="wlasne") {
+       params += '&typ=w';
+       if (pass!="") params+='&pass='+pass;
+    } else {
+       params += '&typ=g';
+    }
   }
 
   http.open('POST', url, true);

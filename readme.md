@@ -4,15 +4,16 @@
 * https://www.fantastyka.pl/hydepark/pokaz/24257
 
 MIlestone2
-weryfikacja maila
-sesje Google - szukanie czy user wylogowany
-auto odswiezanie stron
-Quill ->
+change password przez stronę newuser
+auto odswiezanie wszystkich stron
 deaktywacja użytkownika
-facebook
 +- (punkty)
+facebook
+sesje Google - szukanie czy user wylogowany
+Quill ->
 teaser w tekstach
 notka na stronie usera
+?q=profil/pokaz/2 zle
 
 # Tworzenie wielu plików z danymi z istniejących:
 
