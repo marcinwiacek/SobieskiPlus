@@ -6,7 +6,9 @@
 </head><body>
 <!--MENU-->
 <div class=content>
-Chat<br>
+<div class=ramki>
+Chat
+</div>
 <div class=ramki>
 Autor:<!--USERS--><br>
 Tytuł:<!--TITLE-->

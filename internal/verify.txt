@@ -12,11 +12,14 @@
 <script>
   var hash='<!--HASH-->';
 </script>
-  Proszę podać hasło do weryfikowanego konta użytkownika, żeby dokończyć weryfikację jego adresu email.<p>
+<div class=ramki>
+  Proszę podać hasło do weryfikowanego konta użytkownika, żeby dokończyć weryfikację jego adresu email.
+<hr>
   <form method=post id=confirm name=confirm>
       Hasło: <input name="confirmpassword" type="text" id="confirmpassword" value=""><br>
       <button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button>
   </form>
+</div>
 <script>
 document.getElementById('confirmsub').disabled=true;
 function sprawdzlogin() {

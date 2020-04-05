@@ -6,7 +6,9 @@
 </head><body>
 <!--MENU-->
 <div class=content>
+<div class=ramki>
 Dzień dobry, cześć i czołem, Welcome, Hallo, Bonjour, здрaвствуйте
+</div>
 <!--LIST-GLUE-->
 <!--LIST-->
 <!--PREVLINK-->&nbsp;<!--NEXTLINK-->

@@ -10,7 +10,7 @@ deaktywacja użytkownika
 +- (punkty)
 facebook
 sesje Google - szukanie czy user wylogowany
-Quill ->
+suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 teaser w tekstach
 notka na stronie usera
 ?q=profil/pokaz/2 zle
@@ -37,12 +37,10 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' \
 # Linki:
 * https://medium.com/@thomashellstrom/use-google-as-login-in-your-web-app-with-oauth2-352f6c7f10e6
 * https://developers.google.com/identity/sign-in/web/backend-auth
+* https://www.cssscript.com/minimal-wysiwyg-editor-pure-javascript-suneditor/
 
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
-* https://www.cssscript.com/minimal-wysiwyg-editor-pure-javascript-suneditor/
-** Quill - linki przy pisaniu żeby zamieniał (czy trzeba zamienić edytor?)
-** Quill - min. and max. length przy komentarzach
 
 # Znane rzeczy z PHP (ostatnia wersja 13.3.2020):
 1. przy przeładowaniu push.php teoretycznie możemy zgubić komentarz (?)

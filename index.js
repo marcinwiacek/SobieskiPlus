@@ -1057,20 +1057,20 @@ function pokazProfil(req, res, params, id, userName, userLevel) {
             .replace(/<!--TITLE-->/g, arr["Title"])
             .replace("<!--USER-->", arr["Who"]);
 
+        if (userName != "") {
+            text = text.replace("<!--USER-EDIT-->", "<a href=?q=edituser>Edycja</a>");
+        }
 
         const template = getFileContentSync('\\internal\\listentry.txt');
 
         const list = getChatList(0, userName);
-
         txt = "";
         if (list[0]) {
             list[0].forEach(function(arr) {
                 txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr);
             });
         }
-        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>Ostatnie chaty</div><div class=ramki>" + txt + "</div>" : "");
-
-        text = text.replace("<!--USER-EDIT-->", "<a href=?q=edituser>Edycja</a>");
+        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>Ostatnie chaty<hr>" + txt + "</div>" : "");
 
         txt = "";
         for (var rodzaj in podstronyType) {
@@ -1088,7 +1088,7 @@ function pokazProfil(req, res, params, id, userName, userLevel) {
                     t += (t != "" ? "<hr>" : "") + formatListaEntry(template, arr);
                 });
             }
-            if (t != "") txt += "<div class=ramki>Ostatnie teksty - " + rodzaj + "</div><div class=ramki>" + t + "</div>";
+            if (t != "") txt += "<div class=ramki>Ostatnie teksty - " + rodzaj + "<hr>" + t + "</div>";
         }
         text = text.replace("<!--TEXT-LIST-->", txt);
 
@@ -1369,9 +1369,8 @@ function pokazLista(req, res, params, id, userName, userLevel) {
 }
 
 const onRequestHandler = (req, res) => {
-    if (req.url == "/external/styles.css" || req.url == "/external/quill.snow.css" ||
-        req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
-        req.url == "/external/quill.min.js") {
+    if (req.url == "/external/styles.css" || req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
+        req.url == "/external/suneditor.min.css" || req.url == "/external/suneditor.min.js") {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/' +
             (req.url.includes('.js') ? 'javascript' : 'css') + '; charset=UTF-8');

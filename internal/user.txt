@@ -6,8 +6,9 @@
 </head><body>
 <!--MENU-->
 <div class=content>
-<!--USER-->
-<!--USER-EDIT-->
+<div class=ramki>
+<table width=100%><tr><td>Użytkownik <!--USER--></td><td align=right><!--USER-EDIT--></td></tr></table>
+</div>
 <!--CHAT-LIST-->
 <!--TEXT-LIST-->
 </div>

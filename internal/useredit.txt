@@ -6,7 +6,10 @@
 </head><body>
 <!--MENU-->
 <div class=content>
-
+<div class=ramki>
+Nowy użytkownik/edycja użytkownika
+</div>
+<div class=ramki>
 <table>
 <form id=textedit name=textedit method=post>
 
@@ -24,7 +27,7 @@
 <tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
 </form>
 </table>
-
+</div>
 <script async=async>
 
 function getRadio() {

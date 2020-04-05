@@ -7,12 +7,15 @@
 </head><body>
 <!--MENU-->
 <div class=content>
+<div class=ramki>Logowanie do konta Google</div>
+<div class=ramki>
 <ul><li>Wymaga założenia konta w serwisie z używanym przez Ciebie adresem email i typem logowania przez Google!<p>
         <a href="?q=newuser">Nowe konto</a>
 <li>Wymaga odblokowania skryptów Google w Twoim AdBlockerze.
 </ul>
-
+<hr>                
 <div class="g-signin2" data-onsuccess="onSignIn" id=but></div>
+</div>
 <script>
 function onSignIn(googleUser) {
   var profile = googleUser.getBasicProfile();

@@ -12,8 +12,10 @@
 <script>
   var hash='<!--HASH-->';
 </script>
-  Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<p>
-  (działa to tylko dla kont nie używających logowania Google!)<p>
+<div class=ramki>
+  Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br>
+  (działa to tylko dla kont nie używających logowania Google!)
+<hr>
 <table>
   <form method=post id=confirm name=confirm>
       <tr><td>Nowe hasło:</td><td><input name="confirmpass" type="text" id="confirmpass" value=""></td></tr>
@@ -21,6 +23,7 @@
       <tr><td colspan=2><button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button></td></tr>
   </form>
 </table>
+</div>
 <script>
 document.getElementById('confirmsub').disabled=true;
 function sprawdzlogin() {

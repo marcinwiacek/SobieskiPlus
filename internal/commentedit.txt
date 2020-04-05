@@ -1,58 +1,36 @@
 ﻿
-<!-- we need something with Polish dictionary -->
-
-<link type="text/css" rel="stylesheet" href="external/quill.snow.css">
-<script src="external/quill.min.js"></script>
+<link type="text/css" rel="stylesheet" href="external/suneditor.min.css">
+<script src="external/suneditor.min.js"></script>
 
 <div class=ramki>
   <form id=commentedit name=commentedit method=post>
       Tytuł: <input name="title" type="text" id=title placeholder="Poproszę o ładny tytuł" size=50><p>
-      <div id="editor-container"></div><p>
+      <textarea id="editor-container"></textarea><p>
       <button id=sub type="submit">Dodaj komentarz</button>
   </form>
   <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
 </div>
 <script async=async>
 
-var toolbarOptions = [
-  ['bold', 'italic', 'underline', 'strike'],
-  ['blockquote', 'code-block', 'image'],
-
-  [{ 'header': 1 }, { 'header': 2 }],
-  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-  [{ 'script': 'sub'}, { 'script': 'super' }],
-  [{ 'indent': '-1'}, { 'indent': '+1' }],
-  [{ 'direction': 'rtl' }],
-
-  [{ 'size': ['small', false, 'large', 'huge'] }],
-  [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-
-  [{ 'color': [] }, { 'background': [] }],
-  [{ 'font': [] }],
-  [{ 'align': [] }],
-
-  ['clean']
-];
-
-var quill = new Quill('#editor-container', {
-  modules: {
-    toolbar: toolbarOptions
-  },
-  placeholder: 'Zapodaj ładny komentarz proszę...',
-  theme: 'snow'
+var suneditor = SUNEDITOR.create('editor-container',{
+  height : '100%',
+  width:'auto',
+  showPathLabel : false,
+  charCounter : true,
+  maxCharCount:10000,
+  placeholder: 'Poproszę o ładny komentarz'
 });
 
 function sprawdz() {
-  if (quill.getText().trim().length==0 || document.getElementById("commentedit").elements.namedItem("title").value=="") {
+  if (suneditor.getContents(true).trim().length==0 || 
+      document.getElementById("commentedit").elements.namedItem("title").value=="") {
     document.getElementById('sub').disabled=true;
   } else {
     document.getElementById('sub').disabled=false;
   }
 }
 document.getElementById('sub').disabled=true;
-quill.on('text-change', function(delta, oldDelta, source) {
-  sprawdz();
-});
+suneditor.onChange = function (contents, core) { sprawdz() }
 document.getElementById("title").addEventListener("input", sprawdz);
 
 document.commentedit.onsubmit = function() {
@@ -60,7 +38,7 @@ document.commentedit.onsubmit = function() {
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
   var title = document.getElementById("commentedit").elements.namedItem("title").value; 
-  var params = 'q=upload_comment&obj=<!--OBJECT-->&tekst=<!--PAGEID-->&comment='+decodeURIComponent(quill.root.innerHTML)+'&title='+title;
+  var params = 'q=upload_comment&obj=<!--OBJECT-->&tekst=<!--PAGEID-->&comment='+decodeURIComponent(suneditor.getContents(true))+'&title='+title;
 
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -78,7 +56,7 @@ document.commentedit.onsubmit = function() {
   http.onload = function() {
     progressBar.value = progressBar.max;
     document.getElementById("progressinfo").style.display="none";
-    quill.root.innerHTML="";
+    suneditor.setContents('');
   };
   http.onerror = function () {
     document.getElementById("progress").innerHTML="error";

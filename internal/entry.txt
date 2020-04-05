@@ -7,7 +7,7 @@
 <!--MENU-->
 <div class=content>
 <div class=ramki>
-<table width=100%><tr><td><!--TITLE--></td><td><!--LOGIN-EDIT--></td></tr></table>
+<table width=100%><tr><td>Tekst <!--TITLE--></td><td><!--LOGIN-EDIT--></td></tr></table>
 </div>
 <div class=ramki>
 Autor:<!--USER--><br>
@@ -18,6 +18,8 @@ Ostatnio zmienione:<!--WHEN-->
 <center><h1><!--TITLE--></h1></center>
 <hr>
 <!--TEXT-->
+<hr>
+<center>KONIEC</center>
 </div>
 <!--COMMENTS-->
 <div id=newcomments></div>

@@ -6,80 +6,51 @@
 </head><body>
 <!--MENU-->
 <div class=content>
-<link type="text/css" rel="stylesheet" href="external/quill.snow.css">
-<script src="external/quill.min.js"></script>
-
-<!--RODZAJ--><br>
+<link type="text/css" rel="stylesheet" href="external/suneditor.min.css">
+<script src="external/suneditor.min.js"></script>
+<div class=ramki>
+Edycja tekstu w dziale <!--RODZAJ-->
+</div>
 <div class=ramki>
   <form id=textedit name=textedit method=post>
       Status:<!--STATE-->
       Typ:<!--TYPE-->
       <!--TAXONOMY-->
       <!--SPECIAL-TAXONOMY-->
-      Tytuł: <input name="title" id=title type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50>
-      <div id="editor-container"><!--TEXT--></div>
+      Tytuł: <input name="title" id=title type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50><p>
+      <textarea id="editor-container"><!--TEXT--></textarea><p>
       <button type="submit" id=sub>Zapisz</button>
   </form>
   <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
-  Licznik ze spacjami: <span id="counter"></span>
 </div>
 <script async=async>
 
-var toolbarOptions = [
-  ['bold', 'italic', 'underline', 'strike'],
-  ['blockquote', 'code-block', 'image'],
-
-  [{ 'header': 1 }, { 'header': 2 }],
-  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-  [{ 'script': 'sub'}, { 'script': 'super' }],
-  [{ 'indent': '-1'}, { 'indent': '+1' }],
-  [{ 'direction': 'rtl' }],
-
-  [{ 'size': ['small', false, 'large', 'huge'] }],
-  [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-
-  [{ 'color': [] }, { 'background': [] }],
-  [{ 'font': [] }],
-  [{ 'align': [] }],
-
-  ['link', 'image', 'video'],
-
-  ['clean']
-];
-
-var quill = new Quill('#editor-container', {
-  modules: {
-    toolbar: toolbarOptions,
-    history: {
-      delay: 2000,
-      maxStack: 500,
-      userOnly: true
-    }
-/* needs library: ,syntax: true */
-  },
-  placeholder: 'Bądź grzecznym misiem i zapodaj ładny tekst proszę...',
-  theme: 'snow'
+var suneditor = SUNEDITOR.create('editor-container',{
+  height : '100%',
+  width:'auto',
+  showPathLabel : false,
+  charCounter : true,
+  placeholder: 'Poproszę o ładny tekst'
 });
 
-  var type0 = document.getElementById("textedit").elements.namedItem("type").value; 
-  var state0 = document.getElementById("textedit").elements.namedItem("state").value; 
-  var title0 = document.getElementById("textedit").elements.namedItem("title").value; 
-  var taxonomy0 = getListValues("taxonomy");
-  if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
-    var specialtaxonomy0 = getListValues("specialtaxonomy"); 
-  } else {
-    var specialtaxonomy0 = "";
-  }
-  var text0 = quill.root.innerHTML;
+var type0 = document.getElementById("textedit").elements.namedItem("type").value; 
+var state0 = document.getElementById("textedit").elements.namedItem("state").value; 
+var title0 = document.getElementById("textedit").elements.namedItem("title").value; 
+var taxonomy0 = getListValues("taxonomy");
+if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
+  var specialtaxonomy0 = getListValues("specialtaxonomy"); 
+} else {
+  var specialtaxonomy0 = "";
+}
+var text0 = suneditor.getContents(true);
 
-  document.getElementById('sub').disabled=true;
-  document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
-
+document.getElementById('sub').disabled=true;
 
 var updated = false;
 function sprawdz() {
   updated = true;
-  if (quill.getText().trim().length==0 || document.getElementById("textedit").elements.namedItem("title").value=="") {
+  if (suneditor.getContents(true).trim().length==0 || 
+      document.getElementById("textedit").elements.namedItem("title").value=="") {
     document.getElementById('sub').disabled=true;
   } else {
     if (type0 != document.getElementById("textedit").elements.namedItem("type").value ||
@@ -88,19 +59,16 @@ function sprawdz() {
       taxonomy0 != getListValues("taxonomy") ||
       (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null &&
            specialtaxonomy0 != getListValues("specialtaxonomy")) ||
-      text0 != quill.root.innerHTML) {
+      text0 != suneditor.getContents(true)) {
     document.getElementById('sub').disabled=false;
   } else {
     document.getElementById('sub').disabled=true;
   }
 
   }
-  document.getElementById("counter").innerHTML=quill.getText().replace(/(\r\n|\n|\r)/gm, "").length;
 }
 
-quill.on('text-change', function(delta, oldDelta, source) {
-  sprawdz();
-});
+suneditor.onChange = function (contents, core) { sprawdz() }
 var e = document.getElementsByTagName("input");
 for (var i=0;i<e.length;i++) {
   e[i].addEventListener("click", sprawdz);
@@ -145,7 +113,7 @@ document.textedit.onsubmit = function() {
   if (title!=title0) params+='&title='+title;
   if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;
   if (taxonomy!=taxonomy0) params+='&taxonomy='+taxonomy;
-  if (quill.root.innerHTML!=text0) params+='&text='+decodeURIComponent(quill.root.innerHTML);
+  if (suneditor.getContents(true)!=text0) params+='&text='+decodeURIComponent(suneditor.getContents(true));
   if (specialtaxonomy!=specialtaxonomy0) params+='&specialtaxonomy='+specialtaxonomy;
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
