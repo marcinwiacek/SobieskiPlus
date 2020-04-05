@@ -1581,10 +1581,12 @@ process.on('exit', function(code) {
     }
 });
 
+fs.mkdir(__dirname + '\\teksty', {}, (err) => {});
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToTextCache(file.replace(".txt", ""));
 })
 
+fs.mkdir(__dirname + '\\uzytkownicy', {}, (err) => {});
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
     if (cacheUsers[arr["Who"]]) {
@@ -1593,6 +1595,7 @@ fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '
     cacheUsers[arr["Who"]] = new Array(file.replace(".txt", ""), arr);
 })
 
+fs.mkdir(__dirname + '\\chat', {}, (err) => {});
 fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToChatCache(file.replace(".txt", ""), decodeFileContent(readFileContentSync('\\chat\\' + file), false));
 })
