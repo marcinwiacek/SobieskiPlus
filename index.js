@@ -1033,7 +1033,7 @@ function formatChatEntry(template, arr) {
         });
         template = template.replace("<!--USER-->", txt);
     }
-    return template.replace("<!--TYPE-->", arr["Type"])
+    return template.replace("<!--TYPE-->", "")
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
 }
 
@@ -1064,7 +1064,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
 
         const template = getFileContentSync('\\internal\\listentry.txt');
 
-        const list = getChatList(0, arr["Who"]);
+        const list = getChatList(0, (userName == arr["Who"]) ? userName : "");
         txt = "";
         if (list[0]) {
             list[0].forEach(function(arr) {
@@ -1074,22 +1074,31 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>Ostatnie chaty<hr>" + txt + "</div>" : "");
 
         txt = "";
-        for (var rodzaj in podstronyType) {
-            const list = getPageList(0,
-                podstronyType[rodzaj], (userName == "") ? new Array("biblioteka") : podstronyState[rodzaj],
-                null,
-                null, null,
-                "ostatni",
-                userName, userLevel,
-                arr["Who"]);
-            var t = "";
-            if (list[0]) {
-                list[0].forEach(function(arr) {
-                    t += (t != "" ? "<hr>" : "") + formatListaEntry(template, arr);
-                });
+        new Array(new Array("biblioteka"),
+            (userName == "") ? new Array("beta", "poczekalnia") : new Array("beta", "poczekalnia", "szkic")).forEach(function(type) {
+            for (var rodzaj in podstronyType) {
+                const list = getPageList(0,
+                    podstronyType[rodzaj], type,
+                    null,
+                    null, null,
+                    "ostatni",
+                    userName, userLevel,
+                    arr["Who"]);
+                var t = "";
+                if (list[0]) {
+                    list[0].forEach(function(arr) {
+                        t += (t != "" ? "<hr>" : "") + formatListaEntry(template, arr);
+                    });
+                }
+                if (t != "") {
+                    txt += "<div class=ramki>Ostatnie teksty (";
+                    type.forEach(function(typ) {
+                        txt += typ + " ";
+                    });
+                    txt += ") - " + rodzaj + "<hr>" + t + "</div>";
+                }
             }
-            if (t != "") txt += "<div class=ramki>Ostatnie teksty - " + rodzaj + "<hr>" + t + "</div>";
-        }
+        });
         text = text.replace("<!--TEXT-LIST-->", txt);
 
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
