@@ -13,7 +13,6 @@ sesje Google - szukanie czy user wylogowany
 suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 teaser w tekstach
 notka na stronie usera
-?q=profil/pokaz/2 zle
 
 # Tworzenie wielu plików z danymi z istniejących:
 

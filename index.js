@@ -133,7 +133,12 @@ function decodeFileContent(txt, allVersions) {
                     arr["Text"] = "";
                 } else {
                     const x = line.split(":");
-                    if (x.length >= 2) arr[x[0]] = line.substring(x[0].length + 1, line.length);
+                    if (x.length >= 2) {
+                        // When we get Who for <!--update--> we can override author name
+                        if (x[0] != "Who" || (x[0] == "Who" && !arr["Who"])) {
+                            arr[x[0]] = line.substring(x[0].length + 1, line.length);
+                        }
+                    }
                 }
                 break;
             case DecodingLevel.MainText:
@@ -179,7 +184,7 @@ function formatDate(date) {
         (d.getSeconds() < 10 ? "0" : "") + d.getSeconds();
 }
 
-function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, userLevel) {
+function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, userLevel, forUser) {
     var result = new Array();
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
@@ -189,6 +194,8 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
         if ((typeList && !typeList.includes(entry["Type"])) ||
             !stateList.includes(entry["State"]) ||
             (entry["State"] == "szkic" && userName != entry["Who"])) return;
+
+        if (forUser && entry["Who"] != forUser) return;
 
         if (entry["Taxonomy"]) {
             if (tax) {
@@ -254,7 +261,7 @@ function updateComment(comment, res) {
     console.log("jest callback");
 
     const template = getFileContentSync('\\internal\\comment.txt')
-        .replace("<!--USER-->", comment["Who"])
+        .replace("<!--USER-->", addUserLink(comment["Who"]))
         .replace("<!--WHEN-->", formatDate(comment["When"]))
         .replace("<!--TEXT-->", comment["Text"]);
 
@@ -262,7 +269,7 @@ function updateComment(comment, res) {
     res.write("data: " + encodeURI(template) + "\n\n");
 }
 
-async function verifyMail(mail, username) {
+async function sendVerificationMail(mail, username) {
     var x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
     let info = await smtp.sendMail({
         from: 'marcin@mwiacek.com',
@@ -463,7 +470,7 @@ async function parsePOSTforms(params, req, res, userName) {
             }
             if (params["typ"] != "g") {
                 if (mailSupport) {
-                    verifyMail(params["mail"], params["username"]);
+                    sendVerificationMail(params["mail"], params["username"]);
                 }
             }
             console.log(id);
@@ -513,7 +520,7 @@ async function parsePOSTforms(params, req, res, userName) {
                     if (pass != params["password"]) return;
                     const salt = crypto.randomBytes(32).toString('base64');
                     if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
-                        verifyMail(arr["Mail"], arr["Who"]);
+                        sendVerificationMail(arr["Mail"], arr["Who"]);
                         found = "Konto niezweryfikowane. Kliknij na link w mailu";
                     } else {
                         logged.push(new Array(salt, arr["Who"], file));
@@ -709,7 +716,7 @@ function genericReplace(req, res, text, userName) {
     }
 }
 
-function remindPass(req, res, params, userName, userLevel) {
+function showPassReminderPage(req, res, params, userName, userLevel) {
     var x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
     remindToken.push(new Array(x, Date.now() + 1000 * 60 * 60, "", "", ""));
 
@@ -726,7 +733,7 @@ function remindPass(req, res, params, userName, userLevel) {
     }
 }
 
-function remindPass2(req, res, params, id, userName, userLevel) {
+function showChangePasswordPage(req, res, params, id, userName, userLevel) {
     found = false;
     remindToken.forEach(function(session) {
         if (session[1] < Date.now()) {
@@ -759,7 +766,7 @@ function remindPass2(req, res, params, id, userName, userLevel) {
     }
 }
 
-function verifyMail2(req, res, params, id, userName, userLevel) {
+function showMailVerifyPage(req, res, params, id, userName, userLevel) {
     found = false;
     verifyToken.forEach(function(session) {
         if (found) return;
@@ -809,7 +816,7 @@ function addUserLink(name) {
     return "<a href=?q=profil/pokaz/" + cacheUsers[name][0] + ">" + name + "</a>";
 }
 
-function zmienDodajUser(req, res, params, userName, userLevel) {
+function showAddChangeUserPage(req, res, params, userName, userLevel) {
     if (params["q"] == "edituser" && userName == "") {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -866,7 +873,7 @@ function loginGoogle(req, res, params, userName, userLevel) {
 
 // for example opowiadania/dodaj
 // for example opowiadania/zmien/1
-function zmienDodajStrona(req, res, params, id, userName, userLevel) {
+function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     if (userLevel == "0" || !podstronyType[id[1]]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -932,7 +939,7 @@ function zmienDodajStrona(req, res, params, id, userName, userLevel) {
     }
 }
 
-function pokazChat(req, res, params, id, userName) {
+function showChatPage(req, res, params, id, userName) {
     if (userName == "") {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -1031,7 +1038,7 @@ function formatChatEntry(template, arr) {
 }
 
 // for example profil/pokaz/1
-function pokazProfil(req, res, params, id, userName, userLevel) {
+function showProfilePage(req, res, params, id, userName, userLevel) {
     readFileContentSync('\\uzytkownicy\\' + id[1] + '.txt', (data) => {
         if (data == "") {
             res.statusCode = 302;
@@ -1057,7 +1064,7 @@ function pokazProfil(req, res, params, id, userName, userLevel) {
 
         const template = getFileContentSync('\\internal\\listentry.txt');
 
-        const list = getChatList(0, userName);
+        const list = getChatList(0, arr["Who"]);
         txt = "";
         if (list[0]) {
             list[0].forEach(function(arr) {
@@ -1069,13 +1076,12 @@ function pokazProfil(req, res, params, id, userName, userLevel) {
         txt = "";
         for (var rodzaj in podstronyType) {
             const list = getPageList(0,
-                podstronyType[rodzaj],
-                (userName == "") ? new Array("biblioteka") : podstronyState[rodzaj],
+                podstronyType[rodzaj], (userName == "") ? new Array("biblioteka") : podstronyState[rodzaj],
                 null,
-                null,
+                null, null,
                 "ostatni",
-                userName,
-                userLevel);
+                userName, userLevel,
+                arr["Who"]);
             var t = "";
             if (list[0]) {
                 list[0].forEach(function(arr) {
@@ -1096,7 +1102,7 @@ function pokazProfil(req, res, params, id, userName, userLevel) {
 }
 
 // for example opowiadania/pokaz/1
-function pokazStrona(req, res, params, id, userName) {
+function showTextPage(req, res, params, id, userName) {
     if (!podstronyType[id[1]]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -1173,21 +1179,19 @@ function formatListaEntry(template, arr) {
         .replace("<!--WHEN-->", formatDate(arr["When"]));
 }
 
-function pokazListaMain(req, res, page, params, userName) {
+function showMainPage(req, res, page, params, userName) {
     var text = genericReplace(req, res, getFileContentSync('\\internal\\main.txt'), userName)
         .replace("<!--TITLE-->", "");
 
     const template = getFileContentSync('\\internal\\listentry.txt');
 
     const listGlue = getPageList(page,
+        null, new Array("biblioteka"),
         null,
-        new Array("biblioteka"),
-        null,
-        "przyklejonegłówna",
-        null,
+        "przyklejonegłówna", null,
         "ostatni",
-        userName,
-        "0");
+        userName, "0",
+        null);
 
     var txt = "";
     if (listGlue[0]) {
@@ -1199,13 +1203,11 @@ function pokazListaMain(req, res, page, params, userName) {
 
     const list = getPageList(page,
         null,
-        new Array("biblioteka"),
-        null,
-        "główna",
-        "przyklejonegłówna",
+        new Array("biblioteka"), null,
+        "główna", "przyklejonegłówna",
         "ostatni",
-        userName,
-        "0");
+        userName, "0",
+        null);
 
     txt = "";
     if (list[0]) {
@@ -1238,7 +1240,7 @@ function buildURL(tekst, rodzaj, typ, status, page, sorttype, tax) {
 }
 
 // rodzaj/typ/status
-function pokazLista(req, res, params, id, userName, userLevel) {
+function showListPage(req, res, params, id, userName, userLevel) {
     const rodzaj = id[1];
     const typ = id[2] ? id[2] : "";
     const status = id[3] ? id[3] : "";
@@ -1258,14 +1260,12 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     const pageNum = id[4] ? parseInt(id[4].substring(1)) : 0;
 
     const list = getPageList(pageNum,
-        typ ? new Array(typ) : podstronyType[rodzaj],
-        status ? new Array(status) : podstronyState[rodzaj],
+        typ ? new Array(typ) : podstronyType[rodzaj], status ? new Array(status) : podstronyState[rodzaj],
         tax,
-        null,
-        "przyklejone",
+        null, "przyklejone",
         sortLevel == "" ? "ostatni" : sortLevel,
-        userName,
-        userLevel);
+        userName, userLevel,
+        null);
 
     if (pageNum * onThePage > list[1]) {
         res.statusCode = 302;
@@ -1328,14 +1328,12 @@ function pokazLista(req, res, params, id, userName, userLevel) {
     const template = getFileContentSync('\\internal\\listentry.txt');
 
     const listGlue = getPageList(0,
-        podstronyType[rodzaj],
-        new Array("biblioteka"),
+        podstronyType[rodzaj], new Array("biblioteka"),
         null,
-        "przyklejone",
-        null,
+        "przyklejone", null,
         "ostatni",
-        userName,
-        userLevel);
+        userName, userLevel,
+        null);
 
     txt = "";
     if (listGlue[0]) {
@@ -1475,11 +1473,11 @@ const onRequestHandler = (req, res) => {
         }
         if (params["q"]) {
             if (params["q"] == "newuser") {
-                zmienDodajUser(req, res, params, userName, getUserLevelUserName(userName));
+                showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
             if (params["q"] == "edituser") {
-                zmienDodajUser(req, res, params, userName, getUserLevelUserName(userName));
+                showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
             if (params["q"] == "logingoogle") {
@@ -1487,58 +1485,58 @@ const onRequestHandler = (req, res) => {
                 return;
             }
             if (params["q"] == "remind") {
-                remindPass(req, res, params, userName, getUserLevelUserName(userName));
+                showPassReminderPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
             var id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
             if (id) {
-                remindPass2(req, res, params, id, userName, getUserLevelUserName(userName));
+                showChangePasswordPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             var id = params["q"].match(/^verifymail\/([A-Za-z0-9+\/=]+)$/);
             if (id) {
-                verifyMail2(req, res, params, id, userName, getUserLevelUserName(userName));
+                showMailVerifyPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
             if (id) {
-                pokazChat(req, res, params, id, userName);
+                showChatPage(req, res, params, id, userName);
                 return;
             }
             if (userName != "") {
                 // for example opowiadania/zmien/1
                 var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
                 if (id) {
-                    zmienDodajStrona(req, res, params, id, userName, getUserLevelUserName(userName));
+                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
                     return;
                 }
                 // for example opowiadania/dodaj
                 var id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
                 if (id) {
-                    zmienDodajStrona(req, res, params, id, userName, getUserLevelUserName(userName));
+                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
                     return;
                 }
             }
             var id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
             if (id) {
-                pokazProfil(req, res, params, id, userName, getUserLevelUserName(userName));
+                showProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             // for example opowiadania/pokaz/1
             var id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)$/);
             if (id) {
-                pokazStrona(req, res, params, id, userName);
+                showTextPage(req, res, params, id, userName);
                 return;
             }
             // for example opowiadania//biblioteka/1
             var id = params["q"].match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
             if (id) {
-                pokazLista(req, res, params, id, userName, getUserLevelUserName(userName));
+                showListPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             var id = params["q"].match(/^(\/{1,1}[0-9]*)?$/);
             if (id) {
-                pokazListaMain(req, res, parseInt(id[1].substring(1)), params, userName);
+                showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
                 return;
             }
             res.statusCode = 302;
@@ -1546,7 +1544,7 @@ const onRequestHandler = (req, res) => {
             res.end();
             return;
         }
-        pokazListaMain(req, res, 0, new Array(), userName);
+        showMainPage(req, res, 0, new Array(), userName);
         return;
     } else if (req.headers['content-type'] == "application/x-www-form-urlencoded") { // POST forms
         var body = "";
