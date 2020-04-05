@@ -1,0 +1,90 @@
+<!doctype html>
+<html><head>
+<meta charset='utf-8'>
+<title>Dodaj nowy chat</title>
+<!--STYLES-->
+</head><body>
+<!--MENU-->
+<div class=content>
+<div class=ramki>
+Nowy chat
+</div>
+<div class=ramki>
+<form id=textedit name=textedit method=post>
+Tytuł: <input name="title" id=title type="text" value="tytul" placeholder="Bez tytułu się nie obędzie" size=50><p>
+Użytkownicy<p>
+<!--USERS-LIST--><p>
+<button type="submit" id=sub>Zapisz</button>
+</form>
+</div>
+<script async=async>
+
+function getListValues(name) {
+  var result = "";
+  for (var i=0, len=document.getElementById(name).options.length; i<len; i++) {
+        opt = document.getElementById(name).options[i];
+        if (opt.selected) result += opt.value+",";
+  }
+  return result.slice(0, -1);
+}
+
+function sprawdz() {
+  if ("new_user"=="<!--OPERATION-->") {
+    if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
+       document.getElementById("textedit").elements.namedItem("mail").value=="" ||
+       (getRadio() == "wlasne" && (
+        document.getElementById("textedit").elements.namedItem("pass").value=="" ||
+        document.getElementById("textedit").elements.namedItem("pass2").value==""))) {
+      document.getElementById('sub').disabled=true;
+    } else {
+      document.getElementById('sub').disabled=false;
+    }
+  } else {
+    if (document.getElementById("textedit").elements.namedItem("mail").value=="") {
+      document.getElementById('sub').disabled=true;
+    } else {
+      document.getElementById('sub').disabled=false;
+    }
+  }
+}
+//sprawdz();
+//document.getElementById("username").addEventListener("input", sprawdz);
+//document.getElementById("mail").addEventListener("input", sprawdz);
+//document.getElementById("pass").addEventListener("input", sprawdz);
+//document.getElementById("pass2").addEventListener("input", sprawdz);
+
+function setWlasne() {
+  document.getElementById('wlasne').style.visibility="visible";
+  document.getElementById('wlasne2').style.visibility="visible";
+  sprawdz();
+}
+
+function setGoogle() {
+  document.getElementById('wlasne').style.visibility="collapse";
+  document.getElementById('wlasne2').style.visibility="collapse";
+  sprawdz();
+}
+
+document.textedit.onsubmit = function() {
+  var title = document.getElementById("textedit").elements.namedItem("title").value; 
+var users = getListValues('users');
+
+  var http = new XMLHttpRequest();
+  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
+  var params = 'q=new_chat&title='+title+'&users='+users;
+
+  http.open('POST', url, true);
+  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http.onload = function() {
+     window.location.href='?q=chat/pokaz/'+http.response;
+  };
+  http.onerror = function () {
+    alert(http.response);
+  };
+
+  http.send(params);
+
+  return false;
+};
+</script>
+</div></body></html>

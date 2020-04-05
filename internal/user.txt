@@ -9,7 +9,10 @@
 <div class=ramki>
 <table width=100%><tr><td>Użytkownik <!--USER--></td><td align=right><!--USER-EDIT--></td></tr></table>
 </div>
+<div class=ramki>
+<table width=100%><tr><td>Ostatnie chaty</td><td align=right><!--ADD-CHAT--></td></tr></table>
 <!--CHAT-LIST-->
+</div>
 <!--TEXT-LIST-->
 </div>
 </body></html>

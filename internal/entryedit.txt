@@ -15,15 +15,27 @@ Edycja tekstu w dziale <!--RODZAJ-->
   <form id=textedit name=textedit method=post>
       Status:<!--STATE-->
       Typ:<!--TYPE-->
+      Tagi (opcjonalne)<p>
       <!--TAXONOMY-->
       <!--SPECIAL-TAXONOMY-->
       Tytuł: <input name="title" id=title type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50><p>
+      Informacja dla czytających
+      <textarea id="teaser-editor-container"><!--TEASER--></textarea><p>
+      Tekst
       <textarea id="editor-container"><!--TEXT--></textarea><p>
       <button type="submit" id=sub>Zapisz</button>
   </form>
   <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
 </div>
 <script async=async>
+
+var teasersuneditor = SUNEDITOR.create('teaser-editor-container',{
+  height : '100%',
+  width:'auto',
+  showPathLabel : false,
+  charCounter : true,
+  placeholder: 'Może być pusty'
+});
 
 var suneditor = SUNEDITOR.create('editor-container',{
   height : '100%',
@@ -114,6 +126,7 @@ document.textedit.onsubmit = function() {
   if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;
   if (taxonomy!=taxonomy0) params+='&taxonomy='+taxonomy;
   if (suneditor.getContents(true)!=text0) params+='&text='+decodeURIComponent(suneditor.getContents(true));
+  if (teasersuneditor.getContents(true)!='') params+='&teaser='+decodeURIComponent(teasersuneditor.getContents(true));
   if (specialtaxonomy!=specialtaxonomy0) params+='&specialtaxonomy='+specialtaxonomy;
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');

@@ -168,10 +168,17 @@ function decodeFileContent(txt, allVersions) {
     return arr;
 }
 
-function addToCache(name) {
+function addToTextCache(name) {
     cacheTexts[name] = decodeFileContent(readFileContentSync('\\teksty\\' + name + '.txt'), false);
     cacheTexts[name]["filename"] = name;
     callbackText[name] = new Array();
+}
+
+function addToChatCache(name, tekst) {
+    console.log("cache chat " + name);
+    cacheChat[name] = tekst;
+    cacheChat[name]["filename"] = name;
+    callbackChat[name] = new Array();
 }
 
 var months = new Array("Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
@@ -257,6 +264,27 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
     }
 }
 
+function sendHTMLHead(res) {
+    res.statusCode = 200;
+    //    res.setHeader('Cache-Control', 'no-store');
+    //  res.setHeader('Cache-Control', 'must-revalidate');
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+}
+
+function sendHTMLBody(req, res, text) {
+    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.end(zlib.deflateSync(text));
+    } else {
+        res.end(text);
+    }
+}
+
+function sendHTML(req, res, text) {
+    sendHTMLHead(res);
+    sendHTMLBody(req, res, text);
+}
+
 function updateComment(comment, res) {
     console.log("jest callback");
 
@@ -312,6 +340,7 @@ async function parsePOSTforms(params, req, res, userName) {
                     comment["When"] = t;
                     comment["Text"] = params["comment"];
 
+                    console.log("probuje callback");
                     for (var index in callbackChat[params["tekst"]]) {
                         updateComment(comment, callbackChat[params["tekst"]][index]);
                     }
@@ -378,7 +407,7 @@ async function parsePOSTforms(params, req, res, userName) {
                             "When:" + formatDate(Date.now()) + "\n" +
                             "Who:" + userName + "\n\n" +
                             params["text"], 'utf8');
-                        addToCache(id);
+                        addToTextCache(id);
                         cacheID = id + 1;
                         break;
                     } catch (err) {
@@ -433,6 +462,42 @@ async function parsePOSTforms(params, req, res, userName) {
                 return;
             }
         }
+        if (params["q"] == "new_chat" && params["title"] && params["users"]) {
+            wrong = false;
+            params["users"].split(',').forEach(function(user) {
+                if (!cacheUsers[user]) {
+                    wrong = true;
+                }
+            });
+            if (wrong) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'text/plain');
+                res.end();
+                return;
+            }
+
+            const txt = "Title:" + params["title"] + "\n" +
+                "When:" + formatDate(Date.now()) + "\n" +
+                "Who:" + params["users"] + "\n\n";
+            var id = 1;
+            while (1) {
+                var fd;
+                try {
+                    fd = fs.openSync(__dirname + "\\chat\\" + id + ".txt", 'wx');
+                    fs.appendFileSync(fd, txt, 'utf8');
+                    addToChatCache(id.toString(), txt);
+                    break;
+                } catch (err) {
+                    id++;
+                } finally {
+                    if (fd !== undefined) fs.closeSync(fd);
+                }
+            }
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end(id.toString());
+            return;
+        }
         if (params["q"] == "new_user" && params["username"] && params["typ"] && params["mail"]) {
             if ((params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
                 res.statusCode = 404;
@@ -457,7 +522,7 @@ async function parsePOSTforms(params, req, res, userName) {
                         "When:" + formatDate(Date.now()) + "\n" +
                         (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
                         (params["typ"] == "g" ? "Type:google\n" : "") +
-                        "Level:1\n\n";
+                        (id == 1 ? "Level:2\n\n" : "Level:1\n\n");
                     fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
                     fs.appendFileSync(fd, txt, 'utf8');
                     cacheUsers[params["username"]] = new Array(id, decodeFileContent(txt, true));
@@ -716,21 +781,25 @@ function genericReplace(req, res, text, userName) {
     }
 }
 
+function addRadio(idname, value, checked) {
+    return "<input type=\"radio\" name=\"" + idname + "\" id=" + idname + " value=\"" + value + "\"" +
+        (checked ? " checked" : "") + "><label for=\"" + idname + "\">" + value + "</label>";
+}
+
+function addOption(idnamevalue, selected) {
+    return "<option value=\"" + idnamevalue + "\"" + (selected ? " selected" : "") + ">" + idnamevalue + "</option>";
+}
+
+function addUserLink(name) {
+    return "<a href=?q=profil/pokaz/" + cacheUsers[name][0] + ">" + name + "</a>";
+}
+
 function showPassReminderPage(req, res, params, userName, userLevel) {
     var x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
     remindToken.push(new Array(x, Date.now() + 1000 * 60 * 60, "", "", ""));
 
-    var text = genericReplace(req, res, getFileContentSync('\\internal\\remind1.txt'), userName)
-        .replace("<!--HASH-->", x);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
-    }
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\remind1.txt'), userName)
+        .replace("<!--HASH-->", x));
 }
 
 function showChangePasswordPage(req, res, params, id, userName, userLevel) {
@@ -753,17 +822,7 @@ function showChangePasswordPage(req, res, params, id, userName, userLevel) {
         return;
     }
 
-    var text = genericReplace(req, res, getFileContentSync('\\internal\\remind2.txt'), userName).
-    replace("<!--HASH-->", salt);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
-    }
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\remind2.txt'), userName).replace("<!--HASH-->", salt));
 }
 
 function showMailVerifyPage(req, res, params, id, userName, userLevel) {
@@ -790,30 +849,7 @@ function showMailVerifyPage(req, res, params, id, userName, userLevel) {
         return;
     }
 
-    var text = genericReplace(req, res, getFileContentSync('\\internal\\verify.txt'), userName).
-    replace("<!--HASH-->", salt);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
-    }
-}
-
-function addRadio(idname, value, checked) {
-    return "<input type=\"radio\" name=\"" + idname + "\" id=" + idname + " value=\"" + value + "\"" +
-        (checked ? " checked" : "") + "><label for=\"" + idname + "\">" + value + "</label>";
-}
-
-function addOption(idnamevalue, selected) {
-    return "<option value=\"" + idnamevalue + "\"" + (selected ? " selected" : "") + ">" + idnamevalue + "</option>";
-}
-
-function addUserLink(name) {
-    return "<a href=?q=profil/pokaz/" + cacheUsers[name][0] + ">" + name + "</a>";
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\verify.txt'), userName).replace("<!--HASH-->", salt));
 }
 
 function showAddChangeUserPage(req, res, params, userName, userLevel) {
@@ -847,28 +883,12 @@ function showAddChangeUserPage(req, res, params, userName, userLevel) {
             .replace(/<!--OPERATION-->/g, "new_user");
     }
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
-    }
+    sendHTML(req, res, text);
 }
 
 function loginGoogle(req, res, params, userName, userLevel) {
-    var text = genericReplace(req, res, getFileContentSync('\\internal\\logingoogle.txt'), userName)
-        .replace("<!--SIGN-IN-TOKEN-->", GoogleSignInToken);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
-    }
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\logingoogle.txt'), userName)
+        .replace("<!--SIGN-IN-TOKEN-->", GoogleSignInToken));
 }
 
 // for example opowiadania/dodaj
@@ -929,14 +949,24 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
     }
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
+    sendHTML(req, res, text);
+}
+
+function showAddChatPage(req, res, params, userName) {
+    if (userName == "") {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
     }
+
+    var txt = "<select id=\"users\" name=\"users\" size=5 multiple>";
+    for (var index in cacheUsers) {
+        txt += addOption(cacheUsers[index][1]["Who"], cacheUsers[index][1]["Who"] == userName);
+    }
+
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\addchat.txt'), userName)
+        .replace("<!--USERS-LIST-->", txt + "</select>"));
 }
 
 function showChatPage(req, res, params, id, userName) {
@@ -964,9 +994,7 @@ function showChatPage(req, res, params, id, userName) {
             return;
         }
 
-        res.statusCode = 200;
-        res.setHeader('Cache-Control', 'no-store');
-        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        sendHTMLHead(res);
 
         var text = getFileContentSync('\\internal\\chat.txt');
         text = genericReplace(req, res, text, userName)
@@ -991,16 +1019,9 @@ function showChatPage(req, res, params, id, userName) {
             text = text.replace("<!--COMMENTS-->", txt);
         }
 
-        text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
-            .replace(/<!--PAGEID-->/g, '1') //many entries
-            .replace("<!--OBJECT-->", "chat");
-
-        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-            res.setHeader('Content-Encoding', 'deflate');
-            res.end(zlib.deflateSync(text));
-        } else {
-            res.end(text);
-        }
+        sendHTMLBody(req, res, text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
+            .replace(/<!--PAGEID-->/g, id[1]) //many entries
+            .replace("<!--OBJECT-->", "chat"));
     });
 }
 
@@ -1058,20 +1079,23 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             .replace(/<!--TITLE-->/g, arr["Title"])
             .replace("<!--USER-->", arr["Who"]);
 
-        if (userName != "") {
+        if (userName == arr["Who"]) {
             text = text.replace("<!--USER-EDIT-->", "<a href=?q=edituser>Edycja</a>");
+        }
+        if (userName != "") {
+            text = text.replace("<!--ADD-CHAT-->", "<a href=?q=addchat>Dodaj</a>");
         }
 
         const template = getFileContentSync('\\internal\\listentry.txt');
 
-        const list = getChatList(0, (userName == arr["Who"]) ? userName : "");
+        const list = getChatList(0, userName);
         txt = "";
         if (list[0]) {
             list[0].forEach(function(arr) {
                 txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr);
             });
         }
-        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki>Ostatnie chaty<hr>" + txt + "</div>" : "");
+        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<hr>" + txt : "");
 
         txt = "";
         new Array(new Array("biblioteka"),
@@ -1099,14 +1123,8 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 }
             }
         });
-        text = text.replace("<!--TEXT-LIST-->", txt);
 
-        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-            res.setHeader('Content-Encoding', 'deflate');
-            res.end(zlib.deflateSync(text));
-        } else {
-            res.end(text);
-        }
+        sendHTMLBody(req, res, text.replace("<!--TEXT-LIST-->", txt));
     });
 }
 
@@ -1163,12 +1181,7 @@ function showTextPage(req, res, params, id, userName) {
                     params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
         }
 
-        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-            res.setHeader('Content-Encoding', 'deflate');
-            res.end(zlib.deflateSync(text));
-        } else {
-            res.end(text);
-        }
+        sendHTMLBody(req, res, text);
     });
 }
 
@@ -1230,14 +1243,7 @@ function showMainPage(req, res, page, params, userName) {
         .replace("<!--NEXTLINK-->", ((page + 1) * onThePage < list[1]) ?
             "<a href=\"?q=/" + (page + 1) + "\">Next page &gt;</a>" : "");
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
-    }
+    sendHTML(req, res, text);
 }
 
 function buildURL(tekst, rodzaj, typ, status, page, sorttype, tax) {
@@ -1283,9 +1289,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         return;
     }
 
-    res.statusCode = 200;
-    res.setHeader('Cache-Control', 'must-revalidate');
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    sendHTMLHead(res);
 
     var text = genericReplace(req, res, getFileContentSync('\\internal\\list.txt'), userName)
         .replace("<!--TITLE-->", "")
@@ -1358,14 +1362,8 @@ function showListPage(req, res, params, id, userName, userLevel) {
             txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
         });
     }
-    text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
 
-    if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-        res.setHeader('Content-Encoding', 'deflate');
-        res.end(zlib.deflateSync(text));
-    } else {
-        res.end(text);
-    }
+    sendHTMLBody(req, res, text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : ""));
 }
 
 const onRequestHandler = (req, res) => {
@@ -1423,7 +1421,7 @@ const onRequestHandler = (req, res) => {
                 });
                 res.write("event: c\n");
                 res.write("data: \n\n");
-
+                console.log("dodaje callback");
                 const session = crypto.randomBytes(32).toString('base64');
                 callbackChat[id[1]][session] = res;
                 res.on('close', function() {
@@ -1507,20 +1505,24 @@ const onRequestHandler = (req, res) => {
                 showMailVerifyPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
-            var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
-            if (id) {
-                showChatPage(req, res, params, id, userName);
-                return;
-            }
             if (userName != "") {
-                // for example opowiadania/zmien/1
-                var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
+                if (params["q"] == "addchat") {
+                    showAddChatPage(req, res, params, userName);
+                    return;
+                }
+                var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
                 if (id) {
-                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
+                    showChatPage(req, res, params, id, userName);
                     return;
                 }
                 // for example opowiadania/dodaj
                 var id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
+                if (id) {
+                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
+                    return;
+                }
+                // for example opowiadania/zmien/1
+                var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
                 if (id) {
                     showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
                     return;
@@ -1580,7 +1582,7 @@ process.on('exit', function(code) {
 });
 
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    addToCache(file.replace(".txt", ""));
+    addToTextCache(file.replace(".txt", ""));
 })
 
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
@@ -1592,9 +1594,7 @@ fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '
 })
 
 fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    cacheChat[file.replace(".txt", "")] = decodeFileContent(readFileContentSync('\\chat\\' + file), false);
-    cacheChat[file.replace(".txt", "")]["filename"] = file.replace(".txt", "");
-    callbackChat[file.replace(".txt", "")] = new Array();
+    addToChatCache(file.replace(".txt", ""), decodeFileContent(readFileContentSync('\\chat\\' + file), false));
 })
 
 //http.createServer(onRequestHandler).listen

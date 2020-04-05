@@ -22,7 +22,7 @@ Tytuł:<!--TITLE-->
   source.addEventListener("c", function(event) {
     if (event.data!='') {
       /*parsing*/
-      document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+      document.getElementById("newcomments").innerHTML = decodeURIComponent(event.data) + document.getElementById("newcomments").innerHTML;
       if (document.hidden && window.document.title.substring(0,2)!="* ") {
         window.document.title = "* "+window.document.title;
       }
