@@ -1,6 +1,7 @@
 <!doctype html>
 <html><head>
 <meta charset='utf-8'>
+<script src="external/sha256.js"></script>
 <title>Nowe konto</title>
 <!--STYLES-->
 </head><body>
@@ -96,7 +97,7 @@ document.textedit.onsubmit = function() {
   if ("new_user"=="<!--OPERATION-->") {
     var params = 'q=<!--OPERATION-->&username='+username+'&mail='+mail;
     if (getRadio()=="wlasne") {
-       params += '&typ=w&pass='+pass;
+       params += '&typ=w&pass='+sha256(pass);
     } else {
        params += '&typ=g';
     }

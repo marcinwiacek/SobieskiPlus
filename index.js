@@ -485,7 +485,7 @@ async function parsePOSTforms(params, req, res, userName) {
                 try {
                     fd = fs.openSync(__dirname + "\\chat\\" + id + ".txt", 'wx');
                     fs.appendFileSync(fd, txt, 'utf8');
-                    addToChatCache(id.toString(), txt);
+                    addToChatCache(id.toString(), decodeFileContent(txt, true));
                     break;
                 } catch (err) {
                     id++;
