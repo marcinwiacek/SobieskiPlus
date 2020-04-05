@@ -255,7 +255,6 @@ function updateComment(comment, res) {
 
     const template = getFileContentSync('\\internal\\comment.txt')
         .replace("<!--USER-->", comment["Who"])
-        .replace("<!--TITLE-->", comment["Title"])
         .replace("<!--WHEN-->", formatDate(comment["When"]))
         .replace("<!--TEXT-->", comment["Text"]);
 
@@ -290,20 +289,18 @@ async function sendMailHaslo(mail, token) {
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
     if (params["q"]) {
-        if (params["q"] == "upload_comment" && params["obj"] && params["tekst"] && params["comment"] && params["title"]) {
+        if (params["q"] == "upload_comment" && params["obj"] && params["tekst"] && params["comment"]) {
             if (params["obj"] == "chat") {
                 if (fs.existsSync(__dirname + "\\chat\\" + params["tekst"] + ".txt")) {
                     const t = Date.now();
                     fs.appendFileSync(__dirname + "\\chat\\" + params["tekst"] + ".txt",
                         "\n<!--comment-->\n" +
-                        "Title:" + params["title"] + "\n" +
                         "When:" + formatDate(t) + "\n" +
                         "Who:" + userName + "\n\n" +
                         params["comment"]
                     );
 
                     comment = new Array();
-                    comment["Title"] = params["title"];
                     comment["Who"] = userName;
                     comment["When"] = t;
                     comment["Text"] = params["comment"];
@@ -323,14 +320,12 @@ async function parsePOSTforms(params, req, res, userName) {
                     const t = Date.now();
                     fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                         "\n<!--comment-->\n" +
-                        "Title:" + params["title"] + "\n" +
                         "When:" + formatDate(t) + "\n" +
                         "Who:" + userName + "\n\n" +
                         params["comment"]
                     );
 
                     comment = new Array();
-                    comment["Title"] = params["title"];
                     comment["Who"] = userName;
                     comment["When"] = t;
                     comment["Text"] = params["comment"];
@@ -983,7 +978,6 @@ function pokazChat(req, res, params, id, userName) {
             var txt = "";
             arr["Comments"].reverse().forEach(function(comment) {
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
-                    .replace("<!--TITLE-->", comment["Title"])
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
                     .replace("<!--TEXT-->", comment["Text"]);
             });
@@ -1138,7 +1132,6 @@ function pokazStrona(req, res, params, id, userName) {
             var txt = "";
             arr["Comments"].forEach(function(comment) {
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
-                    .replace("<!--TITLE-->", comment["Title"])
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
                     .replace("<!--TEXT-->", comment["Text"]);
                 lu = comment["When"];

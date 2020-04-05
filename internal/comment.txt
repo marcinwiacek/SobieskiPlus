@@ -1,5 +1,5 @@
 <div class=ramki>
-<!--USER-->: <b><!--TITLE--></b><br>
+<!--USER--><br>
 <!--WHEN-->
 <hr>
 <!--TEXT-->

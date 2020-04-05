@@ -4,7 +4,6 @@
 
 <div class=ramki>
   <form id=commentedit name=commentedit method=post>
-      Tytuł: <input name="title" type="text" id=title placeholder="Poproszę o ładny tytuł" size=50><p>
       <textarea id="editor-container"></textarea><p>
       <button id=sub type="submit">Dodaj komentarz</button>
   </form>
@@ -22,8 +21,7 @@ var suneditor = SUNEDITOR.create('editor-container',{
 });
 
 function sprawdz() {
-  if (suneditor.getContents(true).trim().length==0 || 
-      document.getElementById("commentedit").elements.namedItem("title").value=="") {
+  if (suneditor.getContents(true).trim().length==0) {
     document.getElementById('sub').disabled=true;
   } else {
     document.getElementById('sub').disabled=false;
@@ -31,14 +29,12 @@ function sprawdz() {
 }
 document.getElementById('sub').disabled=true;
 suneditor.onChange = function (contents, core) { sprawdz() }
-document.getElementById("title").addEventListener("input", sprawdz);
 
 document.commentedit.onsubmit = function() {
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var title = document.getElementById("commentedit").elements.namedItem("title").value; 
-  var params = 'q=upload_comment&obj=<!--OBJECT-->&tekst=<!--PAGEID-->&comment='+decodeURIComponent(suneditor.getContents(true))+'&title='+title;
+  var params = 'q=upload_comment&obj=<!--OBJECT-->&tekst=<!--PAGEID-->&comment='+decodeURIComponent(suneditor.getContents(true));
 
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
