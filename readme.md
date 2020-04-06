@@ -3,16 +3,17 @@
 * http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
 * https://www.fantastyka.pl/hydepark/pokaz/24257
 
-MIlestone2
-change password przez stronę newuser
-auto odswiezanie wszystkich stron
-deaktywacja użytkownika
-+- (punkty)
-facebook
-sesje Google - szukanie czy user wylogowany
-suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
-teaser w tekstach
-notka na stronie usera
+# Znane rzeczy z node.JS:
+* Firefox: menu przewija się z ciemnym motywem (błąd FF?)
+* change password przez stronę newuser
+* auto odswiezanie wszystkich stron
+* deaktywacja użytkownika
+* +- (punkty)
+* facebook
+* sesje Google - szukanie czy user wylogowany
+* suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
+* teaser w tekstach
+* notka na stronie usera
 
 # Tworzenie wielu plików z danymi z istniejących:
 
@@ -37,9 +38,6 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' \
 * https://medium.com/@thomashellstrom/use-google-as-login-in-your-web-app-with-oauth2-352f6c7f10e6
 * https://developers.google.com/identity/sign-in/web/backend-auth
 * https://www.cssscript.com/minimal-wysiwyg-editor-pure-javascript-suneditor/
-
-# Znane rzeczy z node.JS:
-* Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 
 # Znane rzeczy z PHP (ostatnia wersja 13.3.2020):
 1. przy przeładowaniu push.php teoretycznie możemy zgubić komentarz (?)
