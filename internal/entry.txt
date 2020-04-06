@@ -13,6 +13,7 @@
 Autor:<!--USER--><br>
 Typ:<!--TYPE--><br>
 Ostatnio zmienione:<!--WHEN-->
+<!--TEASER-->
 </div>
 <div class=ramki>
 <center><h1><!--TITLE--></h1></center>

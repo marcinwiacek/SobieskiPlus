@@ -55,6 +55,7 @@ if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=n
   var specialtaxonomy0 = "";
 }
 var text0 = suneditor.getContents(true);
+var teaser0 = teasersuneditor.getContents(true);
 
 document.getElementById('sub').disabled=true;
 
@@ -71,7 +72,8 @@ function sprawdz() {
       taxonomy0 != getListValues("taxonomy") ||
       (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null &&
            specialtaxonomy0 != getListValues("specialtaxonomy")) ||
-      text0 != suneditor.getContents(true)) {
+      text0 != suneditor.getContents(true) ||
+      teaser0 != teasersuneditor.getContents(true)) {
     document.getElementById('sub').disabled=false;
   } else {
     document.getElementById('sub').disabled=true;
@@ -81,6 +83,7 @@ function sprawdz() {
 }
 
 suneditor.onChange = function (contents, core) { sprawdz() }
+teasersuneditor.onChange = function (contents, core) { sprawdz() }
 var e = document.getElementsByTagName("input");
 for (var i=0;i<e.length;i++) {
   e[i].addEventListener("click", sprawdz);

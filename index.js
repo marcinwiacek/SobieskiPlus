@@ -406,6 +406,7 @@ async function parsePOSTforms(params, req, res, userName) {
                             txt +
                             "When:" + formatDate(Date.now()) + "\n" +
                             "Who:" + userName + "\n\n" +
+                            (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" : "") +
                             params["text"], 'utf8');
                         addToTextCache(id);
                         cacheID = id + 1;
@@ -425,7 +426,7 @@ async function parsePOSTforms(params, req, res, userName) {
                 });
                 return;
             }
-            if (!params["text"] && !params["state"] && !params["type"] &&
+            if (!params["text"] && !params["teaser"] && !params["state"] && !params["type"] &&
                 !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"]) {
                 res.statusCode = 404;
                 res.setHeader('Content-Type', 'text/plain');
@@ -434,26 +435,41 @@ async function parsePOSTforms(params, req, res, userName) {
             }
             if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
                 const t = Date.now();
+
                 txt = "";
                 if (params["title"]) txt += "Title:" + params["title"] + "\n";
                 if (params["state"]) txt += "State:" + params["state"] + "\n";
                 if (params["type"]) txt += "Type:" + params["type"] + "\n";
                 if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
                 if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
-                if (params["text"]) txt += "\n" + params["text"];
+
+                if (params["teaser"] || params["text"]) {
+                    cacheTexts[params["tekst"]]["Text"] =
+                        (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" :
+                            (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
+                                cacheTexts[params["tekst"]]["Text"].substr(0, cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->')) + "\n<!--teaser-->\n" :
+                                "")) +
+                        (params["text"] ? params["text"] :
+                            (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
+                                cacheTexts[params["tekst"]]["Text"].substr(cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') + 13) :
+                                cacheTexts[params["tekst"]]["Text"]));
+
+                    txt += "\n" + cacheTexts[params["tekst"]]["Text"];
+                }
+
                 fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
                     "\n<!--change-->\n" +
                     "When:" + formatDate(t) + "\n" +
                     "Who:" + userName + "\n" +
                     txt
                 );
+
                 //update cache
                 if (params["title"]) cacheTexts[params["tekst"]]["Title"] = params["title"];
                 if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
                 if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
                 if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
                 if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
-                if (params["text"]) cacheTexts[params["tekst"]]["Text"] = params["text"];
                 cacheTexts[params["tekst"]]["When"] = t;
                 cacheTexts[params["tekst"]]["Who"] = userName;
                 res.statusCode = 200;
@@ -915,7 +931,12 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     var text = genericReplace(req, res, getFileContentSync('\\internal\\entryedit.txt'), userName)
         .replace("<!--RODZAJ-->", id[1]);
     if (id[2]) {
-        text = text.replace("<!--TEXT-->", arr["Text"])
+        text = text.replace("<!--TEASER-->",
+                (arr["Text"].search('<!--teaser-->') ?
+                    arr["Text"].substr(0, arr["Text"].search('<!--teaser-->')) : ""))
+            .replace("<!--TEXT-->",
+                (arr["Text"].search('<!--teaser-->') ?
+                    arr["Text"].substr(arr["Text"].search('<!--teaser-->') + 13) : arr["Text"]))
             .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
             .replace(/<!--PAGEID-->/g, id[2]); //many entries
     } else {
@@ -1157,7 +1178,12 @@ function showTextPage(req, res, params, id, userName) {
 
         text = text.replace(/<!--TITLE-->/g, arr["Title"])
             .replace("<!--USER-->", addUserLink(arr["Who"]))
-            .replace("<!--TEXT-->", arr["Text"])
+            .replace("<!--TEASER-->",
+                (arr["Text"].search('<!--teaser-->') ?
+                    arr["Text"].substr(0, arr["Text"].search('<!--teaser-->')) : ""))
+            .replace("<!--TEXT-->",
+                (arr["Text"].search('<!--teaser-->') ?
+                    arr["Text"].substr(arr["Text"].search('<!--teaser-->') + 13) : arr["Text"]))
             .replace("<!--TYPE-->", arr["Type"])
             .replace("<!--WHEN-->", formatDate(arr["When"]));
 

@@ -12,7 +12,7 @@
 * facebook
 * sesje Google - szukanie czy user wylogowany
 * suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
-* teaser w tekstach
+* teaser w tekstach - nowa linia
 * notka na stronie usera
 
 # Tworzenie wielu plików z danymi z istniejących:
