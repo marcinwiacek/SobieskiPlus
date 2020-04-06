@@ -134,7 +134,7 @@ function decodeFileContent(txt, allVersions) {
                 } else {
                     const x = line.split(":");
                     if (x.length >= 2) {
-                        // When we get Who for <!--update--> we can override author name
+                        // When we get Who for <!--change--> we can override author name
                         if (x[0] != "Who" || (x[0] == "Who" && !arr["Who"])) {
                             arr[x[0]] = line.substring(x[0].length + 1, line.length);
                         }
@@ -478,7 +478,7 @@ async function parsePOSTforms(params, req, res, userName) {
 
             const txt = "Title:" + params["title"] + "\n" +
                 "When:" + formatDate(Date.now()) + "\n" +
-                "Who:" + params["users"] + "\n\n";
+                "Who:" + params["users"] + "\n";
             var id = 1;
             while (1) {
                 var fd;
@@ -517,12 +517,12 @@ async function parsePOSTforms(params, req, res, userName) {
                 var fd;
                 try {
                     var txt = "Who:" + params["username"] + "\n" +
-                        (params["typ"] == "w" ? "Password:" + params["pass"] + "\n" : "") +
+                        (params["typ"] == "w" ? "Pass:" + params["pass"] + "\n" : "") +
                         "Mail:" + params["mail"] + "\n" +
                         "When:" + formatDate(Date.now()) + "\n" +
                         (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
                         (params["typ"] == "g" ? "Type:google\n" : "") +
-                        (id == 1 ? "Level:2\n\n" : "Level:1\n\n");
+                        (id == 1 ? "Level:2\n" : "Level:1\n");
                     fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
                     fs.appendFileSync(fd, txt, 'utf8');
                     cacheUsers[params["username"]] = new Array(id, decodeFileContent(txt, true));
@@ -552,14 +552,14 @@ async function parsePOSTforms(params, req, res, userName) {
                 return;
             }
             var t = Date.now();
-            var txt = "\n<!--update-->\n" +
-                (params["typ"] == "w" && params["pass"] ? "Password:" + params["pass"] + "\n" : "") +
+            var txt = "\n<!--change-->\n" +
+                (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
                 (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
                 "Mail:" + params["mail"] + "\n" +
-                "When:" + formatDate(t) + "\n\n";
+                "When:" + formatDate(t) + "\n";
             fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[userName][0] + ".txt", txt);
 
-            if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName][1]["Password"] = params["pass"];
+            if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName][1]["Pass"] = params["pass"];
             cacheUsers[userName][1]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
             cacheUsers[userName][1]["Mail"] = params["mail"];
             cacheUsers[userName][1]["When"] = t;
@@ -581,7 +581,7 @@ async function parsePOSTforms(params, req, res, userName) {
                 if (!arr["Type"] || arr["Type"] == "wlasny") {
                     usr = crypto.createHash('sha256').update(session + arr["Who"]).digest("hex");
                     if (usr != params["user"]) return;
-                    pass = crypto.createHash('sha256').update(session + arr["Password"]).digest("hex");
+                    pass = crypto.createHash('sha256').update(session + arr["Pass"]).digest("hex");
                     if (pass != params["password"]) return;
                     const salt = crypto.randomBytes(32).toString('base64');
                     if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
@@ -633,9 +633,11 @@ async function parsePOSTforms(params, req, res, userName) {
     if (params["changepass"] && params["hash"] && params["token"]) {
         found = false;
         remindToken.forEach(function(session) {
+            console.log(session[1] + " " + Date.now());
+            console.log(params["hash"] + " " + session[2]);
             if (found) return;
             if (session[1] < Date.now()) return;
-            if (params["hash"] == decodeURIComponent(session[2])) {
+            if (params["hash"] == session[2]) {
                 fs.appendFileSync(__dirname + "\\uzytkownicy\\" + session[4],
                     "\n<!--change-->\n" +
                     "When:" + formatDate(Date.now()) + "\n" +
@@ -657,7 +659,7 @@ async function parsePOSTforms(params, req, res, userName) {
             if (session[2] < Date.now()) return;
             if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
                 if (cacheUsers[session[1]][1]["ConfirmMail"] == "0") {
-                    token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Password"]).digest("hex");
+                    token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Pass"]).digest("hex");
                     if (token != params["token"]) return;
                     console.log("verified" + session[0]);
                     fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[session[1]][0] + ".txt",
@@ -853,7 +855,7 @@ function showMailVerifyPage(req, res, params, id, userName, userLevel) {
 }
 
 function showAddChangeUserPage(req, res, params, userName, userLevel) {
-    if (params["q"] == "edituser" && userName == "") {
+    if (params["q"] == "profil/zmien" && userName == "") {
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
@@ -862,7 +864,7 @@ function showAddChangeUserPage(req, res, params, userName, userLevel) {
 
     var text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
 
-    if (params["q"] == "edituser") {
+    if (params["q"] == "profil/zmien") {
         if (!cacheUsers[userName][1]["Type"] || cacheUsers[userName][1]["Type"] == "wlasny") {
             text = text.replace("<!--CHECKED-WLASNE-->", " checked")
                 .replace("<!--CHECKED-GOOGLE-->", "");
@@ -1080,10 +1082,10 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             .replace("<!--USER-->", arr["Who"]);
 
         if (userName == arr["Who"]) {
-            text = text.replace("<!--USER-EDIT-->", "<a href=?q=edituser>Edycja</a>");
+            text = text.replace("<!--USER-EDIT-->", "<a href=?q=profil/zmien>Edycja</a>");
         }
         if (userName != "") {
-            text = text.replace("<!--ADD-CHAT-->", "<a href=?q=addchat>Dodaj</a>");
+            text = text.replace("<!--ADD-CHAT-->", "<a href=?q=chat/dodaj>Dodaj</a>");
         }
 
         const template = getFileContentSync('\\internal\\listentry.txt');
@@ -1479,11 +1481,11 @@ const onRequestHandler = (req, res) => {
             return;
         }
         if (params["q"]) {
-            if (params["q"] == "newuser") {
+            if (params["q"] == "profil/dodaj") {
                 showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
-            if (params["q"] == "edituser") {
+            if (params["q"] == "profil/zmien") {
                 showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
@@ -1491,7 +1493,7 @@ const onRequestHandler = (req, res) => {
                 loginGoogle(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
-            if (params["q"] == "remind") {
+            if (params["q"] == "haslo/zmien/1") {
                 showPassReminderPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
@@ -1506,7 +1508,7 @@ const onRequestHandler = (req, res) => {
                 return;
             }
             if (userName != "") {
-                if (params["q"] == "addchat") {
+                if (params["q"] == "chat/dodaj") {
                     showAddChatPage(req, res, params, userName);
                     return;
                 }
@@ -1581,12 +1583,12 @@ process.on('exit', function(code) {
     }
 });
 
-fs.mkdir(__dirname + '\\teksty', {}, (err) => {});
+if (!fs.existsSync(__dirname + '\\teksty')) fs.mkdirSync(__dirname + '\\teksty');
 fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToTextCache(file.replace(".txt", ""));
 })
 
-fs.mkdir(__dirname + '\\uzytkownicy', {}, (err) => {});
+if (!fs.existsSync(__dirname + '\\uzytkownicy')) fs.mkdirSync(__dirname + '\\uzytkownicy');
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
     if (cacheUsers[arr["Who"]]) {
@@ -1595,7 +1597,7 @@ fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '
     cacheUsers[arr["Who"]] = new Array(file.replace(".txt", ""), arr);
 })
 
-fs.mkdir(__dirname + '\\chat', {}, (err) => {});
+if (!fs.existsSync(__dirname + '\\chat')) fs.mkdirSync(__dirname + '\\chat');
 fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToChatCache(file.replace(".txt", ""), decodeFileContent(readFileContentSync('\\chat\\' + file), false));
 })

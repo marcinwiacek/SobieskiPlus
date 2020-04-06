@@ -47,11 +47,12 @@ document.confirm.onsubmit = function() {
       alert('verification error');
     } else {
       alert('mail verified OK');
-      window.location.reload();
     }
+      window.location.reload();
   };
   http.onerror = function () {
     alert('verification error');
+      window.location.reload();
   };
 
   http.send(params);

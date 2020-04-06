@@ -36,8 +36,8 @@
     <div class="menu-option-content menu-option-content-right">
 	<!--LOGIN-LOGOUT-->
         <hr>
-        <a href="?q=newuser">Nowe konto</a><p>
-        <a href="?q=remind">Zapomniane hasło</a><p>
+        <a href="?q=profil/dodaj">Nowe konto</a><p>
+        <a href="?q=haslo/zmien/1">Zapomniane hasło</a><p>
         <hr>
         <!--MOBILE-LINK-->
         <!--DARK-LINK-->

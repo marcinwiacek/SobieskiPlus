@@ -54,11 +54,8 @@ document.confirm.onsubmit = function() {
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   http.onload = function() {
-    if (http.status != 200) {
-      alert('verification error');
-    } else {
-      window.location.reload();
-    }
+      alert('Kliknij na link w mailu, który zostanie wysłany, gdy dane są poprawne');
+      window.location.href='/';
   };
   http.onerror = function () {
     alert('verification error');

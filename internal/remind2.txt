@@ -50,7 +50,7 @@ document.confirm.onsubmit = function() {
 
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = "changepass=1&hash="+decodeURIComponent(hash)+"&token="+pass;
+  var params = "changepass=1&hash="+encodeURIComponent(hash)+"&token="+sha256(pass);
 
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');

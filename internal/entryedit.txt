@@ -125,8 +125,8 @@ document.textedit.onsubmit = function() {
   if (title!=title0) params+='&title='+title;
   if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;
   if (taxonomy!=taxonomy0) params+='&taxonomy='+taxonomy;
-  if (suneditor.getContents(true)!=text0) params+='&text='+decodeURIComponent(suneditor.getContents(true));
-  if (teasersuneditor.getContents(true)!='') params+='&teaser='+decodeURIComponent(teasersuneditor.getContents(true));
+  if (suneditor.getContents(true)!=text0) params+='&text='+encodeURIComponent(suneditor.getContents(true));
+  if (teasersuneditor.getContents(true)!='') params+='&teaser='+encodeURIComponent(teasersuneditor.getContents(true));
   if (specialtaxonomy!=specialtaxonomy0) params+='&specialtaxonomy='+specialtaxonomy;
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');

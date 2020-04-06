@@ -105,7 +105,7 @@ document.textedit.onsubmit = function() {
     var params = 'q=<!--OPERATION-->&mail='+mail;
     if (getRadio()=="wlasne") {
        params += '&typ=w';
-       if (pass!="") params+='&pass='+pass;
+       if (pass!="") params+='&pass='+sha256(pass);
     } else {
        params += '&typ=g';
     }
@@ -114,8 +114,16 @@ document.textedit.onsubmit = function() {
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   http.onload = function() {
-    alert(http.response);
-/*      window.location.href='?q='+http.response; */
+      if ("new_user"=="<!--OPERATION-->") {
+        if (getRadio() == "wlasne") {
+          alert('Konto założone. Konieczna jest jeszcze weryfikacja adresu email.');
+        } else {
+          alert('Konto założone. Adres musi być zweryfikowany przez Google.');
+        }
+      } else {
+        alert('Konto zmienione.');
+      }
+      window.location.href='/';
   };
   http.onerror = function () {
     alert(http.response);
