@@ -40,7 +40,7 @@ var cacheChat = new Array();
 
 var callbackChat = new Array();
 var callbackText = new Array();
-var callbackList = new Array();
+var callbackOther = new Array();
 
 var nonLogged = new Array();
 var logged = new Array();
@@ -321,431 +321,457 @@ async function sendMailHaslo(mail, token) {
     console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
 }
 
+function parsePOSTUploadComment(params, req, res, userName, isChat) {
+    const folder = isChat ? "chat" : "teksty";
+
+    //checking for login
+    //checking for correct filename protection
+    if (fs.existsSync(__dirname + "\\" + folder + "\\" + params["tekst"] + ".txt")) {
+        const t = Date.now();
+        fs.appendFileSync(__dirname + "\\" + folder + "\\" + params["tekst"] + ".txt",
+            "\n<!--comment-->\n" +
+            "When:" + formatDate(t) + "\n" +
+            "Who:" + userName + "\n\n" +
+            params["comment"]
+        );
+
+        comment = new Array();
+        comment["Who"] = userName;
+        comment["When"] = t;
+        comment["Text"] = params["comment"];
+
+        if (isChat) {
+            for (var index in callbackChat[params["tekst"]]) {
+                updateComment(comment, callbackChat[params["tekst"]][index][0]);
+            }
+        } else {
+            cacheTexts[params["tekst"]]["commentswhen"] = t;
+            cacheTexts[params["tekst"]]["commentsnum"]++;
+
+            for (var index in callbackText[params["tekst"]]) {
+                updateComment(comment, callbackText[params["tekst"]][index][0]);
+            }
+        }
+        res.statusCode = 200;
+    } else {
+        res.statusCode = 404;
+    }
+    res.setHeader('Content-Type', 'text/plain');
+    res.end();
+}
+
+function parsePOSTUploadNewText(params, req, res, userName) {
+    if (!params["text"] || !params["state"] ||
+        !params["type"] || !params["title"]) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    var id = cacheID;
+    while (1) {
+        var fd;
+        try {
+            txt = "";
+            if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
+            if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+
+            fd = fs.openSync(__dirname + "\\teksty\\" + id + ".txt", 'wx');
+            fs.appendFileSync(fd,
+                "Title:" + params["title"] + "\n" +
+                "State:" + params["state"] + "\n" +
+                "Type:" + params["type"] + "\n" +
+                txt +
+                "When:" + formatDate(Date.now()) + "\n" +
+                "Who:" + userName + "\n\n" +
+                (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" : "") +
+                params["text"], 'utf8');
+            addToTextCache(id);
+            cacheID = id + 1;
+            break;
+        } catch (err) {
+            id++;
+        } finally {
+            if (fd !== undefined) fs.closeSync(fd);
+        }
+    }
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    Object.keys(podstronyType).forEach(function(entry) {
+        if (podstronyType[entry].includes(params["type"])) {
+            res.end(entry + "/zmien/" + id.toString());
+        }
+    });
+}
+
+function parsePOSTUploadUpdatedText(params, req, res, userName) {
+    if (!params["text"] && !params["teaser"] && !params["state"] && !params["type"] &&
+        !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"]) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
+        const t = Date.now();
+
+        txt = "";
+        if (params["title"]) txt += "Title:" + params["title"] + "\n";
+        if (params["state"]) txt += "State:" + params["state"] + "\n";
+        if (params["type"]) txt += "Type:" + params["type"] + "\n";
+        if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
+        if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+
+        if (params["teaser"] || params["text"]) {
+            cacheTexts[params["tekst"]]["Text"] =
+                (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" :
+                    (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
+                        cacheTexts[params["tekst"]]["Text"].substr(0, cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->')) + "\n<!--teaser-->\n" :
+                        "")) +
+                (params["text"] ? params["text"] :
+                    (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
+                        cacheTexts[params["tekst"]]["Text"].substr(cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') + 13) :
+                        cacheTexts[params["tekst"]]["Text"]));
+
+            txt += "\n" + cacheTexts[params["tekst"]]["Text"];
+        }
+
+        fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
+            "\n<!--change-->\n" +
+            "When:" + formatDate(t) + "\n" +
+            "Who:" + userName + "\n" +
+            txt
+        );
+
+        //update cache
+        if (params["title"]) cacheTexts[params["tekst"]]["Title"] = params["title"];
+        if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
+        if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
+        if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
+        if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
+        cacheTexts[params["tekst"]]["When"] = t;
+        cacheTexts[params["tekst"]]["Who"] = userName;
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+}
+
+function parsePOSTCreateChat(params, req, res, userName) {
+    wrong = false;
+    params["users"].split(',').forEach(function(user) {
+        if (!cacheUsers[user]) {
+            wrong = true;
+        }
+    });
+    if (wrong) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+
+    const txt = "Title:" + params["title"] + "\n" +
+        "When:" + formatDate(Date.now()) + "\n" +
+        "Who:" + params["users"] + "\n";
+    var id = 1;
+    while (1) {
+        var fd;
+        try {
+            fd = fs.openSync(__dirname + "\\chat\\" + id + ".txt", 'wx');
+            fs.appendFileSync(fd, txt, 'utf8');
+            addToChatCache(id.toString(), decodeFileContent(txt, true));
+            break;
+        } catch (err) {
+            id++;
+        } finally {
+            if (fd !== undefined) fs.closeSync(fd);
+        }
+    }
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(id.toString());
+}
+
+function parsePOSTCreateUser(params, req, res, userName) {
+    if ((params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    if (cacheUsers[params["username"]]) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end("User already exists");
+        return;
+    }
+
+    var id = 1;
+    while (1) {
+        var fd;
+        try {
+            var txt = "Who:" + params["username"] + "\n" +
+                (params["typ"] == "w" ? "Pass:" + params["pass"] + "\n" : "") +
+                "Mail:" + params["mail"] + "\n" +
+                "When:" + formatDate(Date.now()) + "\n" +
+                (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
+                (params["typ"] == "g" ? "Type:google\n" : "") +
+                (id == 1 ? "Level:2\n" : "Level:1\n");
+            fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
+            fs.appendFileSync(fd, txt, 'utf8');
+            cacheUsers[params["username"]] = new Array(id, decodeFileContent(txt, true));
+            break;
+        } catch (err) {
+            id++;
+        } finally {
+            if (fd !== undefined) fs.closeSync(fd);
+        }
+    }
+    if (params["typ"] != "g") {
+        if (mailSupport) {
+            sendVerificationMail(params["mail"], params["username"]);
+        }
+    }
+    console.log(id);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(id.toString());
+}
+
+function parsePOSTEditUser(params, req, res, userName) {
+    if (params["typ"] != "g" && params["typ"] != "w") {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    var t = Date.now();
+    var txt = "\n<!--change-->\n" +
+        (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
+        (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
+        "Mail:" + params["mail"] + "\n" +
+        "When:" + formatDate(t) + "\n";
+    fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[userName][0] + ".txt", txt);
+
+    if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName][1]["Pass"] = params["pass"];
+    cacheUsers[userName][1]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
+    cacheUsers[userName][1]["Mail"] = params["mail"];
+    cacheUsers[userName][1]["When"] = t;
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end();
+}
+
+async function parsePOSTLogin(params, req, res, userName) {
+    console.log("probuje login");
+    var found = "-";
+    fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+        if (found != "-") return;
+        var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+        nonLogged.forEach(function(session) {
+            if (found != "-") return;
+            if (!arr["Type"] || arr["Type"] == "wlasny") {
+                usr = crypto.createHash('sha256').update(session + arr["Who"]).digest("hex");
+                if (usr != params["user"]) return;
+                pass = crypto.createHash('sha256').update(session + arr["Pass"]).digest("hex");
+                if (pass != params["password"]) return;
+                const salt = crypto.randomBytes(32).toString('base64');
+                if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
+                    sendVerificationMail(arr["Mail"], arr["Who"]);
+                    found = "Konto niezweryfikowane. Kliknij na link w mailu";
+                } else {
+                    logged.push(new Array(salt, arr["Who"], file));
+                    console.log("jest login");
+                    res.setHeader('Set-Cookie', 'login=' + salt);
+                    found = "";
+                }
+            }
+        });
+    });
+
+    res.statusCode = (found == "") ? 200 : 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(found);
+}
+
+async function parsePOSTGoogleLogin(params, req, res, userName) {
+    // this is not preffered version according to Google, but good enough for this milestone
+    const premise = new Promise((resolve, reject) => {
+        https.get('https://oauth2.googleapis.com/tokeninfo?id_token=' + params["id"], (resp) => {
+            var data = '';
+            resp.on('data', (chunk) => data += chunk);
+            resp.on('end', () => resolve(data));
+        }).on('error', e => reject(e))
+    });
+    const txt = await premise;
+    console.log(txt);
+    const json = JSON.parse(txt);
+
+    if (json.azp != GoogleSignInToken || json.aud != GoogleSignInToken) {
+        console.log("bylo zle");
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    console.log("probuje login2");
+    var found = false;
+    fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+        if (found) return;
+        var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+        nonLogged.forEach(function(session) {
+            if (found) return;
+            if (arr["Type"] == "google" && json.email == arr["Mail"]) {
+                const salt = crypto.randomBytes(32).toString('base64');
+                logged.push(new Array(salt, arr["Who"], file, params["id"]));
+                console.log("jest login2");
+                res.setHeader('Set-Cookie', 'login=' + salt);
+                found = true;
+            }
+        });
+    });
+
+    res.statusCode = found ? 200 : 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end();
+}
+
+async function parsePOSTRemind(params, req, res, userName) {
+    found = false;
+    remindToken.forEach(function(session) {
+        if (found) return;
+        if (session[1] < Date.now()) {
+            return;
+        }
+        fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+            if (found) return;
+            var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+            usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
+            if (usr != params["token1"]) return;
+            pass = crypto.createHash('sha256').update(session[0] + arr["Mail"]).digest("hex");
+            if (pass != params["token2"]) return;
+
+            session[2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+            session[3] = arr["Who"];
+            session[4] = file;
+            sendMailHaslo(arr["Mail"], session[2]);
+            found = true;
+        });
+    });
+
+    res.statusCode = found ? 200 : 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end();
+}
+
+function parsePOSTChangePass(params, req, res, userName) {
+    found = false;
+    remindToken.forEach(function(session) {
+        console.log(session[1] + " " + Date.now());
+        console.log(params["hash"] + " " + session[2]);
+        if (found) return;
+        if (session[1] < Date.now()) return;
+        if (params["hash"] == session[2]) {
+            fs.appendFileSync(__dirname + "\\uzytkownicy\\" + session[4],
+                "\n<!--change-->\n" +
+                "When:" + formatDate(Date.now()) + "\n" +
+                "Pass:" + params["token"] + "\n"
+            );
+            cacheUsers[session[3]][1]["Pass"] = params["token"];
+            found = true;
+        }
+    });
+    res.statusCode = found ? 200 : 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end();
+}
+
+function parsePOSTVerifyMail(params, req, res, userName) {
+    found = false;
+    verifyToken.forEach(function(session) {
+        if (found) return;
+        if (session[2] < Date.now()) return;
+        if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
+            if (cacheUsers[session[1]][1]["ConfirmMail"] == "0") {
+                token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Pass"]).digest("hex");
+                if (token != params["token"]) return;
+                console.log("verified" + session[0]);
+                fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[session[1]][0] + ".txt",
+                    "\n<!--change-->\n" +
+                    "When:" + formatDate(Date.now()) + "\n" +
+                    "ConfirmMail:1\n"
+                );
+                cacheUsers[session[1]][1]["ConfirmMail"] = "1";
+                found = true;
+            }
+        }
+    });
+
+    res.statusCode = found ? 200 : 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end();
+}
+
+function parsePOSTLogout(params, req, res, userName) {
+    res.setHeader('Set-Cookie', 'login=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    logged.forEach(function(cookieInfo, index) {
+        if ("login=" + cookieInfo[0] == req.headers['cookie']) {
+            logged.splice(index, 1);
+        }
+    });
+    res.end();
+}
+
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
     if (params["q"]) {
         if (params["q"] == "upload_comment" && params["obj"] && params["tekst"] && params["comment"]) {
             if (params["obj"] == "chat") {
-                if (fs.existsSync(__dirname + "\\chat\\" + params["tekst"] + ".txt")) {
-                    const t = Date.now();
-                    fs.appendFileSync(__dirname + "\\chat\\" + params["tekst"] + ".txt",
-                        "\n<!--comment-->\n" +
-                        "When:" + formatDate(t) + "\n" +
-                        "Who:" + userName + "\n\n" +
-                        params["comment"]
-                    );
-
-                    comment = new Array();
-                    comment["Who"] = userName;
-                    comment["When"] = t;
-                    comment["Text"] = params["comment"];
-
-                    console.log("probuje callback");
-                    for (var index in callbackChat[params["tekst"]]) {
-                        updateComment(comment, callbackChat[params["tekst"]][index]);
-                    }
-
-                    res.statusCode = 200;
-                } else {
-                    res.statusCode = 404;
-                }
+                parsePOSTUploadComment(params, req, res, userName, true);
+                return;
             } else if (params["obj"] == "teksty") {
-                //checking for login
-                //checking for correct filename protection
-                if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
-                    const t = Date.now();
-                    fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
-                        "\n<!--comment-->\n" +
-                        "When:" + formatDate(t) + "\n" +
-                        "Who:" + userName + "\n\n" +
-                        params["comment"]
-                    );
-
-                    comment = new Array();
-                    comment["Who"] = userName;
-                    comment["When"] = t;
-                    comment["Text"] = params["comment"];
-
-                    cacheTexts[params["tekst"]]["commentswhen"] = t;
-                    cacheTexts[params["tekst"]]["commentsnum"]++;
-
-                    for (var index in callbackText[params["tekst"]]) {
-                        updateComment(comment, callbackText[params["tekst"]][index]);
-                    }
-                    res.statusCode = 200;
-                } else {
-                    res.statusCode = 404;
-                }
-                res.setHeader('Content-Type', 'text/plain');
-                res.end();
+                parsePOSTUploadComment(params, req, res, userName, false);
                 return;
             }
-        }
-        if (params["q"] == "upload_text" && params["tekst"]) {
+        } else if (params["q"] == "upload_text" && params["tekst"]) {
             if (params["tekst"] == "0") {
-                if (!params["text"] || !params["state"] ||
-                    !params["type"] || !params["title"]) {
-                    res.statusCode = 404;
-                    res.setHeader('Content-Type', 'text/plain');
-                    res.end();
-                    return;
-                }
-                var id = cacheID;
-                while (1) {
-                    var fd;
-                    try {
-                        txt = "";
-                        if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
-                        if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
-
-                        fd = fs.openSync(__dirname + "\\teksty\\" + id + ".txt", 'wx');
-                        fs.appendFileSync(fd,
-                            "Title:" + params["title"] + "\n" +
-                            "State:" + params["state"] + "\n" +
-                            "Type:" + params["type"] + "\n" +
-                            txt +
-                            "When:" + formatDate(Date.now()) + "\n" +
-                            "Who:" + userName + "\n\n" +
-                            (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" : "") +
-                            params["text"], 'utf8');
-                        addToTextCache(id);
-                        cacheID = id + 1;
-                        break;
-                    } catch (err) {
-                        id++;
-                    } finally {
-                        if (fd !== undefined) fs.closeSync(fd);
-                    }
-                }
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'text/plain');
-                Object.keys(podstronyType).forEach(function(entry) {
-                    if (podstronyType[entry].includes(params["type"])) {
-                        res.end(entry + "/zmien/" + id.toString());
-                    }
-                });
+                parsePOSTUploadNewText(params, req, res, userName);
                 return;
             }
-            if (!params["text"] && !params["teaser"] && !params["state"] && !params["type"] &&
-                !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"]) {
-                res.statusCode = 404;
-                res.setHeader('Content-Type', 'text/plain');
-                res.end();
-                return;
-            }
-            if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
-                const t = Date.now();
-
-                txt = "";
-                if (params["title"]) txt += "Title:" + params["title"] + "\n";
-                if (params["state"]) txt += "State:" + params["state"] + "\n";
-                if (params["type"]) txt += "Type:" + params["type"] + "\n";
-                if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
-                if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
-
-                if (params["teaser"] || params["text"]) {
-                    cacheTexts[params["tekst"]]["Text"] =
-                        (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" :
-                            (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
-                                cacheTexts[params["tekst"]]["Text"].substr(0, cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->')) + "\n<!--teaser-->\n" :
-                                "")) +
-                        (params["text"] ? params["text"] :
-                            (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
-                                cacheTexts[params["tekst"]]["Text"].substr(cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') + 13) :
-                                cacheTexts[params["tekst"]]["Text"]));
-
-                    txt += "\n" + cacheTexts[params["tekst"]]["Text"];
-                }
-
-                fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
-                    "\n<!--change-->\n" +
-                    "When:" + formatDate(t) + "\n" +
-                    "Who:" + userName + "\n" +
-                    txt
-                );
-
-                //update cache
-                if (params["title"]) cacheTexts[params["tekst"]]["Title"] = params["title"];
-                if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
-                if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
-                if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
-                if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
-                cacheTexts[params["tekst"]]["When"] = t;
-                cacheTexts[params["tekst"]]["Who"] = userName;
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'text/plain');
-                res.end();
-                return;
-            }
-        }
-        if (params["q"] == "new_chat" && params["title"] && params["users"]) {
-            wrong = false;
-            params["users"].split(',').forEach(function(user) {
-                if (!cacheUsers[user]) {
-                    wrong = true;
-                }
-            });
-            if (wrong) {
-                res.statusCode = 404;
-                res.setHeader('Content-Type', 'text/plain');
-                res.end();
-                return;
-            }
-
-            const txt = "Title:" + params["title"] + "\n" +
-                "When:" + formatDate(Date.now()) + "\n" +
-                "Who:" + params["users"] + "\n";
-            var id = 1;
-            while (1) {
-                var fd;
-                try {
-                    fd = fs.openSync(__dirname + "\\chat\\" + id + ".txt", 'wx');
-                    fs.appendFileSync(fd, txt, 'utf8');
-                    addToChatCache(id.toString(), decodeFileContent(txt, true));
-                    break;
-                } catch (err) {
-                    id++;
-                } finally {
-                    if (fd !== undefined) fs.closeSync(fd);
-                }
-            }
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end(id.toString());
+            parsePOSTUploadUpdatedText(params, req, res, userName);
+            return;
+        } else if (params["q"] == "new_chat" && params["title"] && params["users"]) {
+            parsePOSTCreateChat(params, req, res, userName);
+            return;
+        } else if (params["q"] == "new_user" && params["username"] && params["typ"] && params["mail"]) {
+            parsePOSTCreateUser(params, req, res, userName);
+            return;
+        } else if (params["q"] == "edit_user" && params["typ"] && params["mail"] && userName != "") {
+            parsePOSTEditUser(params, req, res, userName);
             return;
         }
-        if (params["q"] == "new_user" && params["username"] && params["typ"] && params["mail"]) {
-            if ((params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
-                res.statusCode = 404;
-                res.setHeader('Content-Type', 'text/plain');
-                res.end();
-                return;
-            }
-            if (cacheUsers[params["username"]]) {
-                res.statusCode = 404;
-                res.setHeader('Content-Type', 'text/plain');
-                res.end("User already exists");
-                return;
-            }
-
-            var id = 1;
-            while (1) {
-                var fd;
-                try {
-                    var txt = "Who:" + params["username"] + "\n" +
-                        (params["typ"] == "w" ? "Pass:" + params["pass"] + "\n" : "") +
-                        "Mail:" + params["mail"] + "\n" +
-                        "When:" + formatDate(Date.now()) + "\n" +
-                        (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
-                        (params["typ"] == "g" ? "Type:google\n" : "") +
-                        (id == 1 ? "Level:2\n" : "Level:1\n");
-                    fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
-                    fs.appendFileSync(fd, txt, 'utf8');
-                    cacheUsers[params["username"]] = new Array(id, decodeFileContent(txt, true));
-                    break;
-                } catch (err) {
-                    id++;
-                } finally {
-                    if (fd !== undefined) fs.closeSync(fd);
-                }
-            }
-            if (params["typ"] != "g") {
-                if (mailSupport) {
-                    sendVerificationMail(params["mail"], params["username"]);
-                }
-            }
-            console.log(id);
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end(id.toString());
-            return;
-        }
-        if (params["q"] == "edit_user" && params["typ"] && params["mail"] && userName != "") {
-            if (params["typ"] != "g" && params["typ"] != "w") {
-                res.statusCode = 404;
-                res.setHeader('Content-Type', 'text/plain');
-                res.end();
-                return;
-            }
-            var t = Date.now();
-            var txt = "\n<!--change-->\n" +
-                (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
-                (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
-                "Mail:" + params["mail"] + "\n" +
-                "When:" + formatDate(t) + "\n";
-            fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[userName][0] + ".txt", txt);
-
-            if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName][1]["Pass"] = params["pass"];
-            cacheUsers[userName][1]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
-            cacheUsers[userName][1]["Mail"] = params["mail"];
-            cacheUsers[userName][1]["When"] = t;
-
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end();
-            return;
-        }
-    }
-    if (params["login"] && params["user"] && params["password"] && userName == "") {
-        console.log("probuje login");
-        var found = "-";
-        fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-            if (found != "-") return;
-            var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
-            nonLogged.forEach(function(session) {
-                if (found != "-") return;
-                if (!arr["Type"] || arr["Type"] == "wlasny") {
-                    usr = crypto.createHash('sha256').update(session + arr["Who"]).digest("hex");
-                    if (usr != params["user"]) return;
-                    pass = crypto.createHash('sha256').update(session + arr["Pass"]).digest("hex");
-                    if (pass != params["password"]) return;
-                    const salt = crypto.randomBytes(32).toString('base64');
-                    if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
-                        sendVerificationMail(arr["Mail"], arr["Who"]);
-                        found = "Konto niezweryfikowane. Kliknij na link w mailu";
-                    } else {
-                        logged.push(new Array(salt, arr["Who"], file));
-                        console.log("jest login");
-                        res.setHeader('Set-Cookie', 'login=' + salt);
-                        found = "";
-                    }
-                }
-            });
-        });
-
-        res.statusCode = (found == "") ? 200 : 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end(found);
+    } else if (params["remind"] && params["token1"] && params["token2"]) {
+        parsePOSTRemind(params, req, res, userName);
         return;
-    }
-    if (params["remind"] && params["token1"] && params["token2"]) {
-        found = false;
-        remindToken.forEach(function(session) {
-            if (found) return;
-            if (session[1] < Date.now()) {
-                return;
-            }
-            fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-                if (found) return;
-                var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
-                usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
-                if (usr != params["token1"]) return;
-                pass = crypto.createHash('sha256').update(session[0] + arr["Mail"]).digest("hex");
-                if (pass != params["token2"]) return;
-
-                session[2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
-                session[3] = arr["Who"];
-                session[4] = file;
-                sendMailHaslo(arr["Mail"], session[2]);
-                found = true;
-            });
-        });
-
-        res.statusCode = found ? 200 : 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+    } else if (params["changepass"] && params["hash"] && params["token"]) {
+        parsePOSTChangePass(params, req, res, userName);
         return;
-    }
-    if (params["changepass"] && params["hash"] && params["token"]) {
-        found = false;
-        remindToken.forEach(function(session) {
-            console.log(session[1] + " " + Date.now());
-            console.log(params["hash"] + " " + session[2]);
-            if (found) return;
-            if (session[1] < Date.now()) return;
-            if (params["hash"] == session[2]) {
-                fs.appendFileSync(__dirname + "\\uzytkownicy\\" + session[4],
-                    "\n<!--change-->\n" +
-                    "When:" + formatDate(Date.now()) + "\n" +
-                    "Pass:" + params["token"] + "\n"
-                );
-                cacheUsers[session[3]][1]["Pass"] = params["token"];
-                found = true;
-            }
-        });
-        res.statusCode = found ? 200 : 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+    } else if (params["verify"] && params["token"]) {
+        parsePOSTVerifyMail(params, req, res, userName);
         return;
-    }
-    if (params["verify"] && params["token"]) {
-        found = false;
-        verifyToken.forEach(function(session) {
-            if (found) return;
-            if (session[2] < Date.now()) return;
-            if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
-                if (cacheUsers[session[1]][1]["ConfirmMail"] == "0") {
-                    token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Pass"]).digest("hex");
-                    if (token != params["token"]) return;
-                    console.log("verified" + session[0]);
-                    fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[session[1]][0] + ".txt",
-                        "\n<!--change-->\n" +
-                        "When:" + formatDate(Date.now()) + "\n" +
-                        "ConfirmMail:1\n"
-                    );
-                    cacheUsers[session[1]][1]["ConfirmMail"] = "1";
-                    found = true;
-                }
-            }
-        });
-
-        res.statusCode = found ? 200 : 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+    } else if (params["login"] && params["user"] && params["password"] && userName == "") {
+        parsePOSTLogin(params, req, res, userName);
         return;
-    }
-    if (enableGoogleWithToken && params["glogin"] && params["id"] && userName == "") {
-        // this is not preffered version according to Google, but good enough for this milestone
-        const premise = new Promise((resolve, reject) => {
-            https.get('https://oauth2.googleapis.com/tokeninfo?id_token=' + params["id"], (resp) => {
-                var data = '';
-                resp.on('data', (chunk) => data += chunk);
-                resp.on('end', () => resolve(data));
-            }).on('error', e => reject(e))
-        });
-        const txt = await premise;
-        console.log(txt);
-        const json = JSON.parse(txt);
-
-        if (json.azp != GoogleSignInToken || json.aud != GoogleSignInToken) {
-            console.log("bylo zle");
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end();
-            return;
-        }
-        console.log("probuje login2");
-        var found = false;
-        fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-            if (found) return;
-            var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
-            nonLogged.forEach(function(session) {
-                if (found) return;
-                if (arr["Type"] == "google" && json.email == arr["Mail"]) {
-                    const salt = crypto.randomBytes(32).toString('base64');
-                    logged.push(new Array(salt, arr["Who"], file, params["id"]));
-                    console.log("jest login2");
-                    res.setHeader('Set-Cookie', 'login=' + salt);
-                    found = true;
-                }
-            });
-        });
-
-        res.statusCode = found ? 200 : 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+    } else if (enableGoogleWithToken && params["glogin"] && params["id"] && userName == "") {
+        parsePOSTGoogleLogin(params, req, res, userName);
         return;
-    }
-    if (params["logout"] && userName != "") {
-        res.setHeader('Set-Cookie', 'login=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/plain');
-        logged.forEach(function(cookieInfo, index) {
-            if ("login=" + cookieInfo[0] == req.headers['cookie']) {
-                logged.splice(index, 1);
-            }
-        });
-        res.end();
+    } else if (params["logout"] && userName != "") {
+        parsePOSTLogout(params, req, res, userName);
         return;
     }
 
@@ -1099,7 +1125,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
 
         var text = getFileContentSync('\\internal\\user.txt');
         text = genericReplace(req, res, text, userName)
-            .replace(/<!--TITLE-->/g, arr["Title"])
+            .replace(/<!--TITLE-->/g, arr["Who"])
             .replace("<!--USER-->", arr["Who"]);
 
         if (userName == arr["Who"]) {
@@ -1394,6 +1420,26 @@ function showListPage(req, res, params, id, userName, userLevel) {
     sendHTMLBody(req, res, text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : ""));
 }
 
+function addToCallback(res, id, arra, userName) {
+    res.writeHead(200, {
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream',
+        'Connection': 'keep-alive',
+    });
+    res.write("event: c\n");
+    res.write("data: \n\n");
+    console.log("dodaje callback");
+    const session = crypto.randomBytes(32).toString('base64');
+    arra[id][session] = new Array(res, userName);
+    res.on('close', function() {
+        console.log("usuwa callback");
+        delete arra[id][session];
+    });
+    setTimeout(function() {
+        res.end();
+    }, 60000); //60 seconds
+}
+
 const onRequestHandler = (req, res) => {
     if (req.url == "/external/styles.css" || req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
         req.url == "/external/suneditor.min.css" || req.url == "/external/suneditor.min.js") {
@@ -1412,8 +1458,7 @@ const onRequestHandler = (req, res) => {
             res.end(getFileContentSync(req.url));
         }
         return;
-    }
-    if (req.url == "/favicon.ico") {
+    } else if (req.url == "/favicon.ico") {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
@@ -1442,46 +1487,16 @@ const onRequestHandler = (req, res) => {
             //fixme - we need checking URL beginning
             var id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
             if (id && fs.existsSync(__dirname + "\\chat\\" + id[1] + ".txt")) {
-                res.writeHead(200, {
-                    'Cache-Control': 'no-cache',
-                    'Content-Type': 'text/event-stream',
-                    'Connection': 'keep-alive',
-                });
-                res.write("event: c\n");
-                res.write("data: \n\n");
-                console.log("dodaje callback");
-                const session = crypto.randomBytes(32).toString('base64');
-                callbackChat[id[1]][session] = res;
-                res.on('close', function() {
-                    delete callbackChat[id[1]][session];
-                });
-                setTimeout(function() {
-                    res.end();
-                }, 60000); //60 seconds
-
+                addToCallback(res, id[1], callbackChat, userName);
                 return;
             }
             var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
             if (id && fs.existsSync(__dirname + "\\teksty\\" + id[2] + ".txt")) {
-                res.writeHead(200, {
-                    'Cache-Control': 'no-cache',
-                    'Content-Type': 'text/event-stream',
-                    'Connection': 'keep-alive',
-                });
-                res.write("event: c\n");
-                res.write("data: \n\n");
-
-                const session = crypto.randomBytes(32).toString('base64');
-                callbackText[id[2]][session] = res;
-                res.on('close', function() {
-                    delete callbackText[id[2]][session];
-                });
-                setTimeout(function() {
-                    res.end();
-                }, 60000); //60 seconds
-
+                addToCallback(res, id[2], callbackText, userName);
                 return;
             }
+            addToCallback(res, id[1], callbackOther, userName);
+            return;
         }
         if (params["set"]) {
             if (params["set"] == "mobile1") {
@@ -1507,19 +1522,39 @@ const onRequestHandler = (req, res) => {
             return;
         }
         if (params["q"]) {
+            if (userName != "") {
+                if (params["q"] == "profil/zmien") {
+                    showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
+                    return;
+                } else if (params["q"] == "chat/dodaj") {
+                    showAddChatPage(req, res, params, userName);
+                    return;
+                }
+                var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
+                if (id) {
+                    showChatPage(req, res, params, id, userName);
+                    return;
+                }
+                // for example opowiadania/dodaj
+                id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
+                if (id) {
+                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
+                    return;
+                }
+                // for example opowiadania/zmien/1
+                id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
+                if (id) {
+                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
+                    return;
+                }
+            }
             if (params["q"] == "profil/dodaj") {
                 showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
-            }
-            if (params["q"] == "profil/zmien") {
-                showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
-                return;
-            }
-            if (params["q"] == "logingoogle") {
+            } else if (params["q"] == "logingoogle") {
                 loginGoogle(req, res, params, userName, getUserLevelUserName(userName));
                 return;
-            }
-            if (params["q"] == "haslo/zmien/1") {
+            } else if (params["q"] == "haslo/zmien/1") {
                 showPassReminderPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
@@ -1533,47 +1568,25 @@ const onRequestHandler = (req, res) => {
                 showMailVerifyPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
-            if (userName != "") {
-                if (params["q"] == "chat/dodaj") {
-                    showAddChatPage(req, res, params, userName);
-                    return;
-                }
-                var id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
-                if (id) {
-                    showChatPage(req, res, params, id, userName);
-                    return;
-                }
-                // for example opowiadania/dodaj
-                var id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
-                if (id) {
-                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-                    return;
-                }
-                // for example opowiadania/zmien/1
-                var id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
-                if (id) {
-                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-                    return;
-                }
-            }
-            var id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
+            id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
             if (id) {
                 showProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             // for example opowiadania/pokaz/1
-            var id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)$/);
+            id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)$/);
             if (id) {
                 showTextPage(req, res, params, id, userName);
                 return;
             }
-            // for example opowiadania//biblioteka/1
-            var id = params["q"].match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
+            // lista - for example opowiadania//biblioteka/1
+            id = params["q"].match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
             if (id) {
                 showListPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
-            var id = params["q"].match(/^(\/{1,1}[0-9]*)?$/);
+            // main page with page number
+            id = params["q"].match(/^(\/{1,1}[0-9]*)?$/);
             if (id) {
                 showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
                 return;
