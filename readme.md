@@ -6,13 +6,12 @@
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * change password przez stronę newuser
-* auto odswiezanie wszystkich stron
+* auto odswiezanie wszystkich stron -> częściowo done
 * deaktywacja użytkownika
 * +- (punkty)
 * facebook
 * sesje Google - szukanie czy user wylogowany
 * suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
-* teaser w tekstach - nowa linia
 * notka na stronie usera
 
 # Tworzenie wielu plików z danymi z istniejących:

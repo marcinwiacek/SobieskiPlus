@@ -128,8 +128,14 @@ document.textedit.onsubmit = function() {
   if (title!=title0) params+='&title='+title;
   if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;
   if (taxonomy!=taxonomy0) params+='&taxonomy='+taxonomy;
-  if (suneditor.getContents(true)!=text0) params+='&text='+encodeURIComponent(suneditor.getContents(true));
-  if (teasersuneditor.getContents(true)!='') params+='&teaser='+encodeURIComponent(teasersuneditor.getContents(true));
+  if (suneditor.getContents(true)!=text0) {
+     params+='&text='+
+        encodeURIComponent(suneditor.getContents(true)!="<p><br></p>"?suneditor.getContents(true):"");
+  }
+  if (teasersuneditor.getContents(true)!=teaser0) {
+    params+='&teaser='+
+       encodeURIComponent(teasersuneditor.getContents(true)!="<p><br></p>"?teasersuneditor.getContents(true):"");
+  }
   if (specialtaxonomy!=specialtaxonomy0) params+='&specialtaxonomy='+specialtaxonomy;
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -149,6 +155,18 @@ document.textedit.onsubmit = function() {
     if (<!--PAGEID--> == 0) {
       window.location.href='?q='+http.response;
     } else {
+      type0 = document.getElementById("textedit").elements.namedItem("type").value; 
+      state0 = document.getElementById("textedit").elements.namedItem("state").value; 
+      title0 = document.getElementById("textedit").elements.namedItem("title").value; 
+      taxonomy0 = getListValues("taxonomy");
+      if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
+        specialtaxonomy0 = getListValues("specialtaxonomy"); 
+      } else {
+        specialtaxonomy0 = "";
+      }
+      text0 = suneditor.getContents(true);
+      teaser0 = teasersuneditor.getContents(true);
+
       progressBar.value = progressBar.max;
       document.getElementById("progressinfo").style.display="none";
     }

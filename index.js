@@ -95,18 +95,19 @@ const DecodingLevel = {
 
 //FIXME: reading only headers to save memory
 //fields starting from big char are read from memory
-function decodeFileContent(txt, allVersions) {
+function decodeFileContent(txt, onlyHeaders) {
     var arr = new Array();
     var level = DecodingLevel.MainHeaders;
     var comment = null;
     arr["commentsnum"] = 0; // for cache we don't want comments in memory; just number
     arr["commentswhen"] = 0; // for cache we don't want comments in memory; just number
+    var t = "";
     txt.split(/\r?\n/).forEach(function(line) {
         if (line == "<!--comment-->") {
             if (comment != null) {
                 if (!arr["Comments"]) arr["Comments"] = new Array();
                 comment["When"] = Date.parse(comment["When"]);
-                arr["Comments"].push(comment);
+                if (!onlyHeaders) arr["Comments"].push(comment);
                 arr["commentsnum"]++;
                 arr["commentswhen"] = comment["When"];
             }
@@ -123,14 +124,15 @@ function decodeFileContent(txt, allVersions) {
             case DecodingLevel.MainHeaders:
                 if (line == "") {
                     level = DecodingLevel.MainText;
-                    if (allVersions && arr["Text"] && arr["Text"] != "") {
+                    if (!onlyHeaders && t != "") {
                         if (!arr["OldText"]) arr["OldText"] = new Array();
                         var oldtext = new Array();
-                        oldtext["Text"] = arr["Text"];
+                        oldtext["Text"] = t;
                         oldtext["When"] = Date.parse(arr["When"]);
                         arr["OldText"].push(oldtext);
+                        console.log("adding text");
+                        t = "";
                     }
-                    arr["Text"] = "";
                 } else {
                     const x = line.split(":");
                     if (x.length >= 2) {
@@ -142,7 +144,7 @@ function decodeFileContent(txt, allVersions) {
                 }
                 break;
             case DecodingLevel.MainText:
-                arr["Text"] += line + "\n";
+                if (!onlyHeaders && line != "") t += line + "\n";
                 break;
             case DecodingLevel.CommentHeaders:
                 if (line == "") {
@@ -153,18 +155,28 @@ function decodeFileContent(txt, allVersions) {
                 }
                 break;
             case DecodingLevel.CommentText:
-                comment["Text"] += line + "\n";
+                if (!onlyHeaders) comment["Text"] += line + "\n";
                 break;
         }
     });
     if (comment != null) {
         if (!arr["Comments"]) arr["Comments"] = new Array();
         comment["When"] = Date.parse(comment["When"]);
-        arr["Comments"].push(comment);
+        if (!onlyHeaders) arr["Comments"].push(comment);
         arr["commentsnum"]++;
         arr["commentswhen"] = comment["When"];
     }
     arr["When"] = Date.parse(arr["When"]);
+
+    if (t != "") {
+        if (!arr["OldText"]) arr["OldText"] = new Array();
+        var oldtext = new Array();
+        oldtext["Text"] = t;
+        oldtext["When"] = Date.parse(arr["When"]);
+        arr["OldText"].push(oldtext);
+        console.log("adding text");
+    }
+
     return arr;
 }
 
@@ -190,7 +202,7 @@ function refreshLists(arr) {
 }
 
 function addToTextCache(name) {
-    cacheTexts[name] = decodeFileContent(readFileContentSync('\\teksty\\' + name + '.txt'), false);
+    cacheTexts[name] = decodeFileContent(readFileContentSync('\\texts\\' + name + '.txt'), true);
     cacheTexts[name]["filename"] = name;
     callbackText[name] = new Array();
     refreshLists(cacheTexts[name]);
@@ -350,17 +362,17 @@ async function sendMailHaslo(mail, token) {
 
 // chat or comment to the text
 function parsePOSTUploadComment(params, req, res, userName, isChat) {
-    const folder = isChat ? "chat" : "teksty";
+    const folder = isChat ? "chat" : "texts";
 
     //checking for login
     //checking for correct filename protection
     if (fs.existsSync(__dirname + "\\" + folder + "\\" + params["tekst"] + ".txt")) {
         const t = Date.now();
         fs.appendFileSync(__dirname + "\\" + folder + "\\" + params["tekst"] + ".txt",
-            "\n<!--comment-->\n" +
+            "<!--comment-->\n" +
             "When:" + formatDate(t) + "\n" +
             "Who:" + userName + "\n\n" +
-            params["comment"]
+            params["comment"]+"\n"
         );
 
         comment = new Array();
@@ -404,7 +416,7 @@ function parsePOSTUploadNewText(params, req, res, userName) {
             if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
             if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
 
-            fd = fs.openSync(__dirname + "\\teksty\\" + id + ".txt", 'wx');
+            fd = fs.openSync(__dirname + "\\texts\\" + id + ".txt", 'wx');
             fs.appendFileSync(fd,
                 "Title:" + params["title"] + "\n" +
                 "State:" + params["state"] + "\n" +
@@ -413,7 +425,7 @@ function parsePOSTUploadNewText(params, req, res, userName) {
                 "When:" + formatDate(Date.now()) + "\n" +
                 "Who:" + userName + "\n\n" +
                 (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" : "") +
-                params["text"], 'utf8');
+                params["text"] + "\n", 'utf8');
             addToTextCache(id);
             cacheID = id + 1;
             break;
@@ -433,14 +445,16 @@ function parsePOSTUploadNewText(params, req, res, userName) {
 }
 
 function parsePOSTUploadUpdatedText(params, req, res, userName) {
-    if (!params["text"] && !params["teaser"] && !params["state"] && !params["type"] &&
+    if (params["teaser"] || params["teaser"] == '') console.log('jest teaser1');
+    if (params["teaser"]) console.log('jest teaser2');
+    if (!params["text"] && !(params["teaser"] || params["teaser"] == '') && !params["state"] && !params["type"] &&
         !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"]) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
         return;
     }
-    if (fs.existsSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt")) {
+    if (fs.existsSync(__dirname + "\\texts\\" + params["tekst"] + ".txt")) {
         const t = Date.now();
 
         txt = "";
@@ -449,23 +463,17 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
         if (params["type"]) txt += "Type:" + params["type"] + "\n";
         if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
         if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
-
-        if (params["teaser"] || params["text"]) {
-            cacheTexts[params["tekst"]]["Text"] =
-                (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" :
-                    (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
-                        cacheTexts[params["tekst"]]["Text"].substr(0, cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->')) + "\n<!--teaser-->\n" :
-                        "")) +
-                (params["text"] ? params["text"] :
-                    (cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') ?
-                        cacheTexts[params["tekst"]]["Text"].substr(cacheTexts[params["tekst"]]["Text"].search('<!--teaser-->') + 13) :
-                        cacheTexts[params["tekst"]]["Text"]));
-
-            txt += "\n" + cacheTexts[params["tekst"]]["Text"];
+        if (params["teaser"] || params["teaser"] == '') {
+            console.log("teaser we have");
+            txt += (params["teaser"] != "" ? "\n" : "") + params["teaser"] + "\n<!--teaser-->\n";
+        }
+        if (params["text"]) {
+            if (!(params["teaser"] || params["teaser"] == '')) txt += "\n";
+            txt += params["text"] + "\n";
         }
 
-        fs.appendFileSync(__dirname + "\\teksty\\" + params["tekst"] + ".txt",
-            "\n<!--change-->\n" +
+        fs.appendFileSync(__dirname + "\\texts\\" + params["tekst"] + ".txt",
+            "<!--change-->\n" +
             "When:" + formatDate(t) + "\n" +
             "Who:" + userName + "\n" +
             txt
@@ -550,7 +558,7 @@ function parsePOSTCreateUser(params, req, res, userName) {
                 (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
                 (params["typ"] == "g" ? "Type:google\n" : "") +
                 (id == 1 ? "Level:2\n" : "Level:1\n");
-            fd = fs.openSync(__dirname + "\\uzytkownicy\\" + id + ".txt", 'wx');
+            fd = fs.openSync(__dirname + "\\users\\" + id + ".txt", 'wx');
             fs.appendFileSync(fd, txt, 'utf8');
             cacheUsers[params["username"]] = new Array(id, decodeFileContent(txt, true));
             break;
@@ -579,12 +587,12 @@ function parsePOSTEditUser(params, req, res, userName) {
         return;
     }
     var t = Date.now();
-    var txt = "\n<!--change-->\n" +
+    var txt = "<!--change-->\n" +
         (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
         (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
         "Mail:" + params["mail"] + "\n" +
         "When:" + formatDate(t) + "\n";
-    fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[userName][0] + ".txt", txt);
+    fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[userName][0] + ".txt", txt);
 
     if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName][1]["Pass"] = params["pass"];
     cacheUsers[userName][1]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
@@ -599,9 +607,9 @@ function parsePOSTEditUser(params, req, res, userName) {
 async function parsePOSTLogin(params, req, res, userName) {
     console.log("probuje login");
     var found = null;
-    fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+    fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
         if (found) return;
-        var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+        var arr = decodeFileContent(readFileContentSync('\\users\\' + file), false);
         nonLogged.forEach(function(session) {
             if (found) return;
             if (!arr["Type"] || arr["Type"] == "wlasny") {
@@ -650,9 +658,9 @@ async function parsePOSTGoogleLogin(params, req, res, userName) {
     }
     console.log("probuje login2");
     var found = false;
-    fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+    fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
         if (found) return;
-        var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+        var arr = decodeFileContent(readFileContentSync('\\users\\' + file), false);
         nonLogged.forEach(function(session) {
             if (found) return;
             if (arr["Type"] == "google" && json.email == arr["Mail"]) {
@@ -677,9 +685,9 @@ async function parsePOSTRemind(params, req, res, userName) {
         if (session[1] < Date.now()) {
             return;
         }
-        fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+        fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
             if (found) return;
-            var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+            var arr = decodeFileContent(readFileContentSync('\\users\\' + file), false);
             usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
             if (usr != params["token1"]) return;
             pass = crypto.createHash('sha256').update(session[0] + arr["Mail"]).digest("hex");
@@ -706,8 +714,8 @@ function parsePOSTChangePass(params, req, res, userName) {
         if (found) return;
         if (session[1] < Date.now()) return;
         if (params["hash"] == session[2]) {
-            fs.appendFileSync(__dirname + "\\uzytkownicy\\" + session[4],
-                "\n<!--change-->\n" +
+            fs.appendFileSync(__dirname + "\\users\\" + session[4],
+                "<!--change-->\n" +
                 "When:" + formatDate(Date.now()) + "\n" +
                 "Pass:" + params["token"] + "\n"
             );
@@ -730,8 +738,8 @@ function parsePOSTVerifyMail(params, req, res, userName) {
                 token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Pass"]).digest("hex");
                 if (token != params["token"]) return;
                 console.log("verified" + session[0]);
-                fs.appendFileSync(__dirname + "\\uzytkownicy\\" + cacheUsers[session[1]][0] + ".txt",
-                    "\n<!--change-->\n" +
+                fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[session[1]][0] + ".txt",
+                    "<!--change-->\n" +
                     "When:" + formatDate(Date.now()) + "\n" +
                     "ConfirmMail:1\n"
                 );
@@ -764,7 +772,7 @@ async function parsePOSTforms(params, req, res, userName) {
         if (params["obj"] == "chat") {
             parsePOSTUploadComment(params, req, res, userName, true);
             return;
-        } else if (params["obj"] == "teksty") {
+        } else if (params["obj"] == "texts") {
             parsePOSTUploadComment(params, req, res, userName, false);
             return;
         }
@@ -974,7 +982,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
         return;
     }
     if (id[2]) {
-        var arr = decodeFileContent(readFileContentSync('\\teksty\\' + id[2] + '.txt'), true);
+        var arr = decodeFileContent(readFileContentSync('\\texts\\' + id[2] + '.txt'), false);
         if (!podstronyType[id[1]].includes(arr["Type"])) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
@@ -986,12 +994,17 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     var text = genericReplace(req, res, getFileContentSync('\\internal\\entryedit.txt'), userName)
         .replace("<!--RODZAJ-->", id[1]);
     if (id[2]) {
-        text = text.replace("<!--TEASER-->",
-                (arr["Text"].search('<!--teaser-->') ?
-                    arr["Text"].substr(0, arr["Text"].search('<!--teaser-->')) : ""))
-            .replace("<!--TEXT-->",
-                (arr["Text"].search('<!--teaser-->') ?
-                    arr["Text"].substr(arr["Text"].search('<!--teaser-->') + 13) : arr["Text"]))
+        var teaser_text = "";
+        var main_text = "";
+        arr["OldText"].forEach(function(t0) {
+            var t = t0["Text"].slice(0, -1);
+            if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
+            var x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+            if (x != "") main_text = x;
+        });
+
+        text = text.replace("<!--TEASER-->", teaser_text)
+            .replace("<!--TEXT-->", main_text)
             .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
             .replace(/<!--PAGEID-->/g, id[2]); //many entries
     } else {
@@ -1063,7 +1076,7 @@ function showChatPage(req, res, params, id, userName) {
             return;
         }
 
-        var arr = decodeFileContent(data, true);
+        var arr = decodeFileContent(data, false);
 
         if (arr["Who"] && !arr["Who"].split(",").includes(userName)) {
             res.statusCode = 302;
@@ -1138,7 +1151,7 @@ function formatChatEntry(template, arr) {
 
 // for example profil/pokaz/1
 function showProfilePage(req, res, params, id, userName, userLevel) {
-    readFileContentSync('\\uzytkownicy\\' + id[1] + '.txt', (data) => {
+    readFileContentSync('\\users\\' + id[1] + '.txt', (data) => {
         if (data == "") {
             res.statusCode = 302;
             res.setHeader('Location', '/');
@@ -1146,7 +1159,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             return;
         }
 
-        var arr = decodeFileContent(data, true);
+        var arr = decodeFileContent(data, false);
 
         res.statusCode = 200;
         res.setHeader('Cache-Control', 'no-store');
@@ -1215,8 +1228,8 @@ function showTextPage(req, res, params, id, userName) {
         return;
     }
 
-    readFileContentSync('\\teksty\\' + id[2] + '.txt', (data) => {
-        var arr = decodeFileContent(data, true);
+    readFileContentSync('\\texts\\' + id[2] + '.txt', (data) => {
+        var arr = decodeFileContent(data, false);
         if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Who"])) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
@@ -1231,14 +1244,19 @@ function showTextPage(req, res, params, id, userName) {
         var text = getFileContentSync('\\internal\\entry.txt');
         text = genericReplace(req, res, text, userName);
 
+        var teaser_text = "";
+        var main_text = "";
+        arr["OldText"].forEach(function(t0) {
+            var t = t0["Text"].slice(0, -1);
+            if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
+            var x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+            if (x != "") main_text = x;
+        });
+
         text = text.replace(/<!--TITLE-->/g, arr["Title"])
             .replace("<!--USER-->", addUserLink(arr["Who"]))
-            .replace("<!--TEASER-->",
-                (arr["Text"].search('<!--teaser-->') ?
-                    arr["Text"].substr(0, arr["Text"].search('<!--teaser-->')) : ""))
-            .replace("<!--TEXT-->",
-                (arr["Text"].search('<!--teaser-->') ?
-                    arr["Text"].substr(arr["Text"].search('<!--teaser-->') + 13) : arr["Text"]))
+            .replace("<!--TEASER-->", teaser_text)
+            .replace("<!--TEXT-->", main_text)
             .replace("<!--TYPE-->", arr["Type"])
             .replace("<!--WHEN-->", formatDate(arr["When"]));
 
@@ -1259,7 +1277,7 @@ function showTextPage(req, res, params, id, userName) {
         if (userName != "") {
             text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
                 .replace(/<!--PAGEID-->/g, id[2]) //many entries
-                .replace("<!--OBJECT-->", "teksty")
+                .replace("<!--OBJECT-->", "texts")
                 .replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
                     params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
         }
@@ -1515,7 +1533,7 @@ const onRequestHandler = (req, res) => {
         //check field format
         //check if session is OK
         if (params["sse"]) {
-            console.log(req.headers);
+            //            console.log(req.headers);
             //fixme - we need checking URL beginning
             var id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
             if (id && fs.existsSync(__dirname + "\\chat\\" + id[1] + ".txt")) {
@@ -1523,7 +1541,7 @@ const onRequestHandler = (req, res) => {
                 return;
             }
             var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
-            if (id && fs.existsSync(__dirname + "\\teksty\\" + id[2] + ".txt")) {
+            if (id && fs.existsSync(__dirname + "\\texts\\" + id[2] + ".txt")) {
                 addToCallback(res, id[2], callbackText, userName, false);
                 return;
             }
@@ -1657,14 +1675,14 @@ process.on('exit', function(code) {
     }
 });
 
-if (!fs.existsSync(__dirname + '\\teksty')) fs.mkdirSync(__dirname + '\\teksty');
-fs.readdirSync(__dirname + '\\teksty').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+if (!fs.existsSync(__dirname + '\\texts')) fs.mkdirSync(__dirname + '\\texts');
+fs.readdirSync(__dirname + '\\texts').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToTextCache(file.replace(".txt", ""));
 })
 
-if (!fs.existsSync(__dirname + '\\uzytkownicy')) fs.mkdirSync(__dirname + '\\uzytkownicy');
-fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
+if (!fs.existsSync(__dirname + '\\users')) fs.mkdirSync(__dirname + '\\users');
+fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+    arr = decodeFileContent(readFileContentSync('\\users\\' + file), true);
     if (cacheUsers[arr["Who"]]) {
         process.exit(2); // duplicate user
     }
@@ -1673,7 +1691,7 @@ fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '
 
 if (!fs.existsSync(__dirname + '\\chat')) fs.mkdirSync(__dirname + '\\chat');
 fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    addToChatCache(file.replace(".txt", ""), decodeFileContent(readFileContentSync('\\chat\\' + file), false));
+    addToChatCache(file.replace(".txt", ""), decodeFileContent(readFileContentSync('\\chat\\' + file), true));
 })
 
 //http.createServer(onRequestHandler).listen
