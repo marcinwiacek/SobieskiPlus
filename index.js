@@ -168,10 +168,32 @@ function decodeFileContent(txt, allVersions) {
     return arr;
 }
 
+function refreshLists(arr) {
+    for (var index0 in callbackOther) {
+        var found = false;
+        //list page
+        var id0 = index0.match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
+        if (id0) {
+            //it can be more granular            
+            if (podstronyType[id0[1]].includes(arr["Type"])) found = true;
+        } else {
+            //it can be more granular            
+            id0 = index0.match(/^(\/{1,1}[0-9]*)?$/);
+            if (id0) found = true;
+        }
+        if (found) {
+            for (var index in callbackOther[index0]) {
+                sendReload(callbackOther[index0][index][0]);
+            }
+        }
+    }
+}
+
 function addToTextCache(name) {
     cacheTexts[name] = decodeFileContent(readFileContentSync('\\teksty\\' + name + '.txt'), false);
     cacheTexts[name]["filename"] = name;
     callbackText[name] = new Array();
+    refreshLists(cacheTexts[name]);
 }
 
 function addToChatCache(name, tekst) {
@@ -283,6 +305,11 @@ function sendHTMLBody(req, res, text) {
 function sendHTML(req, res, text) {
     sendHTMLHead(res);
     sendHTMLBody(req, res, text);
+}
+
+function sendReload(res) {
+    res.write("event: r\n");
+    res.write("data:\n\n");
 }
 
 function updateComment(comment, res) {
@@ -452,6 +479,9 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
         if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
         cacheTexts[params["tekst"]]["When"] = t;
         cacheTexts[params["tekst"]]["Who"] = userName;
+
+        refreshLists(cacheTexts[params["tekst"]]);
+
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
@@ -568,12 +598,12 @@ function parsePOSTEditUser(params, req, res, userName) {
 
 async function parsePOSTLogin(params, req, res, userName) {
     console.log("probuje login");
-    var found = "-";
+    var found = null;
     fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-        if (found != "-") return;
+        if (found) return;
         var arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
         nonLogged.forEach(function(session) {
-            if (found != "-") return;
+            if (found) return;
             if (!arr["Type"] || arr["Type"] == "wlasny") {
                 usr = crypto.createHash('sha256').update(session + arr["Who"]).digest("hex");
                 if (usr != params["user"]) return;
@@ -1419,7 +1449,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     sendHTMLBody(req, res, text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : ""));
 }
 
-function addToCallback(res, id, arra, userName) {
+function addToCallback(res, id, arra, userName, other) {
     res.writeHead(200, {
         'Cache-Control': 'no-cache',
         'Content-Type': 'text/event-stream',
@@ -1428,7 +1458,9 @@ function addToCallback(res, id, arra, userName) {
     res.write("event: c\n");
     res.write("data: \n\n");
     console.log("dodaje callback");
+    if (other) console.log("other");
     const session = crypto.randomBytes(32).toString('base64');
+    if (other && !arra[id]) arra[id] = new Array();
     arra[id][session] = new Array(res, userName);
     res.on('close', function() {
         console.log("usuwa callback");
@@ -1446,7 +1478,8 @@ const onRequestHandler = (req, res) => {
         res.setHeader('Content-Type', 'text/' +
             (req.url.includes('.js') ? 'javascript' : 'css') + '; charset=UTF-8');
         //        res.setHeader('Cache-Control', 'must-revalidate');
-        //        res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
+        const stats = fs.statSync(path.normalize(__dirname + req.url));
+        res.setHeader('Last-Modified', stats.mtime.toUTCString());
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
             res.setHeader('Content-Encoding', 'gzip');
             res.end(getFileContentSync(req.url + "_gzip"));
@@ -1486,15 +1519,18 @@ const onRequestHandler = (req, res) => {
             //fixme - we need checking URL beginning
             var id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
             if (id && fs.existsSync(__dirname + "\\chat\\" + id[1] + ".txt")) {
-                addToCallback(res, id[1], callbackChat, userName);
+                addToCallback(res, id[1], callbackChat, userName, false);
                 return;
             }
             var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
             if (id && fs.existsSync(__dirname + "\\teksty\\" + id[2] + ".txt")) {
-                addToCallback(res, id[2], callbackText, userName);
+                addToCallback(res, id[2], callbackText, userName, false);
                 return;
             }
-            addToCallback(res, id[1], callbackOther, userName);
+            const params = url.parse(req.headers['referer'], true).query;
+            if (params["q"]) {
+                addToCallback(res, params["q"], callbackOther, userName, true);
+            }
             return;
         }
         if (params["set"]) {
@@ -1614,7 +1650,7 @@ const onRequestHandler = (req, res) => {
 
 process.on('exit', function(code) {
     switch (code) {
-        case 1:
+        case 2:
             return console.log("Non unique nicknames");
         default:
             return;
@@ -1630,7 +1666,7 @@ if (!fs.existsSync(__dirname + '\\uzytkownicy')) fs.mkdirSync(__dirname + '\\uzy
 fs.readdirSync(__dirname + '\\uzytkownicy').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     arr = decodeFileContent(readFileContentSync('\\uzytkownicy\\' + file), false);
     if (cacheUsers[arr["Who"]]) {
-        process.exit(1); // duplicate user
+        process.exit(2); // duplicate user
     }
     cacheUsers[arr["Who"]] = new Array(file.replace(".txt", ""), arr);
 })

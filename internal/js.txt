@@ -18,5 +18,10 @@
       window.document.title = window.document.title.substring(2,window.document.title.length);
     }
   }, false );
-
+</script>
+<script>
+  var source = new EventSource("?sse=1");
+  source.addEventListener("r", function(event) {
+      window.location.reload();
+  });
 </script>

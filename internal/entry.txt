@@ -27,7 +27,6 @@ Ostatnio zmienione:<!--WHEN-->
 <!--COMMENTEDIT-->
 <!--JS-->
 <script>
-  var source = new EventSource("?sse=1");
   source.addEventListener("c", function(event) {
     if (event.data!='') {
       /*parsing*/
