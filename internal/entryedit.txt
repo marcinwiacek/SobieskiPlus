@@ -123,7 +123,7 @@ document.textedit.onsubmit = function() {
   var progressBar = document.getElementById("progress");
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'q=upload_text&tekst=<!--PAGEID-->';
+  var params = 'upload_text=1&tekst=<!--PAGEID-->';
   if (<!--PAGEID-->==0 || state!=state0) params+='&state='+state;
   if (title!=title0) params+='&title='+title;
   if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;

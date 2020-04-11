@@ -321,6 +321,7 @@ async function sendMailHaslo(mail, token) {
     console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
 }
 
+// chat or comment to the text
 function parsePOSTUploadComment(params, req, res, userName, isChat) {
     const folder = isChat ? "chat" : "teksty";
 
@@ -729,32 +730,24 @@ function parsePOSTLogout(params, req, res, userName) {
 
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
-    if (params["q"]) {
-        if (params["q"] == "upload_comment" && params["obj"] && params["tekst"] && params["comment"]) {
-            if (params["obj"] == "chat") {
-                parsePOSTUploadComment(params, req, res, userName, true);
-                return;
-            } else if (params["obj"] == "teksty") {
-                parsePOSTUploadComment(params, req, res, userName, false);
-                return;
-            }
-        } else if (params["q"] == "upload_text" && params["tekst"]) {
-            if (params["tekst"] == "0") {
-                parsePOSTUploadNewText(params, req, res, userName);
-                return;
-            }
-            parsePOSTUploadUpdatedText(params, req, res, userName);
+    if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"]) {
+        if (params["obj"] == "chat") {
+            parsePOSTUploadComment(params, req, res, userName, true);
             return;
-        } else if (params["q"] == "new_chat" && params["title"] && params["users"]) {
-            parsePOSTCreateChat(params, req, res, userName);
-            return;
-        } else if (params["q"] == "new_user" && params["username"] && params["typ"] && params["mail"]) {
-            parsePOSTCreateUser(params, req, res, userName);
-            return;
-        } else if (params["q"] == "edit_user" && params["typ"] && params["mail"] && userName != "") {
-            parsePOSTEditUser(params, req, res, userName);
+        } else if (params["obj"] == "teksty") {
+            parsePOSTUploadComment(params, req, res, userName, false);
             return;
         }
+    } else if (params["upload_text"] && params["tekst"]) {
+        if (params["tekst"] == "0") {
+            parsePOSTUploadNewText(params, req, res, userName);
+            return;
+        }
+        parsePOSTUploadUpdatedText(params, req, res, userName);
+        return;
+    } else if (params["new_chat"] && params["title"] && params["users"]) {
+        parsePOSTCreateChat(params, req, res, userName);
+        return;
     } else if (params["remind"] && params["token1"] && params["token2"]) {
         parsePOSTRemind(params, req, res, userName);
         return;
@@ -763,6 +756,12 @@ async function parsePOSTforms(params, req, res, userName) {
         return;
     } else if (params["verify"] && params["token"]) {
         parsePOSTVerifyMail(params, req, res, userName);
+        return;
+    } else if (params["new_user"] && params["username"] && params["typ"] && params["mail"]) {
+        parsePOSTCreateUser(params, req, res, userName);
+        return;
+    } else if (params["edit_user"] && params["typ"] && params["mail"] && userName != "") {
+        parsePOSTEditUser(params, req, res, userName);
         return;
     } else if (params["login"] && params["user"] && params["password"] && userName == "") {
         parsePOSTLogin(params, req, res, userName);
@@ -1346,7 +1345,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     sendHTMLHead(res);
 
     var text = genericReplace(req, res, getFileContentSync('\\internal\\list.txt'), userName)
-        .replace("<!--TITLE-->", "")
+        .replace("<!--TITLE-->", rodzaj + (typ != "" ? "/" + typ : "") + (status != "" ? "/" + status : ""))
         .replace("<!--RODZAJ-->", rodzaj)
         .replace("<!--CRITERIA-->", getFileContentSync("\\internal\\criteria.txt"))
         .replace("<!--PREVLINK-->", (pageNum != 0) ?
