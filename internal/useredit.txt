@@ -11,23 +11,23 @@
 Nowy użytkownik/edycja użytkownika
 </div>
 <div class=ramki>
-<table>
 <form id=textedit name=textedit method=post>
+<table>
 
 <tr><td colspan=2>
 <input type="radio" <!--CHECKED-WLASNE--> name="typ" id="typ" value="wlasne" onClick="setWlasne()"><label for=typ>Konto z własnym hasłem (wymaga weryfikacji email)</label><p>
 <input type="radio" <!--CHECKED-GOOGLE--> name="typ" id="typ" value="google" onClick="setGoogle()"><label for=typ>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; weryfikacja maila przez Google)</label>
 </td></tr>
 
-<tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" size=50 <!--USER-PARAMS--></td></tr>
+<tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" size=50 <!--USER-PARAMS--> ></td></tr>
 <tr><td>Unikalny mail w serwisie:</td><td><input name="mail" id=mail type="text" <!--MAIL-PARAMS--> size=50></td></tr>
 
 <tr id=wlasne><td>Password:</td><td><input name="pass" id=pass type="text" value="" <!--PASS-PARAMS--> size=50><br></td></tr>
 <tr id=wlasne2><td>Repeat password:</td><td><input name="pass2" id=pass2 type="text" value="" <!--PASS-PARAMS--> size=50></td></tr>
 
 <tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
-</form>
 </table>
+</form>
 </div>
 <script async=async>
 

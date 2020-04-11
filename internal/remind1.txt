@@ -20,13 +20,13 @@ Zapomniane hasło
   Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br>
   (dla kont używających Google trzeba skorzystać z odpowiedniej funkcji Google!)
       <hr>
-<table>
   <form method=post id=confirm name=confirm>
+<table>
       <tr><td>Nazwa konta:</td><td><input name="confirmuser" type="text" id="confirmuser" value=""></td></tr>
       <tr><td>Adres email konta:</td><td><input name="confirmemail" type="text" id="confirmemail" value=""></td></tr>
       <tr><td colspan=2><button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button></td></tr>
-  </form>
 </table>
+  </form>
 </div>
 <script>
 document.getElementById('confirmsub').disabled=true;

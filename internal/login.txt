@@ -9,7 +9,7 @@
       <button type="submit" id="loginsub" style='cursor: pointer;'>Login</button>
   </form>
   <br>albo<p>
-  <a href=?q=logingoogle>Loguj przez Google</a>
+  <a href="?q=logingoogle">Loguj przez Google</a>
 <script>
 document.getElementById('loginsub').disabled=true;
 function sprawdzlogin() {

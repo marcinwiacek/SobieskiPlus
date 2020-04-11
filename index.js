@@ -372,7 +372,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
             "<!--comment-->\n" +
             "When:" + formatDate(t) + "\n" +
             "Who:" + userName + "\n\n" +
-            params["comment"]+"\n"
+            params["comment"] + "\n"
         );
 
         comment = new Array();
@@ -872,7 +872,7 @@ function addOption(idnamevalue, selected) {
 }
 
 function addUserLink(name) {
-    return "<a href=?q=profil/pokaz/" + cacheUsers[name][0] + ">" + name + "</a>";
+    return "<a href=\"?q=profil/pokaz/" + cacheUsers[name][0] + "\">" + name + "</a>";
 }
 
 function showPassReminderPage(req, res, params, userName, userLevel) {
@@ -1171,10 +1171,10 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             .replace("<!--USER-->", arr["Who"]);
 
         if (userName == arr["Who"]) {
-            text = text.replace("<!--USER-EDIT-->", "<a href=?q=profil/zmien>Edycja</a>");
+            text = text.replace("<!--USER-EDIT-->", "<a href=\"?q=profil/zmien\">Edycja</a>");
         }
         if (userName != "") {
-            text = text.replace("<!--ADD-CHAT-->", "<a href=?q=chat/dodaj>Dodaj</a>");
+            text = text.replace("<!--ADD-CHAT-->", "<a href=\"?q=chat/dodaj\">Dodaj</a>");
         }
 
         const template = getFileContentSync('\\internal\\listentry.txt');
@@ -1575,6 +1575,14 @@ const onRequestHandler = (req, res) => {
             return;
         }
         if (params["q"]) {
+            //must be before opowiadania/dodaj i opowiadania/zmien/1
+            if (params["q"] == "profil/dodaj") {
+                showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
+                return;
+            } else if (params["q"] == "haslo/zmien/1") {
+                showPassReminderPage(req, res, params, userName, getUserLevelUserName(userName));
+                return;
+            }
             if (userName != "") {
                 if (params["q"] == "profil/zmien") {
                     showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
@@ -1601,14 +1609,8 @@ const onRequestHandler = (req, res) => {
                     return;
                 }
             }
-            if (params["q"] == "profil/dodaj") {
-                showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
-                return;
-            } else if (params["q"] == "logingoogle") {
+            if (params["q"] == "logingoogle") {
                 loginGoogle(req, res, params, userName, getUserLevelUserName(userName));
-                return;
-            } else if (params["q"] == "haslo/zmien/1") {
-                showPassReminderPage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
             var id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
@@ -1621,6 +1623,7 @@ const onRequestHandler = (req, res) => {
                 showMailVerifyPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
+            // must be before opowiadania/pokaz/1
             id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
             if (id) {
                 showProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));

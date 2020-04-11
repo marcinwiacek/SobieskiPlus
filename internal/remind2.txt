@@ -16,13 +16,13 @@
   Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br>
   (działa to tylko dla kont nie używających logowania Google!)
 <hr>
-<table>
   <form method=post id=confirm name=confirm>
+<table>
       <tr><td>Nowe hasło:</td><td><input name="confirmpass" type="text" id="confirmpass" value=""></td></tr>
       <tr><td>Powtórz nowe hasło:</td><td><input name="confirmpass2" type="text" id="confirmpass2" value=""></td></tr>
       <tr><td colspan=2><button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button></td></tr>
-  </form>
 </table>
+  </form>
 </div>
 <script>
 document.getElementById('confirmsub').disabled=true;
