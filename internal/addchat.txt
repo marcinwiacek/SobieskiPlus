@@ -12,7 +12,7 @@ Nowy chat
 <div class=ramki>
 <form id=textedit name=textedit method=post>
 Tytuł: <input name="title" id=title type="text" value="tytul" placeholder="Bez tytułu się nie obędzie" size=50><p>
-Użytkownicy<p>
+Inni użytkownicy<p>
 <!--USERS-LIST--><p>
 <button type="submit" id=sub>Zapisz</button>
 </form>
@@ -29,45 +29,19 @@ function getListValues(name) {
 }
 
 function sprawdz() {
-  if ("new_user"=="<!--OPERATION-->") {
-    if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
-       document.getElementById("textedit").elements.namedItem("mail").value=="" ||
-       (getRadio() == "wlasne" && (
-        document.getElementById("textedit").elements.namedItem("pass").value=="" ||
-        document.getElementById("textedit").elements.namedItem("pass2").value==""))) {
-      document.getElementById('sub').disabled=true;
-    } else {
-      document.getElementById('sub').disabled=false;
-    }
-  } else {
-    if (document.getElementById("textedit").elements.namedItem("mail").value=="") {
-      document.getElementById('sub').disabled=true;
-    } else {
-      document.getElementById('sub').disabled=false;
-    }
-  }
+     document.getElementById('sub').disabled=(document.getElementById("textedit").elements.namedItem("title").value=="" ||
+          getListValues('users')=="");
 }
-//sprawdz();
-//document.getElementById("username").addEventListener("input", sprawdz);
-//document.getElementById("mail").addEventListener("input", sprawdz);
-//document.getElementById("pass").addEventListener("input", sprawdz);
-//document.getElementById("pass2").addEventListener("input", sprawdz);
-
-function setWlasne() {
-  document.getElementById('wlasne').style.visibility="visible";
-  document.getElementById('wlasne2').style.visibility="visible";
-  sprawdz();
-}
-
-function setGoogle() {
-  document.getElementById('wlasne').style.visibility="collapse";
-  document.getElementById('wlasne2').style.visibility="collapse";
-  sprawdz();
+sprawdz();
+document.getElementById("title").addEventListener("input", sprawdz);
+var e = document.getElementsByTagName("option");
+for (var i=0;i<e.length;i++) {
+  e[i].addEventListener("click", sprawdz);
 }
 
 document.textedit.onsubmit = function() {
   var title = document.getElementById("textedit").elements.namedItem("title").value; 
-var users = getListValues('users');
+  var users = getListValues('users');
 
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;

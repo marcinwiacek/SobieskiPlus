@@ -45,6 +45,8 @@ var suneditor = SUNEDITOR.create('editor-container',{
   placeholder: 'Poproszę o ładny tekst'
 });
 
+var version = <!--VERSION-->;
+
 var type0 = document.getElementById("textedit").elements.namedItem("type").value; 
 var state0 = document.getElementById("textedit").elements.namedItem("state").value; 
 var title0 = document.getElementById("textedit").elements.namedItem("title").value; 
@@ -124,6 +126,7 @@ document.textedit.onsubmit = function() {
   var http = new XMLHttpRequest();
   var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
   var params = 'upload_text=1&tekst=<!--PAGEID-->';
+  if (<!--PAGEID-->!=0) params+='&version='+version;
   if (<!--PAGEID-->==0 || state!=state0) params+='&state='+state;
   if (title!=title0) params+='&title='+title;
   if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;
@@ -151,10 +154,19 @@ document.textedit.onsubmit = function() {
     progressBar.value = 0;
   };
   http.onload = function() {
-    document.getElementById('sub').disabled=true;
     if (<!--PAGEID--> == 0) {
       window.location.href='?q='+http.response;
     } else {
+      progressBar.value = progressBar.max;
+      document.getElementById("progressinfo").style.display="none";
+
+      if (http.status != 200) {
+        alert(http.response);
+	return;
+      }
+
+      document.getElementById('sub').disabled=true;
+
       type0 = document.getElementById("textedit").elements.namedItem("type").value; 
       state0 = document.getElementById("textedit").elements.namedItem("state").value; 
       title0 = document.getElementById("textedit").elements.namedItem("title").value; 
@@ -167,8 +179,7 @@ document.textedit.onsubmit = function() {
       text0 = suneditor.getContents(true);
       teaser0 = teasersuneditor.getContents(true);
 
-      progressBar.value = progressBar.max;
-      document.getElementById("progressinfo").style.display="none";
+      version = http.response;
     }
   };
   http.onerror = function () {

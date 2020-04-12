@@ -12,7 +12,8 @@
 <div class=ramki>
 Autor:<!--USER--><br>
 Typ:<!--TYPE--><br>
-Ostatnio zmienione:<!--WHEN-->
+Dodane:<!--WHEN--><br>
+<!--WHEN2-->
 <!--TEASER-->
 </div>
 <div class=ramki>

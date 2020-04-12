@@ -93,7 +93,6 @@ const DecodingLevel = {
     CommentText: 4
 }
 
-//FIXME: reading only headers to save memory
 //fields starting from big char are read from memory
 function decodeFileContent(txt, onlyHeaders) {
     var arr = new Array();
@@ -130,7 +129,6 @@ function decodeFileContent(txt, onlyHeaders) {
                         oldtext["Text"] = t;
                         oldtext["When"] = Date.parse(arr["When"]);
                         arr["OldText"].push(oldtext);
-                        console.log("adding text");
                         t = "";
                     }
                 } else {
@@ -174,13 +172,14 @@ function decodeFileContent(txt, onlyHeaders) {
         oldtext["Text"] = t;
         oldtext["When"] = Date.parse(arr["When"]);
         arr["OldText"].push(oldtext);
-        console.log("adding text");
     }
 
     return arr;
 }
 
-function refreshLists(arr) {
+// forcing pages reload after changing concrete text
+// we refresh lists, main page and text page
+function refreshAfterTextChange(arr) {
     for (var index0 in callbackOther) {
         var found = false;
         //list page
@@ -199,17 +198,18 @@ function refreshLists(arr) {
             }
         }
     }
+    for (var index in callbackText[arr["filename"]]) {
+        sendReload(callbackText[arr["filename"]][index][0]);
+    }
 }
 
 function addToTextCache(name) {
     cacheTexts[name] = decodeFileContent(readFileContentSync('\\texts\\' + name + '.txt'), true);
     cacheTexts[name]["filename"] = name;
     callbackText[name] = new Array();
-    refreshLists(cacheTexts[name]);
 }
 
 function addToChatCache(name, tekst) {
-    console.log("cache chat " + name);
     cacheChat[name] = tekst;
     cacheChat[name]["filename"] = name;
     callbackChat[name] = new Array();
@@ -384,6 +384,22 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
             for (var index in callbackChat[params["tekst"]]) {
                 updateComment(comment, callbackChat[params["tekst"]][index][0]);
             }
+
+            //inform other users about new chat
+            if (cacheChat[params["tekst"]]["Who"].split(',').includes(userName)) {
+                console.log('jest chat1');
+                for (var index0 in callbackOther) {
+                    console.log('jest chat2');
+                    for (var index in callbackOther[index0]) {
+                        console.log('jest chat3: ' + callbackOther[index0][index][1] + ' ' + userName + ' ' + cacheChat[params["tekst"]]["Who"]);
+                        if (callbackOther[index0][index][1] != userName &&
+                            cacheChat[params["tekst"]]["Who"].split(',').includes(callbackOther[index0][index][1])) {
+                            callbackOther[index0][index][0].write("event: m\n");
+                            callbackOther[index0][index][0].write("data:\n\n");
+                        }
+                    }
+                }
+            }
         } else {
             cacheTexts[params["tekst"]]["commentswhen"] = t;
             cacheTexts[params["tekst"]]["commentsnum"]++;
@@ -427,6 +443,7 @@ function parsePOSTUploadNewText(params, req, res, userName) {
                 (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" : "") +
                 params["text"] + "\n", 'utf8');
             addToTextCache(id);
+            refreshAfterTextChange(id);
             cacheID = id + 1;
             break;
         } catch (err) {
@@ -447,14 +464,23 @@ function parsePOSTUploadNewText(params, req, res, userName) {
 function parsePOSTUploadUpdatedText(params, req, res, userName) {
     if (params["teaser"] || params["teaser"] == '') console.log('jest teaser1');
     if (params["teaser"]) console.log('jest teaser2');
-    if (!params["text"] && !(params["teaser"] || params["teaser"] == '') && !params["state"] && !params["type"] &&
-        !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"]) {
+    if (!params["version"] ||
+        (!(params["teaser"] || params["teaser"] == '') &&
+            !params["text"] && !params["state"] && !params["type"] &&
+            !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"])) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
         return;
     }
     if (fs.existsSync(__dirname + "\\texts\\" + params["tekst"] + ".txt")) {
+        if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
+            res.statusCode = 404;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
+            return;
+        }
+
         const t = Date.now();
 
         txt = "";
@@ -488,11 +514,11 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
         cacheTexts[params["tekst"]]["When"] = t;
         cacheTexts[params["tekst"]]["Who"] = userName;
 
-        refreshLists(cacheTexts[params["tekst"]]);
+        refreshAfterTextChange(cacheTexts[params["tekst"]]);
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        res.end(t.toString());
         return;
     }
 }
@@ -513,7 +539,7 @@ function parsePOSTCreateChat(params, req, res, userName) {
 
     const txt = "Title:" + params["title"] + "\n" +
         "When:" + formatDate(Date.now()) + "\n" +
-        "Who:" + params["users"] + "\n";
+        "Who:" + params["users"] + "," + userName + "\n";
     var id = 1;
     while (1) {
         var fd;
@@ -768,25 +794,42 @@ function parsePOSTLogout(params, req, res, userName) {
 
 async function parsePOSTforms(params, req, res, userName) {
     console.log(params);
-    if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"]) {
-        if (params["obj"] == "chat") {
-            parsePOSTUploadComment(params, req, res, userName, true);
+    if (userName != "") {
+        if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"]) {
+            if (params["obj"] == "chat") {
+                parsePOSTUploadComment(params, req, res, userName, true);
+                return;
+            } else if (params["obj"] == "texts") {
+                parsePOSTUploadComment(params, req, res, userName, false);
+                return;
+            }
+        } else if (params["upload_text"] && params["tekst"]) {
+            if (params["tekst"] == "0") {
+                parsePOSTUploadNewText(params, req, res, userName);
+                return;
+            }
+            parsePOSTUploadUpdatedText(params, req, res, userName);
             return;
-        } else if (params["obj"] == "texts") {
-            parsePOSTUploadComment(params, req, res, userName, false);
+        } else if (params["new_chat"] && params["title"] && params["users"]) {
+            parsePOSTCreateChat(params, req, res, userName);
+            return;
+        } else if (params["edit_user"] && params["typ"] && params["mail"]) {
+            parsePOSTEditUser(params, req, res, userName);
+            return;
+        } else if (params["logout"]) {
+            parsePOSTLogout(params, req, res, userName);
             return;
         }
-    } else if (params["upload_text"] && params["tekst"]) {
-        if (params["tekst"] == "0") {
-            parsePOSTUploadNewText(params, req, res, userName);
+    } else { // UserName == ""
+        if (params["login"] && params["user"] && params["password"]) {
+            parsePOSTLogin(params, req, res, userName);
+            return;
+        } else if (enableGoogleWithToken && params["glogin"] && params["id"]) {
+            parsePOSTGoogleLogin(params, req, res, userName);
             return;
         }
-        parsePOSTUploadUpdatedText(params, req, res, userName);
-        return;
-    } else if (params["new_chat"] && params["title"] && params["users"]) {
-        parsePOSTCreateChat(params, req, res, userName);
-        return;
-    } else if (params["remind"] && params["token1"] && params["token2"]) {
+    }
+    if (params["remind"] && params["token1"] && params["token2"]) {
         parsePOSTRemind(params, req, res, userName);
         return;
     } else if (params["changepass"] && params["hash"] && params["token"]) {
@@ -797,18 +840,6 @@ async function parsePOSTforms(params, req, res, userName) {
         return;
     } else if (params["new_user"] && params["username"] && params["typ"] && params["mail"]) {
         parsePOSTCreateUser(params, req, res, userName);
-        return;
-    } else if (params["edit_user"] && params["typ"] && params["mail"] && userName != "") {
-        parsePOSTEditUser(params, req, res, userName);
-        return;
-    } else if (params["login"] && params["user"] && params["password"] && userName == "") {
-        parsePOSTLogin(params, req, res, userName);
-        return;
-    } else if (enableGoogleWithToken && params["glogin"] && params["id"] && userName == "") {
-        parsePOSTGoogleLogin(params, req, res, userName);
-        return;
-    } else if (params["logout"] && userName != "") {
-        parsePOSTLogout(params, req, res, userName);
         return;
     }
 
@@ -933,114 +964,9 @@ function showMailVerifyPage(req, res, params, id, userName, userLevel) {
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\verify.txt'), userName).replace("<!--HASH-->", salt));
 }
 
-function showAddChangeUserPage(req, res, params, userName, userLevel) {
-    if (params["q"] == "profil/zmien" && userName == "") {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
-        return;
-    }
-
-    var text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
-
-    if (params["q"] == "profil/zmien") {
-        if (!cacheUsers[userName][1]["Type"] || cacheUsers[userName][1]["Type"] == "wlasny") {
-            text = text.replace("<!--CHECKED-WLASNE-->", " checked")
-                .replace("<!--CHECKED-GOOGLE-->", "");
-        } else {
-            text = text.replace("<!--CHECKED-WLASNE-->", "")
-                .replace("<!--CHECKED-GOOGLE-->", " checked");
-        }
-        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
-            .replace("<!--MAIL-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Mail"] + "\" placeholder=\"Cannot be empty\"")
-            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
-            .replace(/<!--OPERATION-->/g, "edit_user");
-    } else {
-        text = text.replace("<!--CHECKED-WLASNE-->", " checked")
-            .replace("<!--CHECKED-GOOGLE-->", "")
-            .replace("<!--USER-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
-            .replace("<!--MAIL-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
-            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Cannot be empty\"")
-            .replace(/<!--OPERATION-->/g, "new_user");
-    }
-
-    sendHTML(req, res, text);
-}
-
 function loginGoogle(req, res, params, userName, userLevel) {
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\logingoogle.txt'), userName)
         .replace("<!--SIGN-IN-TOKEN-->", GoogleSignInToken));
-}
-
-// for example opowiadania/dodaj
-// for example opowiadania/zmien/1
-function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
-    if (userLevel == "0" || !podstronyType[id[1]]) {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
-        return;
-    }
-    if (id[2]) {
-        var arr = decodeFileContent(readFileContentSync('\\texts\\' + id[2] + '.txt'), false);
-        if (!podstronyType[id[1]].includes(arr["Type"])) {
-            res.statusCode = 302;
-            res.setHeader('Location', '/');
-            res.end();
-            return;
-        }
-    }
-
-    var text = genericReplace(req, res, getFileContentSync('\\internal\\entryedit.txt'), userName)
-        .replace("<!--RODZAJ-->", id[1]);
-    if (id[2]) {
-        var teaser_text = "";
-        var main_text = "";
-        arr["OldText"].forEach(function(t0) {
-            var t = t0["Text"].slice(0, -1);
-            if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
-            var x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
-            if (x != "") main_text = x;
-        });
-
-        text = text.replace("<!--TEASER-->", teaser_text)
-            .replace("<!--TEXT-->", main_text)
-            .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
-            .replace(/<!--PAGEID-->/g, id[2]); //many entries
-    } else {
-        text = text.replace(/<!--TITLE-->/g, "") //many entries
-            .replace(/<!--PAGEID-->/g, "0"); //many entries
-    }
-
-    txt = "";
-    podstronyState[id[1]].forEach(function(state) {
-        if (userLevel != "2" && state == "biblioteka" && id[1] != "hydepark" &&
-            (!id[2] || (id[2] && arr["State"] != "biblioteka"))) return;
-        txt += addRadio("state", state, (!id[2] && state == "szkic" || id[2] && state == arr["State"]));
-    });
-    text = text.replace("<!--STATE-->", txt + "<p>");
-
-    txt = "";
-    podstronyType[id[1]].forEach(function(type) {
-        txt += addRadio("type", type, (podstronyType[id[1]].length == 1 || (id[2] && arr["Type"] == type)));
-    });
-    text = text.replace("<!--TYPE-->", txt + "<p>");
-
-    txt = "<select id=\"taxonomy\" name=\"taxonomy\" size=5 multiple>";
-    taxonomy.forEach(function(tax) {
-        txt += addOption(tax, (id[2] && arr["Taxonomy"] && arr["Taxonomy"].split(",").includes(tax)));
-    });
-    text = text.replace("<!--TAXONOMY-->", txt + "</select><p>");
-
-    if (userLevel == "2") {
-        txt = "<select id=\"specialtaxonomy\" name=\"specialtaxonomy\" size=5 multiple>";
-        specialTaxonomy.forEach(function(tax) {
-            txt += addOption(tax, (id[2] && arr["SpecialTaxonomy"] && arr["SpecialTaxonomy"].split(",").includes(tax)));
-        });
-        text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
-    }
-
-    sendHTML(req, res, text);
 }
 
 function showAddChatPage(req, res, params, userName) {
@@ -1053,7 +979,9 @@ function showAddChatPage(req, res, params, userName) {
 
     var txt = "<select id=\"users\" name=\"users\" size=5 multiple>";
     for (var index in cacheUsers) {
-        txt += addOption(cacheUsers[index][1]["Who"], cacheUsers[index][1]["Who"] == userName);
+        if (cacheUsers[index][1]["Who"] != userName) {
+            txt += addOption(cacheUsers[index][1]["Who"], false);
+        }
     }
 
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\addchat.txt'), userName)
@@ -1149,6 +1077,40 @@ function formatChatEntry(template, arr) {
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
 }
 
+function showAddChangeProfilePage(req, res, params, userName, userLevel) {
+    if (params["q"] == "profil/zmien" && userName == "") {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
+
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
+
+    if (params["q"] == "profil/zmien") {
+        if (!cacheUsers[userName][1]["Type"] || cacheUsers[userName][1]["Type"] == "wlasny") {
+            text = text.replace("<!--CHECKED-WLASNE-->", " checked")
+                .replace("<!--CHECKED-GOOGLE-->", "");
+        } else {
+            text = text.replace("<!--CHECKED-WLASNE-->", "")
+                .replace("<!--CHECKED-GOOGLE-->", " checked");
+        }
+        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
+            .replace("<!--MAIL-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Mail"] + "\" placeholder=\"Cannot be empty\"")
+            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
+            .replace(/<!--OPERATION-->/g, "edit_user");
+    } else {
+        text = text.replace("<!--CHECKED-WLASNE-->", " checked")
+            .replace("<!--CHECKED-GOOGLE-->", "")
+            .replace("<!--USER-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
+            .replace("<!--MAIL-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
+            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Cannot be empty\"")
+            .replace(/<!--OPERATION-->/g, "new_user");
+    }
+
+    sendHTML(req, res, text);
+}
+
 // for example profil/pokaz/1
 function showProfilePage(req, res, params, id, userName, userLevel) {
     readFileContentSync('\\users\\' + id[1] + '.txt', (data) => {
@@ -1219,6 +1181,79 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
     });
 }
 
+// for example opowiadania/dodaj
+// for example opowiadania/zmien/1
+function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
+    if (userLevel == "0" || !podstronyType[id[1]]) {
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        res.end();
+        return;
+    }
+    if (id[2]) {
+        var arr = decodeFileContent(readFileContentSync('\\texts\\' + id[2] + '.txt'), false);
+        if (!podstronyType[id[1]].includes(arr["Type"])) {
+            res.statusCode = 302;
+            res.setHeader('Location', '/');
+            res.end();
+            return;
+        }
+    }
+
+    var text = genericReplace(req, res, getFileContentSync('\\internal\\entryedit.txt'), userName)
+        .replace("<!--RODZAJ-->", id[1]);
+    if (id[2]) { //edit
+        var teaser_text = "";
+        var main_text = "";
+        arr["OldText"].forEach(function(t0) {
+            var t = t0["Text"].slice(0, -1);
+            if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
+            var x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+            if (x != "") main_text = x;
+        });
+
+        text = text.replace("<!--TEASER-->", teaser_text)
+            .replace("<!--TEXT-->", main_text)
+            .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
+            .replace("<!--VERSION-->", arr["When"])
+            .replace(/<!--PAGEID-->/g, id[2]); //many entries
+    } else { //new page
+        text = text.replace(/<!--TITLE-->/g, "") //many entries
+            .replace("<!--VERSION-->", 0)
+            .replace(/<!--PAGEID-->/g, "0"); //many entries
+    }
+
+    txt = "";
+    podstronyState[id[1]].forEach(function(state) {
+        if (userLevel != "2" && state == "biblioteka" && id[1] != "hydepark" &&
+            (!id[2] || (id[2] && arr["State"] != "biblioteka"))) return;
+        txt += addRadio("state", state, (!id[2] && state == "szkic" || id[2] && state == arr["State"]));
+    });
+    text = text.replace("<!--STATE-->", txt + "<p>");
+
+    txt = "";
+    podstronyType[id[1]].forEach(function(type) {
+        txt += addRadio("type", type, (podstronyType[id[1]].length == 1 || (id[2] && arr["Type"] == type)));
+    });
+    text = text.replace("<!--TYPE-->", txt + "<p>");
+
+    txt = "<select id=\"taxonomy\" name=\"taxonomy\" size=5 multiple>";
+    taxonomy.forEach(function(tax) {
+        txt += addOption(tax, (id[2] && arr["Taxonomy"] && arr["Taxonomy"].split(",").includes(tax)));
+    });
+    text = text.replace("<!--TAXONOMY-->", txt + "</select><p>");
+
+    if (userLevel == "2") {
+        txt = "<select id=\"specialtaxonomy\" name=\"specialtaxonomy\" size=5 multiple>";
+        specialTaxonomy.forEach(function(tax) {
+            txt += addOption(tax, (id[2] && arr["SpecialTaxonomy"] && arr["SpecialTaxonomy"].split(",").includes(tax)));
+        });
+        text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
+    }
+
+    sendHTML(req, res, text);
+}
+
 // for example opowiadania/pokaz/1
 function showTextPage(req, res, params, id, userName) {
     if (!podstronyType[id[1]]) {
@@ -1246,7 +1281,9 @@ function showTextPage(req, res, params, id, userName) {
 
         var teaser_text = "";
         var main_text = "";
+        var when_first = 0;
         arr["OldText"].forEach(function(t0) {
+            if (when_first == 0) when_first = t0["When"];
             var t = t0["Text"].slice(0, -1);
             if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
             var x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
@@ -1258,7 +1295,8 @@ function showTextPage(req, res, params, id, userName) {
             .replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
             .replace("<!--TYPE-->", arr["Type"])
-            .replace("<!--WHEN-->", formatDate(arr["When"]));
+            .replace("<!--WHEN-->", formatDate(when_first))
+            .replace("<!--WHEN2-->", (when_first != arr["When"] ? "Ostatnio zmienione: " + formatDate(arr["When"]) : ""));
 
         var lu = arr["When"];
         if (arr["Comments"]) {
@@ -1296,7 +1334,16 @@ function formatListaEntry(template, arr) {
     if (arr["commentsnum"] != "0") {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
-    return template.replace("<!--USER-->", addUserLink(arr["Who"]))
+    txt = "";
+    if (arr["Taxonomy"]) {
+        arr["Taxonomy"].split(",").forEach(function(tax) {
+            if (txt != "") txt += ", ";
+            txt += tax;
+        });
+
+    }
+    return template.replace("<!--TAXONOMY-->", txt)
+        .replace("<!--USER-->", addUserLink(arr["Who"]))
         .replace("<!--TYPE-->", arr["Type"])
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"])
         .replace("<!--WHEN-->", formatDate(arr["When"]));
@@ -1577,7 +1624,7 @@ const onRequestHandler = (req, res) => {
         if (params["q"]) {
             //must be before opowiadania/dodaj i opowiadania/zmien/1
             if (params["q"] == "profil/dodaj") {
-                showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
+                showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             } else if (params["q"] == "haslo/zmien/1") {
                 showPassReminderPage(req, res, params, userName, getUserLevelUserName(userName));
@@ -1585,7 +1632,7 @@ const onRequestHandler = (req, res) => {
             }
             if (userName != "") {
                 if (params["q"] == "profil/zmien") {
-                    showAddChangeUserPage(req, res, params, userName, getUserLevelUserName(userName));
+                    showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
                     return;
                 } else if (params["q"] == "chat/dodaj") {
                     showAddChatPage(req, res, params, userName);

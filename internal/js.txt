@@ -24,4 +24,7 @@
   source.addEventListener("r", function(event) {
       window.location.reload();
   });
+  source.addEventListener("m", function(event) {
+      alert('You have chat message');
+  });
 </script>

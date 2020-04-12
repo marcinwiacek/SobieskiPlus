@@ -1,10 +1,11 @@
 # Artykuły
 * Milestone 1 (22.3.2020)
-* http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
-* https://www.fantastyka.pl/hydepark/pokaz/24257
+** http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
+** https://www.fantastyka.pl/hydepark/pokaz/24257
 
-# Znane rzeczy z node.JS:
+# Znane rzeczy i todo z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
+* Edge: nie chowa pasków postępu
 * change password przez stronę newuser
 * auto odswiezanie wszystkich stron -> częściowo done
 * deaktywacja użytkownika
@@ -13,6 +14,18 @@
 * sesje Google - szukanie czy user wylogowany
 * suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 * notka na stronie usera
+* blad -> usuwanie taxonomii z tekstu
+* strona użytkownika pokazuje taxonomię
+* subskrypcje web-push (wymagają Notifications z przeglądarki)
+* zglaszanie do moderacji
+* kolejki tekstów
+
+# Obecne funkcjonalności
+* pokazywanie popup przy otrzymaniu wiadomości chat
+* chatowanie (dodawanie i wysyłanie)
+* edycja i wyświetlanie tekstów (włącznie z przyklejaniem i blokowaniem nadpisywania)
+* listy tekstów
+* tworzenie kont, login/logout (włącznie z Google), przypominanie hasła i weryfikacja email
 
 # Tworzenie wielu plików z danymi z istniejących:
 
