@@ -1,64 +1,59 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title>Dokończenie weryfikacji konta email</title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
+<html>
 
-<table width=100% border=0><tr><td>
-<script src="external/sha256.js"></script>
-<script>
-  var hash='<!--HASH-->';
-</script>
-<div class=ramki>
-  Proszę podać hasło do weryfikowanego konta użytkownika, żeby dokończyć weryfikację jego adresu email.
-<hr>
-  <form method=post id=confirm name=confirm>
-      Hasło: <input name="confirmpassword" type="text" id="confirmpassword" value=""><br>
-      <button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button>
-  </form>
-</div>
-<script>
-document.getElementById('confirmsub').disabled=true;
-function sprawdzlogin() {
-  if (document.getElementById("confirm").elements.namedItem("confirmpassword").value=="") {
-    document.getElementById('confirmsub').disabled=true;
-  } else {
-    document.getElementById('confirmsub').disabled=false;
+<head>
+ <!--STYLES-->
+ <script src="external/sha256.js" async defer></script>
+ <script async>
+ <!--JSASYNC-->
+  var hash = '<!--HASH-->';
+
+  function sprawdzlogin() {
+    document.getElementById('confirmsub').disabled =
+       (document.getElementById("confirmpassword").value == "");
   }
-}
-document.getElementById("confirmpassword").addEventListener("input", sprawdzlogin);
 
-document.confirm.onsubmit = function() {
-  var password = document.getElementById("confirm").elements.namedItem("confirmpassword").value; 
-
-  if (password == '') return false;
-
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = "verify=1&token="+sha256(hash+sha256(password));
-
-  http.open('POST', url, true);
-  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  http.onload = function() {
+  function sendVerify() {
+   var password = document.getElementById("confirmpassword").value;
+   if (password == '') return false;
+   http = createPOST();
+   http.onload = function() {
     if (http.status != 200) {
-      alert('verification error');
+     alert('verification error');
     } else {
-      alert('mail verified OK');
+     alert('mail verified OK');
     }
-      window.location.reload();
-  };
-  http.onerror = function () {
+    window.location.reload();
+   };
+   http.onerror = function() {
     alert('verification error');
-      window.location.reload();
+    window.location.reload();
+   };
+   http.send("verify=1&token=" + sha256(hash + sha256(password)));
+   return false;
   };
+ </script>
+ <meta charset='utf-8'>
+ <title>Dokończenie weryfikacji konta email</title>
+</head>
 
-  http.send(params);
-  return false;
-};
-</script>
-</td></tr></table>
-</div>
-</body></html>
+<body>
+ <!--MENU-->
+ <div class=content>
+  <table width=100% border=0>
+   <tr>
+    <td>
+     <div class=ramki> Proszę podać hasło do weryfikowanego konta użytkownika, żeby dokończyć weryfikację jego adresu email.
+      <hr>
+      <form onsubmit="return sendVerify()" autocomplete="off"> 
+       Hasło: <input oninput="sprawdzlogin()" type="password" id="confirmpassword"><br>
+       <button disabled type="submit" id="confirmsub" style='cursor: pointer;'>Login</button>
+      </form>
+     </div>
+    </td>
+   </tr>
+  </table>
+ </div>
+</body>
+
+</html>

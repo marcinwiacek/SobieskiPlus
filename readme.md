@@ -15,10 +15,10 @@
 * suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 * notka na stronie usera
 * blad -> usuwanie taxonomii z tekstu
-* strona użytkownika pokazuje taxonomię
 * subskrypcje web-push (wymagają Notifications z przeglądarki)
 * zglaszanie do moderacji
 * kolejki tekstów
+* blad -> jak zmieniany jest tylko status tekstu, to zmieniane jest pole When i data tekstu
 
 # Obecne funkcjonalności
 * pokazywanie popup przy otrzymaniu wiadomości chat
@@ -37,6 +37,11 @@ for /l %f in (1,1,800) do copy 1.jpg %f.jpg
 
 ```
 npm install google-auth-library --save
+npm install nodemailer
+```
+
+```
+npm -g install js-beautify
 ```
 
 # Generacja kluczy do HTTPS:

@@ -1,18 +1,49 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title><!--TITLE--></title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
-<div class=ramki>
-<table width=100%><tr><td>Użytkownik <!--USER--></td><td align=right><!--USER-EDIT--></td></tr></table>
-</div>
-<div class=ramki>
-<table width=100%><tr><td>Ostatnie chaty</td><td align=right><!--ADD-CHAT--></td></tr></table>
-<!--CHAT-LIST-->
-</div>
-<!--TEXT-LIST-->
-</div>
-</body></html>
+<html>
+
+<head>
+ <!--STYLES-->
+ <script async>
+  <!--JSASYNC-->
+  function sub(id, czyon) {
+   http = createPOST();
+   http.onload = function() {
+    if (http.status != 200) {
+     alert(http.response);
+    } else {
+     window.location.reload();
+    }
+   };
+   http.onerror = function() {
+    alert('error');
+   };
+   http.send("sub=1&id=" + id + "&onoff=" + czyon);
+  }
+ </script>
+ <meta charset='utf-8'>
+ <title>
+  <!--TITLE-->
+ </title>
+</head>
+
+<body>
+ <!--MENU-->
+ <div class=content>
+  <div class=ramki>
+   <table width=100%>
+    <tr>
+     <td>Użytkownik
+      <!--USER-->
+     </td>
+     <td align=right>
+      <!--USER-EDIT-->
+     </td>
+    </tr>
+   </table>
+  </div>
+   <!--CHAT-LIST-->
+  <!--TEXT-LIST-->
+ </div>
+</body>
+
+</html>

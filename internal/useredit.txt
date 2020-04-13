@@ -1,141 +1,147 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<script src="external/sha256.js"></script>
-<title>Nowe konto</title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
-<div class=ramki>
-Nowy użytkownik/edycja użytkownika
-</div>
-<div class=ramki>
-<form id=textedit name=textedit method=post>
-<table>
+<html>
 
-<tr><td colspan=2>
-<input type="radio" <!--CHECKED-WLASNE--> name="typ" id="typ" value="wlasne" onClick="setWlasne()"><label for=typ>Konto z własnym hasłem (wymaga weryfikacji email)</label><p>
-<input type="radio" <!--CHECKED-GOOGLE--> name="typ" id="typ" value="google" onClick="setGoogle()"><label for=typ>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; weryfikacja maila przez Google)</label>
-</td></tr>
+<head>
+ <!--STYLES-->
+ <script src="external/sha256.js" async defer></script>
+ <script async>
+  <!--JSASYNC-->
 
-<tr><td>Unikalny nick w serwisie:</td><td><input name="username" id=username type="text" size=50 <!--USER-PARAMS--> ></td></tr>
-<tr><td>Unikalny mail w serwisie:</td><td><input name="mail" id=mail type="text" <!--MAIL-PARAMS--> size=50></td></tr>
-
-<tr id=wlasne><td>Password:</td><td><input name="pass" id=pass type="text" value="" <!--PASS-PARAMS--> size=50><br></td></tr>
-<tr id=wlasne2><td>Repeat password:</td><td><input name="pass2" id=pass2 type="text" value="" <!--PASS-PARAMS--> size=50></td></tr>
-
-<tr><td colspan=2><button type="submit" id=sub>Zapisz</button></td></tr>
-</table>
-</form>
-</div>
-<script async=async>
-
-function getRadio() {
-  var r = "";
-  var e = document.getElementsByTagName('input');               
-  for(i = 0; i < e.length; i++) {                   
-    if(e[i].type=="radio" && e[i].checked) {
-	r = e[i].value;
-	break;
-    } 
-  }
-  return r;
-}
-
-function sprawdz() {
-  if ("new_user"=="<!--OPERATION-->") {
-    if (document.getElementById("textedit").elements.namedItem("username").value=="" ||
-       document.getElementById("textedit").elements.namedItem("mail").value=="" ||
-       (getRadio() == "wlasne" && (
-        document.getElementById("textedit").elements.namedItem("pass").value=="" ||
-        document.getElementById("textedit").elements.namedItem("pass2").value==""))) {
-      document.getElementById('sub').disabled=true;
-    } else {
-      document.getElementById('sub').disabled=false;
+  function getRadio() {
+   var r = "";
+   var e = document.getElementsByTagName('input');
+   for (i = 0; i < e.length; i++) {
+    if (e[i].type == "radio" && e[i].checked) {
+     r = e[i].value;
+     break;
     }
-  } else {
-    if (document.getElementById("textedit").elements.namedItem("mail").value=="") {
-      document.getElementById('sub').disabled=true;
-    } else {
-      document.getElementById('sub').disabled=false;
-    }
+   }
+   return r;
   }
-}
-sprawdz();
-document.getElementById("username").addEventListener("input", sprawdz);
-document.getElementById("mail").addEventListener("input", sprawdz);
-document.getElementById("pass").addEventListener("input", sprawdz);
-document.getElementById("pass2").addEventListener("input", sprawdz);
 
-function setWlasne() {
-  document.getElementById('wlasne').style.visibility="visible";
-  document.getElementById('wlasne2').style.visibility="visible";
+  function sprawdz() {
+   if ("new_user" == "<!--OPERATION-->") {
+    document.getElementById('sub').disabled = 
+      (document.getElementById("username").value == "" || 
+        document.getElementById("mail").value == "" || 
+        (getRadio() == "wlasne" && (document.getElementById("pass").value == "" || 
+           document.getElementById("pass2").value == "")));
+   } else {
+     document.getElementById('sub').disabled = 
+       (document.getElementById("mail").value == "");
+   }
+  }
+
+document.addEventListener("DOMContentLoaded", function(event) {
   sprawdz();
-}
+});
 
-function setGoogle() {
-  document.getElementById('wlasne').style.visibility="collapse";
-  document.getElementById('wlasne2').style.visibility="collapse";
-  sprawdz();
-}
+  function setWlasne() {
+   document.getElementById('wlasne').style.visibility = "visible";
+   document.getElementById('wlasne2').style.visibility = "visible";
+   sprawdz();
+  }
 
-document.textedit.onsubmit = function() {
-  if (getRadio() == "wlasne") {
-    var pass = document.getElementById("textedit").elements.namedItem("pass").value; 
-    var pass2 = document.getElementById("textedit").elements.namedItem("pass2").value; 
+  function setGoogle() {
+   document.getElementById('wlasne').style.visibility = "collapse";
+   document.getElementById('wlasne2').style.visibility = "collapse";
+   sprawdz();
+  }
+
+  function sendF() {
+   if (getRadio() == "wlasne") {
+    var pass = document.getElementById("pass").value;
+    var pass2 = document.getElementById("pass2").value;
     if (pass != pass2) {
-      alert('Hasła muszą się zgadzać');
-      return false;
+     alert('Hasła muszą się zgadzać');
+     return false;
     }
-  }
-  var username = document.getElementById("textedit").elements.namedItem("username").value; 
-  var mail = document.getElementById("textedit").elements.namedItem("mail").value; 
-
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  if ("new_user"=="<!--OPERATION-->") {
-    var params = '<!--OPERATION-->=1&username='+username+'&mail='+mail;
-    if (getRadio()=="wlasne") {
-       params += '&typ=w&pass='+sha256(pass);
+   }
+   var mail = document.getElementById("mail").value;
+   if ("new_user" == "<!--OPERATION-->") {
+    var username = document.getElementById("username").value;
+    var params = '<!--OPERATION-->=1&username=' + username + '&mail=' + mail;
+    if (getRadio() == "wlasne") {
+     params += '&typ=w&pass=' + sha256(pass);
     } else {
-       params += '&typ=g';
+     params += '&typ=g';
     }
-  } else {
-    var params = 'q=<!--OPERATION-->&mail='+mail;
-    if (getRadio()=="wlasne") {
-       params += '&typ=w';
-       if (pass!="") params+='&pass='+sha256(pass);
+   } else {
+    var params = 'q=<!--OPERATION-->&mail=' + mail;
+    if (getRadio() == "wlasne") {
+     params += '&typ=w';
+     if (pass != "") params += '&pass=' + sha256(pass);
     } else {
-       params += '&typ=g';
+     params += '&typ=g';
     }
-  }
-
-  http.open('POST', url, true);
-  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  http.onload = function() {
+   }
+   http = createPOST();
+   http.onload = function() {
     if (http.status != 200) {
-      alert(http.response);
+     alert(http.response);
     } else {
-      if ("new_user"=="<!--OPERATION-->") {
-        if (getRadio() == "wlasne") {
-          alert('Konto założone. Konieczna jest jeszcze weryfikacja adresu email.');
-        } else {
-          alert('Konto założone. Adres musi być zweryfikowany przez Google.');
-        }
+     if ("new_user" == "<!--OPERATION-->") {
+      if (getRadio() == "wlasne") {
+       alert('Konto założone. Konieczna jest jeszcze weryfikacja adresu email.');
       } else {
-        alert('Konto zmienione.');
+       alert('Konto założone. Adres musi być zweryfikowany przez Google.');
       }
-      window.location.href='/';
+     } else {
+      alert('Konto zmienione.');
+     }
+     window.location.href = '/';
     }
-  };
-  http.onerror = function () {
+   };
+   http.onerror = function() {
     alert(http.response);
+   };
+   http.send(params);
+   return false;
   };
+ </script>
+ <meta charset='utf-8'>
+ <title>Nowe konto</title>
+</head>
 
-  http.send(params);
+<body>
+ <!--MENU-->
+ <div class=content>
+  <div class=ramki> Nowy użytkownik/edycja użytkownika </div>
+  <div class=ramki>
+   <form onsubmit="return sendF()" autocomplete="off">
+    <table>
+     <tr>
+      <td colspan=2>
+       <input name=type id=w type="radio" <!--CHECKED-WLASNE--> value="wlasne" onClick="setWlasne()">
+       <label for=w>Konto z własnym hasłem (wymaga weryfikacji email)</label>
+       <p>
+        <input name=type id=g type="radio" <!--CHECKED-GOOGLE--> value="google" onClick="setGoogle()">
+        <label for=g>Konto z logowaniem przez Google (wymaga założonego konta Google z podanym email; weryfikacja maila przez Google)</label>
+      </td>
+     </tr>
+     <tr>
+      <td>Unikalny nick w serwisie:</td>
+      <td><input oninput="sprawdz()" id=username type="text" size=50 <!--USER-PARAMS--> ></td>
+     </tr>
+     <tr>
+      <td>Unikalny mail w serwisie:</td>
+      <td><input oninput="sprawdz()" id=mail type="text" <!--MAIL-PARAMS--> size=50></td>
+     </tr>
+     <tr id=wlasne>
+      <td>Password:</td>
+      <td><input oninput="sprawdz()" id=pass type="password" value="" <!--PASS-PARAMS--> size=50><br></td>
+     </tr>
+     <tr id=wlasne2>
+      <td>Repeat password:</td>
+      <td><input oninput="sprawdz()" id=pass2 type="password" value="" <!--PASS-PARAMS--> size=50></td>
+     </tr>
+     <tr>
+      <td colspan=2><button type="submit" id=sub>Zapisz</button></td>
+     </tr>
+    </table>
+   </form>
+  </div>
+ </div>
+</body>
 
-  return false;
-};
-</script>
-</div></body></html>
+</html>

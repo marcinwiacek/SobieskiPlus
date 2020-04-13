@@ -1,70 +1,69 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title>Zmiana hasła do konta</title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
+<html>
 
-<table width=100% border=0><tr><td>
-<script src="external/sha256.js"></script>
-<script>
-  var hash='<!--HASH-->';
-</script>
-<div class=ramki>
-Zapomniane hasło
-</div>
-<div class=ramki>
+<head>
+ <script src="external/sha256.js" async defer></script>
+ <script async>
+  <!--JSASYNC-->
+  var hash = '<!--HASH-->';
 
-  Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br>
-  (dla kont używających Google trzeba skorzystać z odpowiedniej funkcji Google!)
-      <hr>
-  <form method=post id=confirm name=confirm>
-<table>
-      <tr><td>Nazwa konta:</td><td><input name="confirmuser" type="text" id="confirmuser" value=""></td></tr>
-      <tr><td>Adres email konta:</td><td><input name="confirmemail" type="text" id="confirmemail" value=""></td></tr>
-      <tr><td colspan=2><button type="submit" id="confirmsub" style='cursor: pointer;'>Login</button></td></tr>
-</table>
-  </form>
-</div>
-<script>
-document.getElementById('confirmsub').disabled=true;
-function sprawdzlogin() {
-  if (document.getElementById("confirm").elements.namedItem("confirmuser").value=="" ||
-     document.getElementById("confirm").elements.namedItem("confirmemail").value=="") {
-    document.getElementById('confirmsub').disabled=true;
-  } else {
-    document.getElementById('confirmsub').disabled=false;
+  function sprawdzlogin() {
+    document.getElementById('confirmsub').disabled = 
+     (document.getElementById("confirmuser").value == "" || 
+       document.getElementById("confirmemail").value == "");
   }
-}
-document.getElementById("confirmuser").addEventListener("input", sprawdzlogin);
-document.getElementById("confirmemail").addEventListener("input", sprawdzlogin);
 
-document.confirm.onsubmit = function() {
-  var user = document.getElementById("confirm").elements.namedItem("confirmuser").value; 
-  var email = document.getElementById("confirm").elements.namedItem("confirmemail").value; 
-
-  if (user == '' || email=='') return false;
-
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = "remind=1&token1="+sha256(hash+user)+"&token2="+sha256(hash+email);
-
-  http.open('POST', url, true);
-  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  http.onload = function() {
-      alert('Kliknij na link w mailu, który zostanie wysłany, gdy dane są poprawne');
-      window.location.href='/';
-  };
-  http.onerror = function () {
+  function sendF() {
+   var user = document.getElementById("confirmuser").value;
+   var email = document.getElementById("confirmemail").value;
+   if (user == '' || email == '') return false;
+   http = createPOST();
+   http.onload = function() {
+    alert('Kliknij na link w mailu, który zostanie wysłany, gdy dane są poprawne');
+    window.location.href = '/';
+   };
+   http.onerror = function() {
     alert('verification error');
+   };
+   http.send("remind=1&token1=" + sha256(hash + user) + "&token2=" + sha256(hash + email));
+   return false;
   };
+ </script>
+ <meta charset='utf-8'>
+ <title>Zmiana hasła do konta</title>
+ <!--STYLES-->
+</head>
 
-  http.send(params);
-  return false;
-};
-</script>
-</td></tr></table>
-</div>
-</body></html>
+<body>
+ <!--MENU-->
+ <div class=content>
+  <table width=100% border=0>
+   <tr>
+    <td>
+     <div class=ramki> Zapomniane hasło </div>
+     <div class=ramki> Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br> 
+        (dla kont używających Google trzeba skorzystać z odpowiedniej funkcji Google!)
+      <hr>
+      <form onsubmit="return sendF()">
+       <table>
+        <tr>
+         <td>Nazwa konta:</td>
+         <td><input type="text" id="confirmuser" oninput="sprawdzlogin()"></td>
+        </tr>
+        <tr>
+         <td>Adres email konta:</td>
+         <td><input type="text" id="confirmemail" oninput="sprawdzlogin()"></td>
+        </tr>
+        <tr>
+         <td colspan=2><button type="submit" disabled id="confirmsub" style='cursor: pointer;'>Login</button></td>
+        </tr>
+       </table>
+      </form>
+     </div>
+    </td>
+   </tr>
+  </table>
+ </div>
+</body>
+
+</html>

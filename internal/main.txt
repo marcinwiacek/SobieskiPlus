@@ -1,17 +1,23 @@
-﻿<!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title>Główna</title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
-<div class=ramki>
-Dzień dobry, cześć i czołem, Welcome, Hallo, Bonjour, здрaвствуйте
-</div>
-<!--LIST-GLUE-->
-<!--LIST-->
-<!--PREVLINK-->&nbsp;<!--NEXTLINK-->
-</div>
-<!--JS-->
-</body></html>
+﻿
+<!doctype html>
+<html>
+
+<head>
+ <!--STYLES-->
+ <script async><!--JSASYNC--></script>
+ <meta charset='utf-8'>
+ <title>Główna</title>
+</head>
+
+<body>
+ <!--MENU-->
+ <div class=content>
+  <div class=ramki> Dzień dobry, cześć i czołem, Welcome, Hallo, Bonjour, здрaвствуйте </div>
+  <!--LIST-GLUE-->
+  <!--LIST-->
+  <!--PREVLINK-->&nbsp;
+  <!--NEXTLINK-->
+ </div>
+</body>
+
+</html>

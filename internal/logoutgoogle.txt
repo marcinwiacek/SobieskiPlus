@@ -1,48 +1,44 @@
-<table width=100% border=0><tr><td>
-  <form method=post id=logout name=logout>
-      <button type="submit">Logout</button>
-  </form>
-</td></tr></table>
 <script>
-  var link = document.createElement('meta');
-  link.setAttribute('google-signin-client_id', '<!--SIGN-IN-TOKEN-->');
-  link.content = document.location;
-  document.getElementsByTagName('head')[0].appendChild(link);
+ var link = document.createElement('meta');
+ link.setAttribute('google-signin-client_id', '<!--SIGN-IN-TOKEN-->');
+ link.content = document.location;
+ document.getElementsByTagName('head')[0].appendChild(link);
 
  function gapi_load() {
-        gapi.load('auth2', function() {
-            gapi.auth2.init( {   client_id: '<!--SIGN-IN-TOKEN-->'});
-        });
-    }
-
+  gapi.load('auth2', function() {
+   gapi.auth2.init({
+    client_id: '<!--SIGN-IN-TOKEN-->'
+   });
+  });
+ }
 </script>
 <script src="https://apis.google.com/js/platform.js?onload=gapi_load" async defer></script>
-<script>
-document.logout.onsubmit = function() {
-
-   var auth2 = gapi.auth2.getAuthInstance();
-    auth2.signOut().then(function () {
-      auth2.disconnect();
-    });
-
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = "logout=1";
-
-  http.open('POST', url, true);
-  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+<script async>
+ function logout() {
+  gapi.auth2.getAuthInstance().signOut().then(function() {
+   auth2.disconnect();
+  });
+  http = createPOST();
   http.onload = function() {
-    if (http.status != 200) {
-      alert('logout error');
-    } else {
-      window.location.reload();
-    }
-  };
-  http.onerror = function () {
+   if (http.status != 200) {
     alert('logout error');
+   } else {
+    window.location.reload();
+   }
   };
-
-  http.send(params);
+  http.onerror = function() {
+   alert('logout error');
+  };
+  http.send("logout=1");
   return false;
-};
+ };
 </script>
+<table width=100% border=0>
+ <tr>
+  <td>
+   <form onsubmit="return logout()">
+    <button type="submit">Logout</button>
+   </form>
+  </td>
+ </tr>
+</table>

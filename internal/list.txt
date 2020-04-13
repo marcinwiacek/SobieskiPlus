@@ -1,18 +1,38 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title><!--TITLE--></title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
-<div class=ramki>
-<table width=100%><tr><td><!--RODZAJ--></td><td><!--LOGIN-NEW--></td></tr></table>
-</div>
-<div class=ramki><!--CRITERIA--></div>
-<!--LIST-GLUE-->
-<!--LIST-->
-<!--PREVLINK-->&nbsp;<!--NEXTLINK-->
-<!--JS-->
-</div>
-</body></html>
+<html>
+
+<head>
+ <!--STYLES-->
+ <script async><!--JSASYNC--></script>
+ <meta charset='utf-8'>
+ <title>
+  <!--TITLE-->
+ </title>
+</head>
+
+<body>
+ <!--MENU-->
+ <div class=content>
+  <div class=ramki>
+   <table width=100%>
+    <tr>
+     <td>
+      <!--RODZAJ-->
+     </td>
+     <td>
+      <!--LOGIN-NEW-->
+     </td>
+    </tr>
+   </table>
+  </div>
+  <div class=ramki>
+   <!--CRITERIA-->
+  </div>
+  <!--LIST-GLUE-->
+  <!--LIST-->
+  <!--PREVLINK-->&nbsp;
+  <!--NEXTLINK-->
+ </div>
+</body>
+
+</html>

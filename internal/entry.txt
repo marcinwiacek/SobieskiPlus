@@ -1,43 +1,64 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title><!--TITLE--></title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
-<div class=ramki>
-<table width=100%><tr><td>Tekst <!--TITLE--></td><td><!--LOGIN-EDIT--></td></tr></table>
-</div>
-<div class=ramki>
-Autor:<!--USER--><br>
-Typ:<!--TYPE--><br>
-Dodane:<!--WHEN--><br>
-<!--WHEN2-->
-<!--TEASER-->
-</div>
-<div class=ramki>
-<center><h1><!--TITLE--></h1></center>
-<hr>
-<!--TEXT-->
-<hr>
-<center>KONIEC</center>
-</div>
-<!--COMMENTS-->
-<div id=newcomments></div>
-<!--COMMENTEDIT-->
-<!--JS-->
-<script>
+<html>
+
+<head>
+ <!--STYLES-->
+ <script async=async>
+ <!--JSASYNC-->
   source.addEventListener("c", function(event) {
-    if (event.data!='') {
-      /*parsing*/
-      document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
-      if (document.hidden && window.document.title.substring(0,2)!="* ") {
-        window.document.title = "* "+window.document.title;
-      }
+   if (event.data != '') {
+    /*parsing*/
+    document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+    if (document.hidden && window.document.title.substring(0, 2) != "* ") {
+     window.document.title = "* " + window.document.title;
     }
+   }
   });
-/*  document.body.onbeforeunload = function(){source.close();};*/
-</script>
-</div>
-</body></html>
+  /*  document.body.onbeforeunload = function(){source.close();};*/
+ </script>
+ <meta charset='utf-8'>
+ <title>
+  <!--TITLE-->
+ </title>
+</head>
+
+<body>
+ <!--MENU-->
+ <div class=content>
+  <div class=ramki>
+   <table width=100%>
+    <tr>
+     <td>Tekst
+      <!--TITLE-->
+     </td>
+     <td>
+      <!--LOGIN-EDIT-->
+     </td>
+    </tr>
+   </table>
+  </div>
+  <div class=ramki> Autor:
+   <!--USER--><br> Typ:
+   <!--TYPE--><br> Dodane:
+   <!--WHEN--><br>
+   <!--WHEN2-->
+   <!--TEASER-->
+  </div>
+  <div class=ramki>
+   <center>
+    <h1>
+     <!--TITLE-->
+    </h1>
+   </center>
+   <hr>
+   <!--TEXT-->
+   <hr>
+   <center>KONIEC</center>
+  </div>
+  <!--COMMENTS-->
+  <div id=newcomments></div>
+  <!--COMMENTEDIT-->
+ </div>
+</body>
+
+</html>

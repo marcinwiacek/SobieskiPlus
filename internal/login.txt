@@ -1,58 +1,45 @@
-<table width=100% border=0><tr><td>
-<script src="external/sha256.js"></script>
-<script>
-  var hash='<!--HASH-->';
-</script>
-  <form method=post id=login name=login>
-      Użytkownik: <input name="user" type="text" id="user" value=""><br>
-      Hasło: <input name="password" type="text" id="password" value="">
-      <button type="submit" id="loginsub" style='cursor: pointer;'>Login</button>
-  </form>
-  <br>albo<p>
-  <a href="?q=logingoogle">Loguj przez Google</a>
-<script>
-document.getElementById('loginsub').disabled=true;
-function sprawdzlogin() {
-  if (document.getElementById("login").elements.namedItem("user").value=="" ||
-      document.getElementById("login").elements.namedItem("password").value=="") {
-    document.getElementById('loginsub').disabled=true;
-  } else {
-    document.getElementById('loginsub').disabled=false;
-  }
-}
-document.getElementById("user").addEventListener("input", sprawdzlogin);
-document.getElementById("password").addEventListener("input", sprawdzlogin);
+<script src="external/sha256.js" async defer></script>
+<script async=async>
+ var hash = '<!--HASH-->';
 
+ function checkLogin() {
+  document.getElementById('loginsub').disabled = 
+    (document.getElementById("loginuser").value == "" || document.getElementById("loginpassword").value == "");
+ }
 
-document.login.onsubmit = function() {
-  var user = document.getElementById("login").elements.namedItem("user").value; 
-  var password = document.getElementById("login").elements.namedItem("password").value; 
-
+function sendLogin() {
+  var user = document.getElementById("loginuser").value;
+  var password = document.getElementById("loginpassword").value;
   if (user == '' || password == '') return false;
-
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = "login=1&user="+sha256(hash+user)+"&password="+sha256(hash+sha256(password));
-
-  http.open('POST', url, true);
-  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  http = createPOST();
   http.onload = function() {
-    if (http.status != 200) {
-      if (http.response=="") {
-        alert("Błędny użytkownik lub hasło");
-      } else {
-        alert(http.response);
-      }
+   if (http.status != 200) {
+    if (http.response == "") {
+     alert("Błędny użytkownik lub hasło");
     } else {
-      window.location.reload();
+     alert(http.response);
     }
+   } else {
+    window.location.reload();
+   }
   };
-  http.onerror = function () {
-    alert('login error');
+  http.onerror = function() {
+   alert('login error');
   };
-
-  http.send(params);
+  http.send("login=1&user=" + sha256(hash + user) + "&password=" + sha256(hash + sha256(password)));
   return false;
-};
+ };
 </script>
-</td></tr></table>
+<table width=100% border=0>
+ <tr>
+  <td>
+   <form onsubmit="return sendLogin()" autocomplete="off"> 
+    Użytkownik: <input oninput="checkLogin()" type="text" id="loginuser"><br> 
+    Hasło: <input oninput="checkLogin()" type="password" id="loginpassword">
+    <button disabled type="submit" id="loginsub" style='cursor: pointer;'>Login</button>
+   </form>
+   <br>albo<p>
+    <a href="?q=logingoogle">Loguj przez Google</a>
+  </td>
+ </tr>
+</table>

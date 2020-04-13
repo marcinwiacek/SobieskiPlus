@@ -71,16 +71,17 @@ function readFileContentSync(fileName, callback) {
     }
 }
 
-// CAN'T USE // comments in JS !!!! Use /* */ instead.
-//replace(/(\r\n|\n|\r)/gm, "")
 function getFileContentSync(fileName) {
     if (!cacheFiles[fileName]) {
+        var t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", ""));
+        // CAN'T USE // comments in JS !!!! Use /* */ instead.
+        //        t = t.replace(/(\r\n|\n|\r)/gm, "");
         if (fileName.includes("_gzip")) {
-            cacheFiles[fileName] = zlib.gzipSync(readFileContentSync(fileName.replace("_gzip", "")));
+            cacheFiles[fileName] = zlib.gzipSync(t);
         } else if (fileName.includes("_deflate")) {
-            cacheFiles[fileName] = zlib.deflateSync(readFileContentSync(fileName.replace("_deflate", "")));
+            cacheFiles[fileName] = zlib.deflateSync(t);
         } else {
-            cacheFiles[fileName] = readFileContentSync(fileName);
+            cacheFiles[fileName] = t;
         }
     }
     return cacheFiles[fileName];
@@ -170,37 +171,11 @@ function decodeFileContent(txt, onlyHeaders) {
         if (!arr["OldText"]) arr["OldText"] = new Array();
         var oldtext = new Array();
         oldtext["Text"] = t;
-        oldtext["When"] = Date.parse(arr["When"]);
+        oldtext["When"] = arr["When"];
         arr["OldText"].push(oldtext);
     }
 
     return arr;
-}
-
-// forcing pages reload after changing concrete text
-// we refresh lists, main page and text page
-function refreshAfterTextChange(arr) {
-    for (var index0 in callbackOther) {
-        var found = false;
-        //list page
-        var id0 = index0.match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
-        if (id0) {
-            //it can be more granular            
-            if (podstronyType[id0[1]].includes(arr["Type"])) found = true;
-        } else {
-            //it can be more granular            
-            id0 = index0.match(/^(\/{1,1}[0-9]*)?$/);
-            if (id0) found = true;
-        }
-        if (found) {
-            for (var index in callbackOther[index0]) {
-                sendReload(callbackOther[index0][index][0]);
-            }
-        }
-    }
-    for (var index in callbackText[arr["filename"]]) {
-        sendReload(callbackText[arr["filename"]][index][0]);
-    }
 }
 
 function addToTextCache(name) {
@@ -306,6 +281,9 @@ function sendHTMLHead(res) {
 }
 
 function sendHTMLBody(req, res, text) {
+    //  if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
+    //      res.setHeader('Content-Encoding', 'gzip');
+    //      res.end(zlib.gzipSync(text));
     if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
         res.setHeader('Content-Encoding', 'deflate');
         res.end(zlib.deflateSync(text));
@@ -319,12 +297,38 @@ function sendHTML(req, res, text) {
     sendHTMLBody(req, res, text);
 }
 
-function sendReload(res) {
+function sendReloadToPage(res) {
     res.write("event: r\n");
     res.write("data:\n\n");
 }
 
-function updateComment(comment, res) {
+// forcing pages reload after changing concrete text
+// we refresh lists, main page and text page
+function sendAllReloadsAfterTextChangeToPage(arr) {
+    for (var index0 in callbackOther) {
+        var found = false;
+        //list page
+        var id0 = index0.match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
+        if (id0) {
+            //it can be more granular            
+            if (podstronyType[id0[1]].includes(arr["Type"])) found = true;
+        } else {
+            //it can be more granular            
+            id0 = index0.match(/^(\/{1,1}[0-9]*)?$/);
+            if (id0) found = true;
+        }
+        if (found) {
+            for (var index in callbackOther[index0]) {
+                sendReloadToPage(callbackOther[index0][index][0]);
+            }
+        }
+    }
+    for (var index in callbackText[arr["filename"]]) {
+        sendReloadToPage(callbackText[arr["filename"]][index][0]);
+    }
+}
+
+function sendCommentToPage(comment, res) {
     console.log("jest callback");
 
     const template = getFileContentSync('\\internal\\comment.txt')
@@ -382,7 +386,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
 
         if (isChat) {
             for (var index in callbackChat[params["tekst"]]) {
-                updateComment(comment, callbackChat[params["tekst"]][index][0]);
+                sendCommentToPage(comment, callbackChat[params["tekst"]][index][0]);
             }
 
             //inform other users about new chat
@@ -405,7 +409,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
             cacheTexts[params["tekst"]]["commentsnum"]++;
 
             for (var index in callbackText[params["tekst"]]) {
-                updateComment(comment, callbackText[params["tekst"]][index][0]);
+                sendCommentToPage(comment, callbackText[params["tekst"]][index][0]);
             }
         }
         res.statusCode = 200;
@@ -443,7 +447,7 @@ function parsePOSTUploadNewText(params, req, res, userName) {
                 (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" : "") +
                 params["text"] + "\n", 'utf8');
             addToTextCache(id);
-            refreshAfterTextChange(id);
+            sendAllReloadsAfterTextChangeToPage(id);
             cacheID = id + 1;
             break;
         } catch (err) {
@@ -514,7 +518,7 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
         cacheTexts[params["tekst"]]["When"] = t;
         cacheTexts[params["tekst"]]["Who"] = userName;
 
-        refreshAfterTextChange(cacheTexts[params["tekst"]]);
+        sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/plain');
@@ -539,7 +543,45 @@ function parsePOSTCreateChat(params, req, res, userName) {
 
     const txt = "Title:" + params["title"] + "\n" +
         "When:" + formatDate(Date.now()) + "\n" +
-        "Who:" + params["users"] + "," + userName + "\n";
+        "Who:" + params["users"] + "," + userName + "\n" +
+        "Sub:" + params["users"] + "," + userName + "\n";
+    var id = 1;
+    while (1) {
+        var fd;
+        try {
+            fd = fs.openSync(__dirname + "\\chat\\" + id + ".txt", 'wx');
+            fs.appendFileSync(fd, txt, 'utf8');
+            addToChatCache(id.toString(), decodeFileContent(txt, true));
+            break;
+        } catch (err) {
+            id++;
+        } finally {
+            if (fd !== undefined) fs.closeSync(fd);
+        }
+    }
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(id.toString());
+}
+
+function parsePOSTSubscribeChat(params, req, res, userName) {
+    wrong = false;
+    params["users"].split(',').forEach(function(user) {
+        if (!cacheUsers[user]) {
+            wrong = true;
+        }
+    });
+    if (wrong) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+
+    const txt = "Title:" + params["title"] + "\n" +
+        "When:" + formatDate(Date.now()) + "\n" +
+        "Who:" + params["users"] + "," + userName + "\n" +
+        "Sub:" + params["users"] + "," + userName + "\n";
     var id = 1;
     while (1) {
         var fd;
@@ -878,7 +920,7 @@ function genericReplace(req, res, text, userName) {
         .replace("<!--MOBILE-LINK-->", "<p><a href=\"?set=mobile" +
             ((req.headers['cookie'] && req.headers['cookie'].includes('mobile=1')) ? "0\">Wy" : "1\">W") +
             "łącz mobile</a>")
-        .replace("<!--JS-->", getFileContentSync('\\internal\\js.txt'));
+        .replace("<!--JSASYNC-->", getFileContentSync('\\internal\\jsasync.txt'));
 
     if (userName == "") {
         const session = crypto.randomBytes(32).toString('base64');
@@ -894,8 +936,8 @@ function genericReplace(req, res, text, userName) {
 }
 
 function addRadio(idname, value, checked) {
-    return "<input type=\"radio\" name=\"" + idname + "\" id=" + idname + " value=\"" + value + "\"" +
-        (checked ? " checked" : "") + "><label for=\"" + idname + "\">" + value + "</label>";
+    return "<input type=\"radio\" name=\"" + idname + "\" id=" + idname + value + " value=\"" + value + "\"" +
+        (checked ? " checked" : "") + "><label for=\"" + idname + value + "\">" + value + "</label>";
 }
 
 function addOption(idnamevalue, selected) {
@@ -964,7 +1006,7 @@ function showMailVerifyPage(req, res, params, id, userName, userLevel) {
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\verify.txt'), userName).replace("<!--HASH-->", salt));
 }
 
-function loginGoogle(req, res, params, userName, userLevel) {
+function showLoginGooglePage(req, res, params, userName, userLevel) {
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\logingoogle.txt'), userName)
         .replace("<!--SIGN-IN-TOKEN-->", GoogleSignInToken));
 }
@@ -1015,8 +1057,7 @@ function showChatPage(req, res, params, id, userName) {
 
         sendHTMLHead(res);
 
-        var text = getFileContentSync('\\internal\\chat.txt');
-        text = genericReplace(req, res, text, userName)
+        var text = genericReplace(req, res, getFileContentSync('\\internal\\chat.txt'), userName)
             .replace(/<!--TITLE-->/g, arr["Title"]); // multiple
 
         if (arr["Who"]) {
@@ -1060,12 +1101,14 @@ function getChatList(pageNum, userName) {
     return new Array(result.slice(pageNum * onThePage, (pageNum + 1) * onThePage), result.length);
 }
 
-function formatChatEntry(template, arr) {
+function formatChatEntry(template, arr, userName) {
     template = template.replace("<!--TITLE-->",
         "<a href=\"?q=chat/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
     if (arr["commentsnum"] != "0") {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
+    //    template = template.replace("<!--SUB-->", "<a href=javascript:sub(" + arr["filename"] + "," +
+    //        !arr["Sub"].split(",").includes(userName) + ");>" + (arr["Sub"].split(",").includes(userName) ? "on" : "off") + "</a>");
     if (arr["Who"]) {
         txt = "";
         arr["Who"].split(",").forEach(entry => {
@@ -1084,6 +1127,8 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
         res.end();
         return;
     }
+
+    sendHTMLHead(res);
 
     var text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
 
@@ -1108,7 +1153,7 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
             .replace(/<!--OPERATION-->/g, "new_user");
     }
 
-    sendHTML(req, res, text);
+    sendHTMLBody(req, res, text);
 }
 
 // for example profil/pokaz/1
@@ -1123,20 +1168,15 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
 
         var arr = decodeFileContent(data, false);
 
-        res.statusCode = 200;
+        sendHTMLHead(res);
         res.setHeader('Cache-Control', 'no-store');
-        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
 
-        var text = getFileContentSync('\\internal\\user.txt');
-        text = genericReplace(req, res, text, userName)
+        var text = genericReplace(req, res, getFileContentSync('\\internal\\user.txt'), userName)
             .replace(/<!--TITLE-->/g, arr["Who"])
             .replace("<!--USER-->", arr["Who"]);
 
         if (userName == arr["Who"]) {
             text = text.replace("<!--USER-EDIT-->", "<a href=\"?q=profil/zmien\">Edycja</a>");
-        }
-        if (userName != "") {
-            text = text.replace("<!--ADD-CHAT-->", "<a href=\"?q=chat/dodaj\">Dodaj</a>");
         }
 
         const template = getFileContentSync('\\internal\\listentry.txt');
@@ -1145,10 +1185,12 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
         txt = "";
         if (list[0]) {
             list[0].forEach(function(arr) {
-                txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr);
+                txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr, userName);
             });
         }
-        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<hr>" + txt : "");
+        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki><table width=100%>" +
+            "<tr><td>Ostatnie chaty</td>" +
+            "<td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>" : "");
 
         txt = "";
         new Array(new Array("biblioteka"),
@@ -1164,7 +1206,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 var t = "";
                 if (list[0]) {
                     list[0].forEach(function(arr) {
-                        t += (t != "" ? "<hr>" : "") + formatListaEntry(template, arr);
+                        t += (t != "" ? "<hr>" : "") + formatListEntry(template, arr);
                     });
                 }
                 if (t != "") {
@@ -1199,6 +1241,8 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
             return;
         }
     }
+
+    sendHTMLHead(res);
 
     var text = genericReplace(req, res, getFileContentSync('\\internal\\entryedit.txt'), userName)
         .replace("<!--RODZAJ-->", id[1]);
@@ -1251,7 +1295,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
     }
 
-    sendHTML(req, res, text);
+    sendHTMLBody(req, res, text);
 }
 
 // for example opowiadania/pokaz/1
@@ -1272,12 +1316,8 @@ function showTextPage(req, res, params, id, userName) {
             return;
         }
 
-        res.statusCode = 200;
+        sendHTMLHead(res);
         res.setHeader('Cache-Control', 'no-store');
-        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-
-        var text = getFileContentSync('\\internal\\entry.txt');
-        text = genericReplace(req, res, text, userName);
 
         var teaser_text = "";
         var main_text = "";
@@ -1290,7 +1330,8 @@ function showTextPage(req, res, params, id, userName) {
             if (x != "") main_text = x;
         });
 
-        text = text.replace(/<!--TITLE-->/g, arr["Title"])
+        var text = genericReplace(req, res, getFileContentSync('\\internal\\entry.txt'), userName)
+            .replace(/<!--TITLE-->/g, arr["Title"])
             .replace("<!--USER-->", addUserLink(arr["Who"]))
             .replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
@@ -1324,7 +1365,7 @@ function showTextPage(req, res, params, id, userName) {
     });
 }
 
-function formatListaEntry(template, arr) {
+function formatListEntry(template, arr) {
     Object.keys(podstronyType).forEach(function(entry) {
         if (podstronyType[entry].includes(arr["Type"])) {
             template = template.replace("<!--TITLE-->",
@@ -1334,7 +1375,7 @@ function formatListaEntry(template, arr) {
     if (arr["commentsnum"] != "0") {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
-    txt = "";
+    var txt = "";
     if (arr["Taxonomy"]) {
         arr["Taxonomy"].split(",").forEach(function(tax) {
             if (txt != "") txt += ", ";
@@ -1350,6 +1391,8 @@ function formatListaEntry(template, arr) {
 }
 
 function showMainPage(req, res, page, params, userName) {
+    sendHTMLHead(res);
+
     var text = genericReplace(req, res, getFileContentSync('\\internal\\main.txt'), userName)
         .replace("<!--TITLE-->", "");
 
@@ -1366,7 +1409,7 @@ function showMainPage(req, res, page, params, userName) {
     var txt = "";
     if (listGlue[0]) {
         listGlue[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
         });
     }
     text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
@@ -1382,7 +1425,7 @@ function showMainPage(req, res, page, params, userName) {
     txt = "";
     if (list[0]) {
         list[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
         });
     }
     text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "")
@@ -1391,7 +1434,7 @@ function showMainPage(req, res, page, params, userName) {
         .replace("<!--NEXTLINK-->", ((page + 1) * onThePage < list[1]) ?
             "<a href=\"?q=/" + (page + 1) + "\">Next page &gt;</a>" : "");
 
-    sendHTML(req, res, text);
+    sendHTMLBody(req, res, text);
 }
 
 function buildURL(tekst, rodzaj, typ, status, page, sorttype, tax) {
@@ -1499,7 +1542,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     txt = "";
     if (listGlue[0]) {
         listGlue[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
         });
     }
     text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
@@ -1507,7 +1550,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     txt = "";
     if (list[0]) {
         list[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListaEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
         });
     }
 
@@ -1657,7 +1700,7 @@ const onRequestHandler = (req, res) => {
                 }
             }
             if (params["q"] == "logingoogle") {
-                loginGoogle(req, res, params, userName, getUserLevelUserName(userName));
+                showLoginGooglePage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             }
             var id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);

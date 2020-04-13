@@ -1,50 +1,47 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title>Zaloguj konto Google</title>
-<meta name="google-signin-client_id" content="<!--SIGN-IN-TOKEN-->">
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
-<div class=ramki>Logowanie do konta Google</div>
-<div class=ramki>
-<ul><li>Wymaga założenia konta w serwisie z używanym przez Ciebie adresem email i typem logowania przez Google!<p>
-        <a href="?q=profil/dodaj">Nowe konto</a>
-<li>Wymaga odblokowania skryptów Google w Twoim AdBlockerze.
-</ul>
-<hr>                
-<div class="g-signin2" data-onsuccess="onSignIn" id=but></div>
-</div>
-<script>
-function onSignIn(googleUser) {
-  var profile = googleUser.getBasicProfile();
+<html>
 
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = "glogin=1&id="+googleUser.getAuthResponse().id_token;
-
-  http.open('POST', url, true);
-  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  http.onload = function() {
+<head>
+ <!--STYLES-->
+ <script src="https://apis.google.com/js/platform.js" async defer onError="alert('Loading Google scripts blocked');"></script>
+ <script async>
+  <!--JSASYNC-->
+  function onSignIn(googleUser) {
+   http = createPOST();
+   http.onload = function() {
     if (http.status != 200) {
-      alert('login error');
+     alert('login error');
     } else {
-      window.location.href=document.referrer;
+     window.location.href = document.referrer;
     }
-  };
-  http.onerror = function () {
+   };
+   http.onerror = function() {
     alert('login error');
-  };
+   };
+   http.send("glogin=1&id=" + googleUser.getAuthResponse().id_token);
+   return false;
+  }
+ </script>
+ <meta charset='utf-8'>
+ <title>Zaloguj konto Google</title>
+ <meta name="google-signin-client_id" content="<!--SIGN-IN-TOKEN-->">
+</head>
 
-  http.send(params);
-  return false;
+<body>
+ <!--MENU-->
+ <div class=content>
+  <div class=ramki>Logowanie do konta Google</div>
+  <div class=ramki>
+   <ul>
+    <li>Wymaga założenia konta w serwisie z używanym przez Ciebie adresem email i typem logowania przez Google!<p>
+      <a href="?q=profil/dodaj">Nowe konto</a>
+    <li>Wymaga odblokowania skryptów Google w Twoim AdBlockerze.
+   </ul>
+   <hr>
+   <div class="g-signin2" data-onsuccess="onSignIn" id=but></div>
+  </div>
+ </div>
+ </div>
+</body>
 
-}
-
-</script>
-<script src="https://apis.google.com/js/platform.js" async defer onError="alert('Loading Google scripts blocked');"></script>
-
-</div>
-
-</div></body></html>
+</html>

@@ -1,6 +1,6 @@
 <div class=ramki>
-<!--USER--><br>
-<!--WHEN-->
-<hr>
-<!--TEXT-->
+ <!--USER--><br>
+ <!--WHEN-->
+ <hr>
+ <!--TEXT-->
 </div>

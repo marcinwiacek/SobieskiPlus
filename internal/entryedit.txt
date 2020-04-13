@@ -1,194 +1,210 @@
 <!doctype html>
-<html><head>
-<meta charset='utf-8'>
-<title><!--TITLE--></title>
-<!--STYLES-->
-</head><body>
-<!--MENU-->
-<div class=content>
-<link type="text/css" rel="stylesheet" href="external/suneditor.min.css">
-<script src="external/suneditor.min.js"></script>
-<div class=ramki>
-Edycja tekstu w dziale <!--RODZAJ-->
-</div>
-<div class=ramki>
-  <form id=textedit name=textedit method=post>
-      Status:<!--STATE-->
-      Typ:<!--TYPE-->
-      Tagi (opcjonalne)<p>
-      <!--TAXONOMY-->
-      <!--SPECIAL-TAXONOMY-->
-      Tytuł: <input name="title" id=title type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50><p>
-      Informacja dla czytających
-      <textarea id="teaser-editor-container"><!--TEASER--></textarea><p>
-      Tekst
-      <textarea id="editor-container"><!--TEXT--></textarea><p>
-      <button type="submit" id=sub>Zapisz</button>
-  </form>
-  <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress><div id=progresserror></div></div>
-</div>
-<script async=async>
+<html>
 
-var teasersuneditor = SUNEDITOR.create('teaser-editor-container',{
-  height : '100%',
-  width:'auto',
-  showPathLabel : false,
-  charCounter : true,
-  placeholder: 'Może być pusty'
-});
+<head>
+ <!--STYLES-->
+ <link type="text/css" rel="stylesheet" href="external/suneditor.min.css">
+ <script src="external/suneditor.min.js"></script>
+ <script async>
+ <!--JSASYNC-->
+  var teasersuneditor = null;
+  var suneditor = null;
+  var version = <!--VERSION--> ;
+  var type0 = null;
+  var state0 = null;
+  var title0 = null;
+  var taxonomy0 = null;
+  var specialtaxonomy0 = null;
+  var text0 = null;
+  var teaser0 = null;
+  var updated = false;
 
-var suneditor = SUNEDITOR.create('editor-container',{
-  height : '100%',
-  width:'auto',
-  showPathLabel : false,
-  charCounter : true,
-  placeholder: 'Poproszę o ładny tekst'
-});
-
-var version = <!--VERSION-->;
-
-var type0 = document.getElementById("textedit").elements.namedItem("type").value; 
-var state0 = document.getElementById("textedit").elements.namedItem("state").value; 
-var title0 = document.getElementById("textedit").elements.namedItem("title").value; 
-var taxonomy0 = getListValues("taxonomy");
-if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
-  var specialtaxonomy0 = getListValues("specialtaxonomy"); 
-} else {
-  var specialtaxonomy0 = "";
-}
-var text0 = suneditor.getContents(true);
-var teaser0 = teasersuneditor.getContents(true);
-
-document.getElementById('sub').disabled=true;
-
-var updated = false;
-function sprawdz() {
-  updated = true;
-  if (suneditor.getContents(true).trim().length==0 || 
-      document.getElementById("textedit").elements.namedItem("title").value=="") {
-    document.getElementById('sub').disabled=true;
-  } else {
-    if (type0 != document.getElementById("textedit").elements.namedItem("type").value ||
-      state0 != document.getElementById("textedit").elements.namedItem("state").value ||
-      title0 != document.getElementById("textedit").elements.namedItem("title").value ||
-      taxonomy0 != getListValues("taxonomy") ||
-      (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null &&
-           specialtaxonomy0 != getListValues("specialtaxonomy")) ||
-      text0 != suneditor.getContents(true) ||
-      teaser0 != teasersuneditor.getContents(true)) {
-    document.getElementById('sub').disabled=false;
-  } else {
-    document.getElementById('sub').disabled=true;
-  }
-
-  }
-}
-
-suneditor.onChange = function (contents, core) { sprawdz() }
-teasersuneditor.onChange = function (contents, core) { sprawdz() }
-var e = document.getElementsByTagName("input");
-for (var i=0;i<e.length;i++) {
-  e[i].addEventListener("click", sprawdz);
-}
-var e = document.getElementsByTagName("option");
-for (var i=0;i<e.length;i++) {
-  e[i].addEventListener("click", sprawdz);
-}
-
-window.onbeforeunload = function(){
-  if (document.getElementById('sub').disabled==false) return 'Tekst jest niezapisany. Czy na pewno chcesz opuścić edytor?';
-};
-
-function getListValues(name) {
-  var result = "";
-  for (var i=0, len=document.getElementById(name).options.length; i<len; i++) {
-        opt = document.getElementById(name).options[i];
-        if (opt.selected) result += opt.value+",";
-  }
-  return result.slice(0, -1);
-}
-
-document.textedit.onsubmit = function() {
-  var type = document.getElementById("textedit").elements.namedItem("type").value; 
-  if (type == '') {
-	alert('Proszę wybrać typ');
-	return false;
-  }
-  var state = document.getElementById("textedit").elements.namedItem("state").value; 
-  var title = document.getElementById("textedit").elements.namedItem("title").value; 
-  var taxonomy = getListValues("taxonomy");
-  if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
-    var specialtaxonomy = getListValues("specialtaxonomy"); 
-  } else {
-    var specialtaxonomy ="";
-  }
-  var progressBar = document.getElementById("progress");
-  var http = new XMLHttpRequest();
-  var url = window.location.protocol+'//'+window.location.hostname+':'+window.location.port+window.location.pathname;
-  var params = 'upload_text=1&tekst=<!--PAGEID-->';
-  if (<!--PAGEID-->!=0) params+='&version='+version;
-  if (<!--PAGEID-->==0 || state!=state0) params+='&state='+state;
-  if (title!=title0) params+='&title='+title;
-  if (<!--PAGEID-->==0 || type!=type0) params+='&type='+type;
-  if (taxonomy!=taxonomy0) params+='&taxonomy='+taxonomy;
-  if (suneditor.getContents(true)!=text0) {
-     params+='&text='+
-        encodeURIComponent(suneditor.getContents(true)!="<p><br></p>"?suneditor.getContents(true):"");
-  }
-  if (teasersuneditor.getContents(true)!=teaser0) {
-    params+='&teaser='+
-       encodeURIComponent(teasersuneditor.getContents(true)!="<p><br></p>"?teasersuneditor.getContents(true):"");
-  }
-  if (specialtaxonomy!=specialtaxonomy0) params+='&specialtaxonomy='+specialtaxonomy;
-  http.open('POST', url, true);
-  http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  http.onprogress = function(e) {
-    if (e.lengthComputable) {
-        progressBar.max = e.total;
-        progressBar.value = e.loaded;
+  function getRadio(name) {
+   var r = "";
+   var e = document.getElementsByTagName('input');
+   for (i = 0; i < e.length; i++) {
+    if (e[i].name==name && e[i].type == "radio" && e[i].checked) {
+     r = e[i].value;
+     break;
     }
-  };
-  http.onloadstart = function() {
-    document.getElementById("progressinfo").style.display="block";
-    document.getElementById("progress").innerHTML="";
-    progressBar.value = 0;
-  };
-  http.onload = function() {
-    if (<!--PAGEID--> == 0) {
-      window.location.href='?q='+http.response;
+   }
+   return r;
+  }
+
+  function sprawdz() {
+   updated = true;
+   if (suneditor.getContents(true).trim().length == 0 || 
+       document.getElementById("title").value == "") {
+    document.getElementById('sub').disabled = true;
+   } else {
+    if (type0 != getRadio("type") || 
+        state0 != getRadio("state") || 
+        title0 != document.getElementById("title").value || 
+        taxonomy0 != getListValues("taxonomy") || 
+        (document.getElementById("specialtaxonomy") != null && 
+         specialtaxonomy0 != getListValues("specialtaxonomy")) || 
+        text0 != suneditor.getContents(true) || teaser0 != teasersuneditor.getContents(true)) {
+     document.getElementById('sub').disabled = false;
     } else {
-      progressBar.value = progressBar.max;
-      document.getElementById("progressinfo").style.display="none";
-
-      if (http.status != 200) {
-        alert(http.response);
-	return;
-      }
-
-      document.getElementById('sub').disabled=true;
-
-      type0 = document.getElementById("textedit").elements.namedItem("type").value; 
-      state0 = document.getElementById("textedit").elements.namedItem("state").value; 
-      title0 = document.getElementById("textedit").elements.namedItem("title").value; 
-      taxonomy0 = getListValues("taxonomy");
-      if (document.getElementById("textedit").elements.namedItem("specialtaxonomy")!=null) {
-        specialtaxonomy0 = getListValues("specialtaxonomy"); 
-      } else {
-        specialtaxonomy0 = "";
-      }
-      text0 = suneditor.getContents(true);
-      teaser0 = teasersuneditor.getContents(true);
-
-      version = http.response;
+     document.getElementById('sub').disabled = true;
     }
-  };
-  http.onerror = function () {
-    document.getElementById("progress").innerHTML="error";
+   }
+  }
+
+  window.onbeforeunload = function() {
+   if (!document.getElementById('sub').disabled) return 'Tekst jest niezapisany. Czy na pewno chcesz opuścić edytor?';
   };
 
-  http.send(params);
+document.addEventListener("DOMContentLoaded", function(event) {
+  teasersuneditor = SUNEDITOR.create('teaser-editor-container', {
+   height: '100%',
+   width: 'auto',
+   showPathLabel: false,
+   charCounter: true,
+   placeholder: 'Może być pusty'
+  });
+  suneditor = SUNEDITOR.create('editor-container', {
+   height: '100%',
+   width: 'auto',
+   showPathLabel: false,
+   charCounter: true,
+   placeholder: 'Poproszę o ładny tekst'
+  });
+  type0 = getRadio("type");
+  state0 = getRadio("state");
+  title0 = document.getElementById("title").value;
+  taxonomy0 = getListValues("taxonomy");
+  if (document.getElementById("specialtaxonomy") != null) {
+    specialtaxonomy0 = getListValues("specialtaxonomy");
+  }
+  text0 = suneditor.getContents(true);
+  teaser0 = teasersuneditor.getContents(true);
 
-  return false;
-};
-</script>
-</div></body></html>
+  suneditor.onChange = function(contents, core) {
+   sprawdz()
+  }
+  teasersuneditor.onChange = function(contents, core) {
+   sprawdz()
+  }
+  var e = document.getElementsByTagName("input");
+  for (var i = 0; i < e.length; i++) {
+   e[i].addEventListener("change", sprawdz);
+  }
+  var e = document.getElementsByTagName("option");
+  for (var i = 0; i < e.length; i++) {
+   e[i].addEventListener("click", sprawdz);
+  }
+});
+
+  function getListValues(name) {
+   var result = "";
+   for (var i = 0, len = document.getElementById(name).options.length; i < len; i++) {
+    opt = document.getElementById(name).options[i];
+    if (opt.selected) result += opt.value + ",";
+   }
+   return result.slice(0, -1);
+  }
+  function sendText() {
+   var type = getRadio("type");
+   if (type == '') {
+    alert('Proszę wybrać typ');
+    return false;
+   }
+   var state = getRadio("state");
+   var title = document.getElementById("title").value;
+   var taxonomy = getListValues("taxonomy");
+   if (document.getElementById("specialtaxonomy") != null) {
+    var specialtaxonomy = getListValues("specialtaxonomy");
+   } else {
+    var specialtaxonomy = "";
+   }
+   var progressBar = document.getElementById("progress");
+   var params = 'upload_text=1&tekst=<!--PAGEID-->';
+   if ( <!--PAGEID--> != 0) params += '&version=' + version;
+   if ( <!--PAGEID--> == 0 || state != state0) params += '&state=' + state;
+   if (title != title0) params += '&title=' + title;
+   if ( <!--PAGEID--> == 0 || type != type0) params += '&type=' + type;
+   if (taxonomy != taxonomy0) params += '&taxonomy=' + taxonomy;
+   if (suneditor.getContents(true) != text0) {
+    params += '&text=' + encodeURIComponent(suneditor.getContents(true) != "<p><br></p>" ? suneditor.getContents(true) : "");
+   }
+   if (teasersuneditor.getContents(true) != teaser0) {
+    params += '&teaser=' + encodeURIComponent(teasersuneditor.getContents(true) != "<p><br></p>" ? teasersuneditor.getContents(true) : "");
+   }
+   if (specialtaxonomy != specialtaxonomy0) params += '&specialtaxonomy=' + specialtaxonomy;
+   http = createPOST();
+   http.onprogress = function(e) {
+    if (e.lengthComputable) {
+     progressBar.max = e.total;
+     progressBar.value = e.loaded;
+    }
+   };
+   http.onloadstart = function() {
+    document.getElementById("progressinfo").style.display = "block";
+    document.getElementById("progress").innerHTML = "";
+    progressBar.value = 0;
+   };
+   http.onload = function() {
+     document.getElementById('sub').disabled = true;
+    if ( <!--PAGEID--> == 0) {
+     window.location.href = '?q=' + http.response;
+    } else {
+     progressBar.value = progressBar.max;
+     document.getElementById("progressinfo").style.display = "none";
+     if (http.status != 200) {
+      alert(http.response);
+      return;
+     }
+     type0 = getRadio("type");
+     state0 = getRadio("state");
+     title0 = document.getElementById("title").value;
+     taxonomy0 = getListValues("taxonomy");
+     if (document.getElementById("specialtaxonomy") != null) {
+      specialtaxonomy0 = getListValues("specialtaxonomy");
+     } else {
+      specialtaxonomy0 = "";
+     }
+     text0 = suneditor.getContents(true);
+     teaser0 = teasersuneditor.getContents(true);
+     version = http.response;
+    }
+   };
+   http.onerror = function() {
+    document.getElementById("progress").innerHTML = "error";
+   };
+   http.send(params);
+   return false;
+  };
+ </script>
+ <meta charset='utf-8'>
+ <title>
+  <!--TITLE-->
+ </title>
+</head>
+
+<body>
+ <!--MENU-->
+ <div class=content>
+  <div class=ramki> Edycja tekstu w dziale
+   <!--RODZAJ-->
+  </div>
+  <div class=ramki>
+   <form onsubmit="return sendText()"> Status:
+    <!--STATE--> Typ:
+    <!--TYPE--> Tagi (opcjonalne)<p>
+     <!--TAXONOMY-->
+     <!--SPECIAL-TAXONOMY--> 
+     Tytuł: <input id=title oninput="sprawdz()" type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50>
+    <p> Informacja dla czytających <textarea id="teaser-editor-container"><!--TEASER--></textarea>
+    <p> Tekst <textarea id="editor-container"><!--TEXT--></textarea>
+    <p>
+     <button type="submit" disabled id=sub>Zapisz</button>
+   </form>
+   <div style='display:none' id=progressinfo>Postęp: <progress id="progress" value="0"></progress>
+    <div id=progresserror></div>
+   </div>
+  </div>
+ </div>
+</body>
+
+</html>
