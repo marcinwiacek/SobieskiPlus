@@ -1,24 +1,27 @@
 # Artykuły
 * Milestone 1 (22.3.2020)
-** http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
-** https://www.fantastyka.pl/hydepark/pokaz/24257
+  * http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
+  * https://www.fantastyka.pl/hydepark/pokaz/24257
 
-# Znane rzeczy i todo z node.JS:
-* Firefox: menu przewija się z ciemnym motywem (błąd FF?)
-* Edge: nie chowa pasków postępu
+# todo z node.JS:
 * change password przez stronę newuser
 * auto odswiezanie wszystkich stron -> częściowo done
 * deaktywacja użytkownika
 * +- (punkty)
 * facebook
-* sesje Google - szukanie czy user wylogowany
-* suneditor -> zamiana https, dobre wykrywanie pustej zawartosci text.striphtml.trim....
+* sesje (Google) - szukanie czy user wylogowany + usuwanie nieaktywnych
 * notka na stronie usera
-* blad -> usuwanie taxonomii z tekstu
 * subskrypcje web-push (wymagają Notifications z przeglądarki)
 * zglaszanie do moderacji
 * kolejki tekstów
+* notyfikacje tylko o określonych chatach -> częściowo done
+
+# Znane rzeczy z node.JS:
+* Firefox: menu przewija się z ciemnym motywem (błąd FF?)
+* Edge: nie chowa pasków postępu
+* blad -> usuwanie taxonomii z tekstu
 * blad -> jak zmieniany jest tylko status tekstu, to zmieniane jest pole When i data tekstu
+* suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 
 # Obecne funkcjonalności
 * pokazywanie popup przy otrzymaniu wiadomości chat
@@ -33,14 +36,11 @@
 for /l %f in (1,1,800) do copy 1.jpg %f.jpg
 ```
 
-# Instalacja package do Google (gdy jest używana biblioteka):
+# Instalacja (Google auth tylko jak będzie używana biblioteka)
 
 ```
 npm install google-auth-library --save
 npm install nodemailer
-```
-
-```
 npm -g install js-beautify
 ```
 
@@ -55,6 +55,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' \
 * https://medium.com/@thomashellstrom/use-google-as-login-in-your-web-app-with-oauth2-352f6c7f10e6
 * https://developers.google.com/identity/sign-in/web/backend-auth
 * https://www.cssscript.com/minimal-wysiwyg-editor-pure-javascript-suneditor/
+* https://blog.sessionstack.com/how-javascript-works-the-mechanics-of-web-push-notifications-290176c5c55d
 
 # Znane rzeczy z PHP (ostatnia wersja 13.3.2020):
 1. przy przeładowaniu push.php teoretycznie możemy zgubić komentarz (?)

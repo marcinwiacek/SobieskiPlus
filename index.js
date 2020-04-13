@@ -926,7 +926,7 @@ function genericReplace(req, res, text, userName) {
         const session = crypto.randomBytes(32).toString('base64');
         nonLogged.push(session);
         return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'))
-            .replace("<!--HASH-->", session);
+            .replace("<!--LOGINHASH-->", session);
     } else {
         return text.replace("<!--ID-USER-->", cacheUsers[userName][0])
             .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
@@ -952,7 +952,7 @@ function showPassReminderPage(req, res, params, userName, userLevel) {
     var x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
     remindToken.push(new Array(x, Date.now() + 1000 * 60 * 60, "", "", ""));
 
-    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\remind1.txt'), userName)
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\passremind.txt'), userName)
         .replace("<!--HASH-->", x));
 }
 
@@ -976,7 +976,7 @@ function showChangePasswordPage(req, res, params, id, userName, userLevel) {
         return;
     }
 
-    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\remind2.txt'), userName).replace("<!--HASH-->", salt));
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\passchange.txt'), userName).replace("<!--HASH-->", salt));
 }
 
 function showMailVerifyPage(req, res, params, id, userName, userLevel) {
@@ -1003,7 +1003,7 @@ function showMailVerifyPage(req, res, params, id, userName, userLevel) {
         return;
     }
 
-    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\verify.txt'), userName).replace("<!--HASH-->", salt));
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\verifymail.txt'), userName).replace("<!--HASH-->", salt));
 }
 
 function showLoginGooglePage(req, res, params, userName, userLevel) {

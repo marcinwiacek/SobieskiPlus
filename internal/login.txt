@@ -1,6 +1,6 @@
 <script src="external/sha256.js" async defer></script>
 <script async=async>
- var hash = '<!--HASH-->';
+ var loginhash = '<!--LOGINHASH-->';
 
  function checkLogin() {
   document.getElementById('loginsub').disabled = 
@@ -26,7 +26,7 @@ function sendLogin() {
   http.onerror = function() {
    alert('login error');
   };
-  http.send("login=1&user=" + sha256(hash + user) + "&password=" + sha256(hash + sha256(password)));
+  http.send("login=1&user=" + sha256(loginhash + user) + "&password=" + sha256(loginhash + sha256(password)));
   return false;
  };
 </script>
