@@ -1181,17 +1181,20 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
 
         const template = getFileContentSync('\\internal\\listentry.txt');
 
-        const list = getChatList(0, userName);
-        txt = "";
-        if (list[0]) {
-            list[0].forEach(function(arr) {
-                txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr, userName);
-            });
-        }
-        text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki><table width=100%>" +
-            "<tr><td>Ostatnie chaty</td>" +
-            "<td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>" : "");
+        if (userName != "") {
 
+            const list = getChatList(0, userName);
+            txt = "";
+            if (list[0]) {
+                list[0].forEach(function(arr) {
+                    txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr, userName);
+                });
+            }
+            text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki><table width=100%>" +
+                "<tr><td>" + (userName == arr["Who"] ? "Ostatnie chaty" : "Ostatnie chaty z Tobą") + "</td>" +
+                "<td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>" : "");
+
+        }
         txt = "";
         new Array(new Array("biblioteka"),
             (userName == "") ? new Array("beta", "poczekalnia") : new Array("beta", "poczekalnia", "szkic")).forEach(function(type) {
