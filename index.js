@@ -762,7 +762,7 @@ function parsePOSTLogout(params, req, res, userName) {
     console.log("logout try");
     sessions.forEach(function(session, index) {
         if (session[1] < Date.now()) {
-            if (session[4] != null) clearTimeout(session[4]);
+            if (session[3] != null) clearTimeout(session[3]);
             sessions.splice(index, 1);
             return;
         }
@@ -808,7 +808,7 @@ async function parsePOSTRemind(params, req, res, userName) {
 
 function parsePOSTChangePass(params, req, res, userName) {
     found = false;
-    remindToken.forEach(function(session, splice) {
+    remindToken.forEach(function(session, index) {
         console.log(session[1] + " " + Date.now());
         console.log(params["hash"] + " " + session[2]);
         if (found) return;
@@ -1586,19 +1586,30 @@ function showListPage(req, res, params, id, userName, userLevel) {
 function setRefreshSession(token, first) {
     sessions.forEach(function(x, index) {
         if (x[0] == token) {
-            s = token;
+            if (x[3] != null) clearTimeout(x[3]);
             if (!first) {
-                s = crypto.randomBytes(32).toString('base64');
-                console.log(' session ' + x[0] + " -> " + s);
-                x[0] = s;
-                x[3].write("event: s\n");
-                x[3].write("data: " + s + "\n\n");
+                newtoken = crypto.randomBytes(32).toString('base64');
+                (new Array(callbackChat, callbackText, callbackOther)).forEach(function(cc) {
+                    for (var index0 in cc) {
+                        for (var index in cc[index0]) {
+                            if (cc[index0][index][2] == token) {
+                                console.log("sending new token");
+                                cc[index0][index][2] = newtoken;
+                                cc[index0][index][0].write("event: s\n");
+                                cc[index0][index][0].write("data: " + newtoken + "\n\n");
+                            }
+                        }
+                    }
+                });
+            } else {
+                newtoken = token;
             }
-            x[1] = Date.now() + 1000 * 32;
-            if (x[4] != null) clearTimeout(x[4]);
-            x[4] = setTimeout(function() {
-                setRefreshSession(s, false);
+            console.log(token + " -> " + newtoken);
+            x[0] = newtoken;
+            x[3] = setTimeout(function() {
+                setRefreshSession(newtoken, false);
             }, 30000); //30 seconds
+            x[1] = Date.now() + 1000 * 50;
         }
     });
 }
@@ -1615,25 +1626,20 @@ function addToCallback(req, res, id, arra, userName, other, token) {
     if (other) console.log("other");
     const session = crypto.randomBytes(32).toString('base64');
     if (other && !arra[id]) arra[id] = new Array();
-    arra[id][session] = new Array(res, userName);
+    arra[id][session] = new Array(res, userName, token);
     res.on('close', function() {
         console.log("usuwa callback");
-        if (req.headers['cookie']) {
-            sessions.forEach(function(s, index) {
-                if (s[1] < Date.now()) {
-                    if (s[4] != null) clearTimeout(s[4]);
-                    s.splice(index, 1);
-                    return;
-                }
-                req.headers['cookie'].split("; ").forEach(function(cookie) {
-                    if ("session=" + s[0] == cookie) {
-                        console.log('delete refresh for session ' + s[0]);
-                        if (s[4] != null) clearTimeout(s[4]);
-                        s[3] = null;
-                    }
-                });
-            });
-        }
+        sessions.forEach(function(s, index) {
+            if (s[1] < Date.now()) {
+                if (s[3] != null) clearTimeout(s[3]);
+                s.splice(index, 1);
+                return;
+            }
+            if (s[0] == arra[id][session][2]) {
+                console.log('delete refresh for session ' + s[0]);
+                if (s[3] != null) clearTimeout(s[3]);
+            }
+        });
         delete arra[id][session];
     });
     setTimeout(function() {
@@ -1677,7 +1683,7 @@ const onRequestHandler = (req, res) => {
         sessions.forEach(function(session, index) {
             if (session[1] < Date.now()) {
                 console.log('usuwa sesje ' + session[0]);
-                if (session[4] != null) clearTimeout(session[4]);
+                if (session[3] != null) clearTimeout(session[3]);
                 sessions.splice(index, 1);
                 return;
             }
@@ -1696,7 +1702,7 @@ const onRequestHandler = (req, res) => {
     if (c) {
         const session = crypto.randomBytes(32).toString('base64');
         res.setHeader('Set-Cookie', 'session=' + session + '; SameSite=Strict; Secure');
-        sessions.push(new Array(session, Date.now() + 1000 * 60, '', null, null)); // 60 seconds, non logged
+        sessions.push(new Array(session, Date.now() + 1000 * 60, '', null)); // 60 seconds, non logged
         console.log("nowa sesja " + session);
     }
 
@@ -1711,7 +1717,7 @@ const onRequestHandler = (req, res) => {
             sessions.forEach(function(session, index) {
                 if (session[1] < Date.now()) {
                     console.log('usuwa sesje ' + session[0]);
-                    if (session[4] != null) clearTimeout(session[4]);
+                    if (session[3] != null) clearTimeout(session[3]);
                     sessions.splice(index, 1);
                     return;
                 }
@@ -1719,7 +1725,6 @@ const onRequestHandler = (req, res) => {
                     if ("session=" + session[0] == cookie) {
                         console.log('znalazl sesje ' + found);
                         found = session[0];
-                        if (session[3] == null) session[3] = res;
                     }
                 });
             });
