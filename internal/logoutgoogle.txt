@@ -1,22 +1,14 @@
+<script src="https://apis.google.com/js/platform.js" async defer></script>
 <script>
- var link = document.createElement('meta');
- link.setAttribute('google-signin-client_id', '<!--SIGN-IN-TOKEN-->');
- link.content = document.location;
- document.getElementsByTagName('head')[0].appendChild(link);
-
- function gapi_load() {
+ function logout() {
   gapi.load('auth2', function() {
    gapi.auth2.init({
     client_id: '<!--SIGN-IN-TOKEN-->'
    });
-  });
- }
-</script>
-<script src="https://apis.google.com/js/platform.js?onload=gapi_load" async defer></script>
-<script async>
- function logout() {
-  gapi.auth2.getAuthInstance().signOut().then(function() {
-   auth2.disconnect();
+   var auth2 = gapi.auth2.getAuthInstance();
+    auth2.signOut().then(function () {
+      auth2.disconnect();
+    });
   });
   http = createPOST();
   http.onload = function() {

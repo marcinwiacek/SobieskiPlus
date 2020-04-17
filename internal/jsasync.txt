@@ -36,3 +36,8 @@ source.addEventListener("r", function(event) {
 source.addEventListener("m", function(event) {
  alert('You have chat message');
 });
+source.addEventListener("s", function(event) {
+ document.cookie = "session="+event.data;
+ console.log('You have token '+event.data);
+});
+

@@ -42,10 +42,9 @@ var callbackChat = new Array();
 var callbackText = new Array();
 var callbackOther = new Array();
 
-var nonLogged = new Array();
-var logged = new Array();
 var verifyToken = new Array();
 var remindToken = new Array();
+var sessions = new Array();
 
 function getUserLevelUserName(userName) {
     if (userName == "") return "0";
@@ -672,33 +671,57 @@ function parsePOSTEditUser(params, req, res, userName) {
     res.end();
 }
 
-async function parsePOSTLogin(params, req, res, userName) {
-    console.log("probuje login");
+function tryOwnLogin(req, params, googleMail) {
     var found = null;
     fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
         if (found) return;
         var arr = decodeFileContent(readFileContentSync('\\users\\' + file), false);
-        nonLogged.forEach(function(session) {
+
+        sessions.forEach(function(session, index) {
             if (found) return;
-            if (!arr["Type"] || arr["Type"] == "wlasny") {
-                usr = crypto.createHash('sha256').update(session + arr["Who"]).digest("hex");
-                if (usr != params["user"]) return;
-                pass = crypto.createHash('sha256').update(session + arr["Pass"]).digest("hex");
-                if (pass != params["password"]) return;
-                const salt = crypto.randomBytes(32).toString('base64');
-                if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
-                    sendVerificationMail(arr["Mail"], arr["Who"]);
-                    found = "Konto niezweryfikowane. Kliknij na link w mailu";
-                } else {
-                    logged.push(new Array(salt, arr["Who"], file));
-                    console.log("jest login");
-                    res.setHeader('Set-Cookie', 'login=' + salt);
-                    found = "";
-                }
+            if (session[1] < Date.now()) {
+                if (session[4] != null) clearTimeout(session[4]);
+                sessions.splice(index, 1);
+                return;
             }
+            req.headers['cookie'].split("; ").forEach(function(cookie) {
+                if ("session=" + session[0] == cookie && session[2] == "") {
+                    console.log("probuje sesje " + session[0]);
+                    if (googleMail) {
+                        console.log(googleMail + " vs " + arr["Mail"]);
+                        //fixme check if verified
+                        if (arr["Type"] == "google" && googleMail == arr["Mail"]) {
+                            console.log("jest login");
+                            session[2] = arr["Who"];
+                            console.log("found");
+                            found = "";
+                        }
+                    } else {
+                        if (!arr["Type"] || arr["Type"] == "wlasny") {
+                            usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
+                            if (usr != params["user"]) return;
+                            pass = crypto.createHash('sha256').update(session[0] + arr["Pass"]).digest("hex");
+                            if (pass != params["password"]) return;
+                            if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
+                                sendVerificationMail(arr["Mail"], arr["Who"]);
+                                found = "Konto niezweryfikowane. Kliknij na link w mailu";
+                            } else {
+                                console.log("jest login");
+                                session[2] = arr["Who"];
+                                found = "";
+                            }
+                        }
+                    }
+                }
+            });
         });
     });
+    return found;
+}
 
+async function parsePOSTLogin(params, req, res, userName) {
+    console.log("probuje login");
+    const found = tryOwnLogin(req, params, "");
     res.statusCode = (found == "") ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end(found);
@@ -724,33 +747,42 @@ async function parsePOSTGoogleLogin(params, req, res, userName) {
         res.end();
         return;
     }
+
     console.log("probuje login2");
-    var found = false;
-    fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-        if (found) return;
-        var arr = decodeFileContent(readFileContentSync('\\users\\' + file), false);
-        nonLogged.forEach(function(session) {
-            if (found) return;
-            if (arr["Type"] == "google" && json.email == arr["Mail"]) {
-                const salt = crypto.randomBytes(32).toString('base64');
-                logged.push(new Array(salt, arr["Who"], file, params["id"]));
-                console.log("jest login2");
-                res.setHeader('Set-Cookie', 'login=' + salt);
-                found = true;
+    const found = tryOwnLogin(req, params, json.email);
+    res.statusCode = (found == "") ? 200 : 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(found);
+}
+
+function parsePOSTLogout(params, req, res, userName) {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+
+    console.log("logout try");
+    sessions.forEach(function(session, index) {
+        if (session[1] < Date.now()) {
+            if (session[4] != null) clearTimeout(session[4]);
+            sessions.splice(index, 1);
+            return;
+        }
+        req.headers['cookie'].split("; ").forEach(function(cookie) {
+            console.log("checking session " + session[0] + " " + cookie);
+            if ("session=" + session[0] == cookie) {
+                session[2] = '';
             }
         });
     });
 
-    res.statusCode = found ? 200 : 404;
-    res.setHeader('Content-Type', 'text/plain');
     res.end();
 }
 
 async function parsePOSTRemind(params, req, res, userName) {
     found = false;
-    remindToken.forEach(function(session) {
+    remindToken.forEach(function(session, index) {
         if (found) return;
         if (session[1] < Date.now()) {
+            remindToken.splice(index, 1);
             return;
         }
         fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
@@ -776,11 +808,14 @@ async function parsePOSTRemind(params, req, res, userName) {
 
 function parsePOSTChangePass(params, req, res, userName) {
     found = false;
-    remindToken.forEach(function(session) {
+    remindToken.forEach(function(session, splice) {
         console.log(session[1] + " " + Date.now());
         console.log(params["hash"] + " " + session[2]);
         if (found) return;
-        if (session[1] < Date.now()) return;
+        if (session[1] < Date.now()) {
+            remindToken.splice(index, 1);
+            return;
+        }
         if (params["hash"] == session[2]) {
             fs.appendFileSync(__dirname + "\\users\\" + session[4],
                 "<!--change-->\n" +
@@ -798,9 +833,12 @@ function parsePOSTChangePass(params, req, res, userName) {
 
 function parsePOSTVerifyMail(params, req, res, userName) {
     found = false;
-    verifyToken.forEach(function(session) {
+    verifyToken.forEach(function(session, index) {
         if (found) return;
-        if (session[2] < Date.now()) return;
+        if (session[2] < Date.now()) {
+            verifyToken.splice(index, 1);
+            return;
+        }
         if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
             if (cacheUsers[session[1]][1]["ConfirmMail"] == "0") {
                 token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Pass"]).digest("hex");
@@ -819,18 +857,6 @@ function parsePOSTVerifyMail(params, req, res, userName) {
 
     res.statusCode = found ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
-    res.end();
-}
-
-function parsePOSTLogout(params, req, res, userName) {
-    res.setHeader('Set-Cookie', 'login=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    logged.forEach(function(cookieInfo, index) {
-        if ("login=" + cookieInfo[0] == req.headers['cookie']) {
-            logged.splice(index, 1);
-        }
-    });
     res.end();
 }
 
@@ -858,9 +884,6 @@ async function parsePOSTforms(params, req, res, userName) {
         } else if (params["edit_user"] && params["typ"] && params["mail"]) {
             parsePOSTEditUser(params, req, res, userName);
             return;
-        } else if (params["logout"]) {
-            parsePOSTLogout(params, req, res, userName);
-            return;
         }
     } else { // UserName == ""
         if (params["login"] && params["user"] && params["password"]) {
@@ -871,7 +894,10 @@ async function parsePOSTforms(params, req, res, userName) {
             return;
         }
     }
-    if (params["remind"] && params["token1"] && params["token2"]) {
+    if (params["logout"]) {
+        parsePOSTLogout(params, req, res, userName);
+        return;
+    } else if (params["remind"] && params["token1"] && params["token2"]) {
         parsePOSTRemind(params, req, res, userName);
         return;
     } else if (params["changepass"] && params["hash"] && params["token"]) {
@@ -923,10 +949,7 @@ function genericReplace(req, res, text, userName) {
         .replace("<!--JSASYNC-->", getFileContentSync('\\internal\\jsasync.txt'));
 
     if (userName == "") {
-        const session = crypto.randomBytes(32).toString('base64');
-        nonLogged.push(session);
-        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'))
-            .replace("<!--LOGINHASH-->", session);
+        return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'));
     } else {
         return text.replace("<!--ID-USER-->", cacheUsers[userName][0])
             .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
@@ -1560,7 +1583,27 @@ function showListPage(req, res, params, id, userName, userLevel) {
     sendHTMLBody(req, res, text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : ""));
 }
 
-function addToCallback(res, id, arra, userName, other) {
+function setRefreshSession(token, first) {
+    sessions.forEach(function(x, index) {
+        if (x[0] == token) {
+            s = token;
+            if (!first) {
+                s = crypto.randomBytes(32).toString('base64');
+                console.log(' session ' + x[0] + " -> " + s);
+                x[0] = s;
+                x[3].write("event: s\n");
+                x[3].write("data: " + s + "\n\n");
+            }
+            x[1] = Date.now() + 1000 * 32;
+            if (x[4] != null) clearTimeout(x[4]);
+            x[4] = setTimeout(function() {
+                setRefreshSession(s, false);
+            }, 30000); //30 seconds
+        }
+    });
+}
+
+function addToCallback(req, res, id, arra, userName, other, token) {
     res.writeHead(200, {
         'Cache-Control': 'no-cache',
         'Content-Type': 'text/event-stream',
@@ -1575,11 +1618,28 @@ function addToCallback(res, id, arra, userName, other) {
     arra[id][session] = new Array(res, userName);
     res.on('close', function() {
         console.log("usuwa callback");
+        if (req.headers['cookie']) {
+            sessions.forEach(function(s, index) {
+                if (s[1] < Date.now()) {
+                    if (s[4] != null) clearTimeout(s[4]);
+                    s.splice(index, 1);
+                    return;
+                }
+                req.headers['cookie'].split("; ").forEach(function(cookie) {
+                    if ("session=" + s[0] == cookie) {
+                        console.log('delete refresh for session ' + s[0]);
+                        if (s[4] != null) clearTimeout(s[4]);
+                        s[3] = null;
+                    }
+                });
+            });
+        }
         delete arra[id][session];
     });
     setTimeout(function() {
         res.end();
     }, 60000); //60 seconds
+    setRefreshSession(token, true);
 }
 
 const onRequestHandler = (req, res) => {
@@ -1608,15 +1668,37 @@ const onRequestHandler = (req, res) => {
         return;
     }
 
+    console.log(' ');
     var userName = "";
+    var c = true;
+    //console.log(req.headers);
     if (req.headers['cookie']) {
-        logged.forEach(function(cookieInfo) {
+        console.log(req.headers['cookie']);
+        sessions.forEach(function(session, index) {
+            if (session[1] < Date.now()) {
+                console.log('usuwa sesje ' + session[0]);
+                if (session[4] != null) clearTimeout(session[4]);
+                sessions.splice(index, 1);
+                return;
+            }
+            console.log('sprawdza sesje ' + session[0]);
             req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if ("login=" + cookieInfo[0] == cookie) userName = cookieInfo[1];
+                if ("session=" + session[0] == cookie) {
+                    c = false;
+                    if (session[2] != "") {
+                        userName = session[2];
+                    }
+                }
             });
         });
     }
     console.log('user name is ' + userName);
+    if (c) {
+        const session = crypto.randomBytes(32).toString('base64');
+        res.setHeader('Set-Cookie', 'session=' + session + '; SameSite=Strict; Secure');
+        sessions.push(new Array(session, Date.now() + 1000 * 60, '', null, null)); // 60 seconds, non logged
+        console.log("nowa sesja " + session);
+    }
 
     if (req.method === 'GET') {
         const params = url.parse(req.url, true).query;
@@ -1624,23 +1706,39 @@ const onRequestHandler = (req, res) => {
 
         //PUSH functionality
         //check field format
-        //check if session is OK
-        if (params["sse"]) {
-            //            console.log(req.headers);
-            //fixme - we need checking URL beginning
-            var id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
-            if (id && fs.existsSync(__dirname + "\\chat\\" + id[1] + ".txt")) {
-                addToCallback(res, id[1], callbackChat, userName, false);
-                return;
-            }
-            var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
-            if (id && fs.existsSync(__dirname + "\\texts\\" + id[2] + ".txt")) {
-                addToCallback(res, id[2], callbackText, userName, false);
-                return;
-            }
-            const params = url.parse(req.headers['referer'], true).query;
-            if (params["q"]) {
-                addToCallback(res, params["q"], callbackOther, userName, true);
+        if (params["sse"] && req.headers["cookie"]) {
+            found = "";
+            sessions.forEach(function(session, index) {
+                if (session[1] < Date.now()) {
+                    console.log('usuwa sesje ' + session[0]);
+                    if (session[4] != null) clearTimeout(session[4]);
+                    sessions.splice(index, 1);
+                    return;
+                }
+                req.headers['cookie'].split("; ").forEach(function(cookie) {
+                    if ("session=" + session[0] == cookie) {
+                        console.log('znalazl sesje ' + found);
+                        found = session[0];
+                        if (session[3] == null) session[3] = res;
+                    }
+                });
+            });
+
+            if (found != "") {
+                //            console.log(req.headers);
+                //fixme - we need checking URL beginning
+                var id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
+                if (id && fs.existsSync(__dirname + "\\chat\\" + id[1] + ".txt")) {
+                    addToCallback(req, res, id[1], callbackChat, userName, false, found);
+                    return;
+                }
+                var id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
+                if (id && fs.existsSync(__dirname + "\\texts\\" + id[2] + ".txt")) {
+                    addToCallback(req, res, id[2], callbackText, userName, false, found);
+                    return;
+                }
+                const params = url.parse(req.headers['referer'], true).query;
+                addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, found);
             }
             return;
         }
@@ -1649,18 +1747,18 @@ const onRequestHandler = (req, res) => {
                 if (isMobile(req)) {
                     res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
                 } else {
-                    res.setHeader('Set-Cookie', 'mobile=1');
+                    res.setHeader('Set-Cookie', 'mobile=1; SameSite=Strict; Secure');
                 }
             } else if (params["set"] == "mobile0") {
                 if (!isMobile(req)) {
                     res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
                 } else {
-                    res.setHeader('Set-Cookie', 'mobile=0');
+                    res.setHeader('Set-Cookie', 'mobile=0; SameSite=Strict; Secure');
                 }
             } else if (params["set"] == "dark1") {
-                res.setHeader('Set-Cookie', 'dark=1');
+                res.setHeader('Set-Cookie', 'dark=1; SameSite=Strict; Secure');
             } else if (params["set"] == "dark0") {
-                res.setHeader('Set-Cookie', 'dark=0');
+                res.setHeader('Set-Cookie', 'dark=0; SameSite=Strict; Secure');
             }
             res.statusCode = 302;
             res.setHeader('Location', req.headers['referer']);
@@ -1790,7 +1888,7 @@ fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt'))
     addToChatCache(file.replace(".txt", ""), decodeFileContent(readFileContentSync('\\chat\\' + file), true));
 })
 
-//http.createServer(onRequestHandler).listen
+//http.createServer(onRequestHandler).listen // delete secure from set-cookie when using this
 http2.createSecureServer({
     key: fs.readFileSync(__dirname + '\\internal\\localhost-privkey.pem'),
     cert: fs.readFileSync(__dirname + '\\internal\\localhost-cert.pem')

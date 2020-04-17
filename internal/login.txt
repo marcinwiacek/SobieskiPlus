@@ -1,13 +1,20 @@
 <script src="external/sha256.js" async defer></script>
 <script async=async>
- var loginhash = '<!--LOGINHASH-->';
-
  function checkLogin() {
   document.getElementById('loginsub').disabled = 
     (document.getElementById("loginuser").value == "" || document.getElementById("loginpassword").value == "");
  }
 
 function sendLogin() {
+  var loginhash = '';
+  var cookie = decodeURIComponent(document.cookie).split('; ');
+  for(var i = 0; i <cookie.length; i++) {
+    if (cookie[i].indexOf('session=') == 0) {
+      loginhash=cookie[i].substring('session='.length, cookie[i].length);
+    }
+  }
+  if (loginhash == '') return false;
+
   var user = document.getElementById("loginuser").value;
   var password = document.getElementById("loginpassword").value;
   if (user == '' || password == '') return false;
