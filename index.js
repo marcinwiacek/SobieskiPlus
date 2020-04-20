@@ -48,9 +48,33 @@ let verifyToken = [];
 let remindToken = [];
 let sessions = [];
 
+function addToTextCache(name) {
+    cacheTexts[name] = decodeFileContent(readFileContentSync('\\texts\\' + name + '.txt'), true);
+    cacheTexts[name]["filename"] = name;
+    callbackText[name] = [];
+}
+
+function addToChatCache(name, tekst) {
+    cacheChat[name] = tekst;
+    cacheChat[name]["filename"] = name;
+    callbackChat[name] = [];
+}
+
+function addToUsersCache(name, tekst, filename) {
+    cacheUsers[name] = tekst;
+    cacheUsers[name]["filename"] = filename;
+}
+
 function getUserLevelUserName(userName) {
-    if (userName == "") return "0";
-    return cacheUsers[userName][1]["Level"];
+    return (userName == "") ? "0" : cacheUsers[userName]["Level"];
+}
+
+function formatDate(date) {
+    const d = new Date(date);
+    return ret = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' +
+        (d.getHours() < 10 ? "0" : "") + d.getHours() + ':' +
+        (d.getMinutes() < 10 ? "0" : "") + d.getMinutes() + ':' +
+        (d.getSeconds() < 10 ? "0" : "") + d.getSeconds();
 }
 
 function readFileContentSync(fileName, callback) {
@@ -177,26 +201,6 @@ function decodeFileContent(txt, onlyHeaders) {
     }
 
     return arr;
-}
-
-function addToTextCache(name) {
-    cacheTexts[name] = decodeFileContent(readFileContentSync('\\texts\\' + name + '.txt'), true);
-    cacheTexts[name]["filename"] = name;
-    callbackText[name] = [];
-}
-
-function addToChatCache(name, tekst) {
-    cacheChat[name] = tekst;
-    cacheChat[name]["filename"] = name;
-    callbackChat[name] = [];
-}
-
-function formatDate(date) {
-    const d = new Date(date);
-    return ret = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' +
-        (d.getHours() < 10 ? "0" : "") + d.getHours() + ':' +
-        (d.getMinutes() < 10 ? "0" : "") + d.getMinutes() + ':' +
-        (d.getSeconds() < 10 ? "0" : "") + d.getSeconds();
 }
 
 function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, userLevel, forUser) {
@@ -626,7 +630,7 @@ function parsePOSTCreateUser(params, req, res, userName) {
                 (id == 1 ? "Level:2\n" : "Level:1\n");
             fd = fs.openSync(__dirname + "\\users\\" + id + ".txt", 'wx');
             fs.appendFileSync(fd, txt, 'utf8');
-            cacheUsers[params["username"]] = [id, decodeFileContent(txt, true)];
+            addToUsersCache(params["username"], decodeFileContent(txt, true), id);
             break;
         } catch (err) {
             id++;
@@ -656,12 +660,12 @@ function parsePOSTEditUser(params, req, res, userName) {
         (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
         "Mail:" + params["mail"] + "\n" +
         "When:" + formatDate(t) + "\n";
-    fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[userName][0] + ".txt", txt);
+    fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[userName]["filename"] + ".txt", txt);
 
-    if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName][1]["Pass"] = params["pass"];
-    cacheUsers[userName][1]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
-    cacheUsers[userName][1]["Mail"] = params["mail"];
-    cacheUsers[userName][1]["When"] = t;
+    if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName]["Pass"] = params["pass"];
+    cacheUsers[userName]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
+    cacheUsers[userName]["Mail"] = params["mail"];
+    cacheUsers[userName]["When"] = t;
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
@@ -672,7 +676,7 @@ function tryOwnLogin(req, params, googleMail) {
     let found = null;
     for (let index in cacheUsers) {
         if (found) return;
-        arr = cacheUsers[index][1];
+        arr = cacheUsers[index];
         sessions.forEach(function(session, index) {
             if (found) return;
             if (session[1] < Date.now()) {
@@ -783,7 +787,7 @@ async function parsePOSTRemind(params, req, res, userName) {
         }
         for (let index in cacheUsers) {
             if (found) return;
-            arr = cacheUsers[index][1];
+            arr = cacheUsers[index];
             usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
             if (usr != params["token1"]) return;
             pass = crypto.createHash('sha256').update(session[0] + arr["Mail"]).digest("hex");
@@ -794,7 +798,6 @@ async function parsePOSTRemind(params, req, res, userName) {
             session[4] = file;
             sendMailHaslo(arr["Mail"], session[2]);
             found = true;
-
         }
     });
 
@@ -819,7 +822,7 @@ function parsePOSTChangePass(params, req, res, userName) {
                 "When:" + formatDate(Date.now()) + "\n" +
                 "Pass:" + params["token"] + "\n"
             );
-            cacheUsers[session[3]][1]["Pass"] = params["token"];
+            cacheUsers[session[3]]["Pass"] = params["token"];
             found = true;
         }
     });
@@ -836,19 +839,18 @@ function parsePOSTVerifyMail(params, req, res, userName) {
             verifyToken.splice(index, 1);
             return;
         }
-        if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
-            if (cacheUsers[session[1]][1]["ConfirmMail"] == "0") {
-                token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]][1]["Pass"]).digest("hex");
-                if (token != params["token"]) return;
-                console.log("verified" + session[0]);
-                fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[session[1]][0] + ".txt",
-                    "<!--change-->\n" +
-                    "When:" + formatDate(Date.now()) + "\n" +
-                    "ConfirmMail:1\n"
-                );
-                cacheUsers[session[1]][1]["ConfirmMail"] = "1";
-                found = true;
-            }
+        if ((!cacheUsers[session[1]]["Type"] || cacheUsers[session[1]]["Type"] == "wlasny") &&
+            cacheUsers[session[1]]["ConfirmMail"] == "0") {
+            token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]]["Pass"]).digest("hex");
+            if (token != params["token"]) return;
+            console.log("verified" + session[0]);
+            fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[session[1]]["filename"] + ".txt",
+                "<!--change-->\n" +
+                "When:" + formatDate(Date.now()) + "\n" +
+                "ConfirmMail:1\n"
+            );
+            cacheUsers[session[1]]["ConfirmMail"] = "1";
+            found = true;
         }
     });
 
@@ -948,9 +950,9 @@ function genericReplace(req, res, text, userName) {
     if (userName == "") {
         return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'));
     } else {
-        return text.replace("<!--ID-USER-->", cacheUsers[userName][0])
+        return text.replace("<!--ID-USER-->", cacheUsers[userName]["filename"])
             .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
-                    (cacheUsers[userName][1]["Type"] == "google" ? "google" : "") + '.txt')
+                    (cacheUsers[userName]["Type"] == "google" ? "google" : "") + '.txt')
                 .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
     }
 }
@@ -965,7 +967,7 @@ function addOption(idnamevalue, selected) {
 }
 
 function addUserLink(name) {
-    return "<a href=\"?q=profil/pokaz/" + cacheUsers[name][0] + "\">" + name + "</a>";
+    return "<a href=\"?q=profil/pokaz/" + cacheUsers[name]["filename"] + "\">" + name + "</a>";
 }
 
 function showPassReminderPage(req, res, params, userName, userLevel) {
@@ -1005,9 +1007,9 @@ function showMailVerifyPage(req, res, params, id, userName, userLevel) {
         if (found) return;
         if (session[2] < Date.now()) return;
         if (id[1] == decodeURIComponent(session[0])) {
-            if (!cacheUsers[session[1]][1]["Type"] || cacheUsers[session[1]][1]["Type"] == "wlasny") {
-                console.log(cacheUsers[session[1]][1]["ConfirmMail"]);
-                if (cacheUsers[session[1]][1]["ConfirmMail"] == 0) {
+            if (!cacheUsers[session[1]]["Type"] || cacheUsers[session[1]]["Type"] == "wlasny") {
+                console.log(cacheUsers[session[1]]["ConfirmMail"]);
+                if (cacheUsers[session[1]]["ConfirmMail"] == 0) {
                     salt = crypto.randomBytes(32).toString('base64');
                     session[3] = salt;
                     found = true;
@@ -1041,8 +1043,8 @@ function showAddChatPage(req, res, params, userName) {
 
     let txt = "<select id=\"users\" name=\"users\" size=5 multiple>";
     for (let index in cacheUsers) {
-        if (cacheUsers[index][1]["Who"] != userName) {
-            txt += addOption(cacheUsers[index][1]["Who"], false);
+        if (cacheUsers[index]["Who"] != userName) {
+            txt += addOption(cacheUsers[index]["Who"], false);
         }
     }
 
@@ -1153,15 +1155,15 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
     let text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
 
     if (params["q"] == "profil/zmien") {
-        if (!cacheUsers[userName][1]["Type"] || cacheUsers[userName][1]["Type"] == "wlasny") {
+        if (!cacheUsers[userName]["Type"] || cacheUsers[userName]["Type"] == "wlasny") {
             text = text.replace("<!--CHECKED-WLASNE-->", " checked")
                 .replace("<!--CHECKED-GOOGLE-->", "");
         } else {
             text = text.replace("<!--CHECKED-WLASNE-->", "")
                 .replace("<!--CHECKED-GOOGLE-->", " checked");
         }
-        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
-            .replace("<!--MAIL-PARAMS-->", " value=\"" + cacheUsers[userName][1]["Mail"] + "\" placeholder=\"Cannot be empty\"")
+        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
+            .replace("<!--MAIL-PARAMS-->", " value=\"" + cacheUsers[userName]["Mail"] + "\" placeholder=\"Cannot be empty\"")
             .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
             .replace(/<!--OPERATION-->/g, "edit_user");
     } else {
@@ -1875,7 +1877,7 @@ if (!fs.existsSync(__dirname + '\\users')) fs.mkdirSync(__dirname + '\\users');
 fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     arr = decodeFileContent(readFileContentSync('\\users\\' + file), true);
     if (cacheUsers[arr["Who"]]) process.exit(2); // duplicate user
-    cacheUsers[arr["Who"]] = [file.replace(".txt", ""), arr];
+    addToUsersCache(arr["Who"], arr, file.replace(".txt", ""));
 })
 
 if (!fs.existsSync(__dirname + '\\chat')) fs.mkdirSync(__dirname + '\\chat');
