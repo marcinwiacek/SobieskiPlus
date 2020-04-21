@@ -22,7 +22,6 @@
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * Edge: nie chowa pasków postępu
-* blad -> usuwanie taxonomii z tekstu
 * blad -> jak zmieniany jest tylko status tekstu, to zmieniane jest pole When i data tekstu
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 

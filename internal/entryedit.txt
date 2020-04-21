@@ -41,7 +41,7 @@
         state0 != getRadio("state") || 
         title0 != document.getElementById("title").value || 
         taxonomy0 != getListValues("taxonomy") || 
-        (document.getElementById("specialtaxonomy") != null && 
+        (document.getElementById("specialtaxonomy")!=null && 
          specialtaxonomy0 != getListValues("specialtaxonomy")) || 
         text0 != suneditor.getContents(true) || teaser0 != teasersuneditor.getContents(true)) {
      document.getElementById('sub').disabled = false;
@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
   state0 = getRadio("state");
   title0 = document.getElementById("title").value;
   taxonomy0 = getListValues("taxonomy");
-  if (document.getElementById("specialtaxonomy") != null) {
+  if (document.getElementById("specialtaxonomy")!=null) {
     specialtaxonomy0 = getListValues("specialtaxonomy");
   }
   text0 = suneditor.getContents(true);
@@ -113,10 +113,8 @@ document.addEventListener("DOMContentLoaded", function(event) {
    var state = getRadio("state");
    var title = document.getElementById("title").value;
    var taxonomy = getListValues("taxonomy");
-   if (document.getElementById("specialtaxonomy") != null) {
+   if (document.getElementById("specialtaxonomy")!=null) {
     var specialtaxonomy = getListValues("specialtaxonomy");
-   } else {
-    var specialtaxonomy = "";
    }
    var progressBar = document.getElementById("progress");
    var params = 'upload_text=1&tekst=<!--PAGEID-->';
@@ -161,8 +159,6 @@ document.addEventListener("DOMContentLoaded", function(event) {
      taxonomy0 = getListValues("taxonomy");
      if (document.getElementById("specialtaxonomy") != null) {
       specialtaxonomy0 = getListValues("specialtaxonomy");
-     } else {
-      specialtaxonomy0 = "";
      }
      text0 = suneditor.getContents(true);
      teaser0 = teasersuneditor.getContents(true);
@@ -185,8 +181,17 @@ document.addEventListener("DOMContentLoaded", function(event) {
 <body>
  <!--MENU-->
  <div class=content>
-  <div class=ramki> Edycja tekstu w dziale
+  <div class=ramki>
+   <table width=100%>
+    <tr>
+     <td> Edycja tekstu w dziale
    <!--RODZAJ-->
+     </td>
+     <td>
+      <!--BACK-TO-VIEW-->
+     </td>
+    </tr>
+   </table>
   </div>
   <div class=ramki>
    <form onsubmit="return sendText()"> Status:

@@ -344,8 +344,8 @@ function sendCommentToPage(comment, res) {
 }
 
 async function sendVerificationMail(mail, username) {
-    let x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
-    let info = await smtp.sendMail({
+    const x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+    const info = await smtp.sendMail({
         from: 'marcin@mwiacek.com',
         to: mail,
         subject: "Zweryfikuj swoje konto w systemie",
@@ -357,7 +357,7 @@ async function sendVerificationMail(mail, username) {
 }
 
 async function sendMailHaslo(mail, token) {
-    let info = await smtp.sendMail({
+    const info = await smtp.sendMail({
         from: 'marcin@mwiacek.com',
         to: mail,
         subject: "Zmien haslo",
@@ -472,12 +472,12 @@ function parsePOSTUploadNewText(params, req, res, userName) {
 }
 
 function parsePOSTUploadUpdatedText(params, req, res, userName) {
-    if (params["teaser"] || params["teaser"] == '') console.log('jest teaser1');
-    if (params["teaser"]) console.log('jest teaser2');
     if (!params["version"] ||
         (!(params["teaser"] || params["teaser"] == '') &&
             !params["text"] && !params["state"] && !params["type"] &&
-            !params["title"] && !params["taxonomy"] && !params["specialtaxonomy"])) {
+            !params["title"] &&
+            !(params["taxonomy"] || params["taxonomy"] == '') &&
+            !(params["specialtaxonomy"] || params["specialtaxonomy"] == ''))) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
@@ -491,16 +491,17 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
             return;
         }
 
-        const t = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
+        const updateTime = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
 
         txt = "";
         if (params["title"]) txt += "Title:" + params["title"] + "\n";
         if (params["state"]) txt += "State:" + params["state"] + "\n";
         if (params["type"]) txt += "Type:" + params["type"] + "\n";
-        if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
-        if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+        if (params["taxonomy"] || params['taxonomy'] == '') txt += "Taxonomy:" + params["taxonomy"] + "\n";
+        if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') {
+            txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+        }
         if (params["teaser"] || params["teaser"] == '') {
-            console.log("teaser we have");
             txt += (params["teaser"] != "" ? "\n" : "") + params["teaser"] + "\n<!--teaser-->\n";
         }
         if (params["text"]) {
@@ -510,7 +511,7 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
 
         fs.appendFileSync(__dirname + "\\texts\\" + params["tekst"] + ".txt",
             "<!--change-->\n" +
-            "When:" + formatDate(t) + "\n" +
+            "When:" + formatDate(updateTime) + "\n" +
             "Who:" + userName + "\n" +
             txt
         );
@@ -521,14 +522,14 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
         if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
         if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
         if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
-        cacheTexts[params["tekst"]]["When"] = t;
+        cacheTexts[params["tekst"]]["When"] = updateTime;
         cacheTexts[params["tekst"]]["Who"] = userName;
 
         sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/plain');
-        res.end(t.toString());
+        res.end(updateTime.toString());
         return;
     }
 }
@@ -621,7 +622,7 @@ function parsePOSTCreateUser(params, req, res, userName) {
     while (1) {
         let fd;
         try {
-            let txt = "Who:" + params["username"] + "\n" +
+            const txt = "Who:" + params["username"] + "\n" +
                 (params["typ"] == "w" ? "Pass:" + params["pass"] + "\n" : "") +
                 "Mail:" + params["mail"] + "\n" +
                 "When:" + formatDate(Date.now()) + "\n" +
@@ -654,8 +655,8 @@ function parsePOSTEditUser(params, req, res, userName) {
         res.end();
         return;
     }
-    let t = Date.now();
-    let txt = "<!--change-->\n" +
+    const t = Date.now();
+    const txt = "<!--change-->\n" +
         (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
         (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
         "Mail:" + params["mail"] + "\n" +
@@ -685,31 +686,32 @@ function tryOwnLogin(req, params, googleMail) {
                 return;
             }
             req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if ("session=" + session[0] == cookie && session[2] == "") {
-                    console.log("probuje sesje " + session[0]);
-                    if (googleMail) {
-                        console.log(googleMail + " vs " + arr["Mail"]);
-                        //fixme check if verified
-                        if (arr["Type"] == "google" && googleMail == arr["Mail"]) {
+                if ("session=" + session[0] != cookie || session[2] != "") {
+                    return;
+                }
+                console.log("probuje sesje " + session[0]);
+                if (googleMail) {
+                    console.log(googleMail + " vs " + arr["Mail"]);
+                    //fixme check if verified
+                    if (arr["Type"] == "google" && googleMail == arr["Mail"]) {
+                        console.log("jest login");
+                        session[2] = arr["Who"];
+                        console.log("found");
+                        found = "";
+                    }
+                } else {
+                    if (!arr["Type"] || arr["Type"] == "wlasny") {
+                        usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
+                        if (usr != params["user"]) return;
+                        pass = crypto.createHash('sha256').update(session[0] + arr["Pass"]).digest("hex");
+                        if (pass != params["password"]) return;
+                        if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
+                            sendVerificationMail(arr["Mail"], arr["Who"]);
+                            found = "Konto niezweryfikowane. Kliknij na link w mailu";
+                        } else {
                             console.log("jest login");
                             session[2] = arr["Who"];
-                            console.log("found");
                             found = "";
-                        }
-                    } else {
-                        if (!arr["Type"] || arr["Type"] == "wlasny") {
-                            usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
-                            if (usr != params["user"]) return;
-                            pass = crypto.createHash('sha256').update(session[0] + arr["Pass"]).digest("hex");
-                            if (pass != params["password"]) return;
-                            if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
-                                sendVerificationMail(arr["Mail"], arr["Who"]);
-                                found = "Konto niezweryfikowane. Kliknij na link w mailu";
-                            } else {
-                                console.log("jest login");
-                                session[2] = arr["Who"];
-                                found = "";
-                            }
                         }
                     }
                 }
@@ -813,15 +815,14 @@ function parsePOSTChangePass(params, req, res, userName) {
             remindToken.splice(index, 1);
             return;
         }
-        if (params["hash"] == session[2]) {
-            fs.appendFileSync(__dirname + "\\users\\" + session[4],
-                "<!--change-->\n" +
-                "When:" + formatDate(Date.now()) + "\n" +
-                "Pass:" + params["token"] + "\n"
-            );
-            cacheUsers[session[3]]["Pass"] = params["token"];
-            found = true;
-        }
+        if (params["hash"] != session[2]) return;
+        fs.appendFileSync(__dirname + "\\users\\" + session[4],
+            "<!--change-->\n" +
+            "When:" + formatDate(Date.now()) + "\n" +
+            "Pass:" + params["token"] + "\n"
+        );
+        cacheUsers[session[3]]["Pass"] = params["token"];
+        found = true;
     });
     res.statusCode = found ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
@@ -946,12 +947,11 @@ function genericReplace(req, res, text, userName) {
 
     if (userName == "") {
         return text.replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\login.txt'));
-    } else {
-        return text.replace("<!--ID-USER-->", cacheUsers[userName]["filename"])
-            .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
-                    (cacheUsers[userName]["Type"] == "google" ? "google" : "") + '.txt')
-                .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
     }
+    return text.replace("<!--ID-USER-->", cacheUsers[userName]["filename"])
+        .replace("<!--LOGIN-LOGOUT-->", getFileContentSync('\\internal\\logout' +
+                (cacheUsers[userName]["Type"] == "google" ? "google" : "") + '.txt')
+            .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
 }
 
 function addRadio(idname, value, checked) {
@@ -1211,7 +1211,6 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki><table width=100%>" +
                 "<tr><td>" + (userName == arr["Who"] ? "Ostatnie chaty" : "Ostatnie chaty z Tobą") + "</td>" +
                 "<td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>" : "");
-
         }
 
         let allTypes = [];
@@ -1241,8 +1240,8 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             }
             if (t != "") {
                 txt += "<div class=ramki>Ostatnie teksty (";
-                state.forEach(function(s) {
-                    txt += s + " "
+                state.forEach(function(s, index) {
+                    txt += s + (index != state.length - 1 ? " " : "")
                 });
                 txt += ")<hr>" + t + "</div>";
             }
@@ -1291,7 +1290,9 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
             .replace("<!--TEXT-->", main_text)
             .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
             .replace("<!--VERSION-->", arr["When"])
-            .replace(/<!--PAGEID-->/g, id[2]); //many entries
+            .replace(/<!--PAGEID-->/g, id[2]) //many entries
+            .replace("<!--BACK-TO-VIEW-->", "<div align=right><a href=\"?q=" +
+                params["q"].replace("zmien", "pokaz") + "\">Powrót do przeglądania tekstu</a></div>");
     } else { //new page
         text = text.replace(/<!--TITLE-->/g, "") //many entries
             .replace("<!--VERSION-->", 0)
@@ -1626,12 +1627,11 @@ function setRefreshSession(token, firstCall) {
             [callbackChat, callbackText, callbackOther].forEach(function(cc) {
                 for (let index0 in cc) {
                     for (let index in cc[index0]) {
-                        if (cc[index0][index][2] == token) {
-                            console.log("sending new token");
-                            cc[index0][index][2] = newtoken;
-                            cc[index0][index][0].write("event: s\n");
-                            cc[index0][index][0].write("data: " + newtoken + "\n\n");
-                        }
+                        if (cc[index0][index][2] != token) continue;
+                        console.log("sending new token");
+                        cc[index0][index][2] = newtoken;
+                        cc[index0][index][0].write("event: s\n");
+                        cc[index0][index][0].write("data: " + newtoken + "\n\n");
                     }
                 }
             });
