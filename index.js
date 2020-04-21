@@ -491,7 +491,7 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
             return;
         }
 
-        const t = Date.now();
+        const t = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
 
         txt = "";
         if (params["title"]) txt += "Title:" + params["title"] + "\n";
@@ -1286,6 +1286,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
             if (x != "") main_text = x;
         });
 
+        console.log("time of edit " + arr["When"]);
         text = text.replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
             .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
@@ -1352,17 +1353,18 @@ function showTextPage(req, res, params, id, userName) {
         let versions = "";
 
         if (arr["Who"] == userName && arr["OldText"].length != 1) {
-            versions = "<br><select id=\"versions\" name=\"versions\" size=5 multiple>";
+            versions = "<br>Wersje tekstu i wstępu<br><select id=\"versions\"  name=\"versions\" size=5>";
             let sel = false;
             arr["OldText"].forEach(function(t0, index) {
                 if (when_first == 0) when_first = t0["When"];
-                versions += addOption(t0["When"], formatDate(t0["When"]), id[3] ? (t0["When"] == id[3]) : (index == arr["OldText"].length - 1));
+                versions += addOption(t0["When"], formatDate(t0["When"]),
+                    id[3] ? (t0["When"] == parseInt(id[3].substring(4))) : (index == arr["OldText"].length - 1));
                 if (sel) return;
                 let t = t0["Text"].slice(0, -1);
                 if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
                 let x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
                 if (x != "") main_text = x;
-                if (id[3] ? (t0["When"] == id[3]) : (index == arr["OldText"].length - 1)) {
+                if (id[3] ? (t0["When"] == parseInt(id[3].substring(4))) : (index == arr["OldText"].length - 1)) {
                     sel = true;
                 }
             });
@@ -1394,9 +1396,9 @@ function showTextPage(req, res, params, id, userName) {
             .replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
             .replace("<!--TYPE-->", arr["Type"])
-            .replace("<!--VERSIONS-->", versions)
-            .replace("<!--WHEN-->", formatDate(when_first))
-            .replace("<!--WHEN2-->", (when_first != arr["When"] ? "Ostatnio zmienione: " + formatDate(arr["When"]) : ""));
+            .replace("<!--VERSIONS-->", "<br>" + versions)
+            .replace("<!--WHEN-->", versions ? "" : "<br>Dodane :" + formatDate(when_first))
+            .replace("<!--WHEN2-->", (when_first != arr["When"] ? "<br>Ostatnio zmienione: " + formatDate(arr["When"]) : ""));
 
         let lu = arr["When"];
         if (arr["Comments"]) {
@@ -1417,7 +1419,7 @@ function showTextPage(req, res, params, id, userName) {
                 .replace(/<!--PAGEID-->/g, id[2]) //many entries
                 .replace("<!--OBJECT-->", "texts")
                 .replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
-                    params["q"].replace("pokaz", "zmien") + "\">Edycja</a></div>");
+                    params["q"].replace("pokaz", "zmien").split('/ver')[0] + "\">Edycja ostatniej wersji</a></div>");
         }
 
         sendHTMLBody(req, res, text);
@@ -1617,32 +1619,31 @@ function showListPage(req, res, params, id, userName, userLevel) {
 
 function setRefreshSession(token, firstCall) {
     sessions.forEach(function(x, index) {
-        if (x[0] == token) {
-            if (x[3] != null) clearTimeout(x[3]);
-            if (!firstCall) {
-                newtoken = crypto.randomBytes(32).toString('base64');
-                [callbackChat, callbackText, callbackOther].forEach(function(cc) {
-                    for (let index0 in cc) {
-                        for (let index in cc[index0]) {
-                            if (cc[index0][index][2] == token) {
-                                console.log("sending new token");
-                                cc[index0][index][2] = newtoken;
-                                cc[index0][index][0].write("event: s\n");
-                                cc[index0][index][0].write("data: " + newtoken + "\n\n");
-                            }
+        if (x[0] != token) return;
+        if (x[3] != null) clearTimeout(x[3]);
+        if (!firstCall) {
+            newtoken = crypto.randomBytes(32).toString('base64');
+            [callbackChat, callbackText, callbackOther].forEach(function(cc) {
+                for (let index0 in cc) {
+                    for (let index in cc[index0]) {
+                        if (cc[index0][index][2] == token) {
+                            console.log("sending new token");
+                            cc[index0][index][2] = newtoken;
+                            cc[index0][index][0].write("event: s\n");
+                            cc[index0][index][0].write("data: " + newtoken + "\n\n");
                         }
                     }
-                });
-            } else {
-                newtoken = token;
-            }
-            console.log(token + " -> " + newtoken);
-            x[0] = newtoken;
-            x[3] = setTimeout(function() {
-                setRefreshSession(newtoken, false);
-            }, 30000); //30 seconds
-            x[1] = Date.now() + 1000 * 50;
+                }
+            });
+        } else {
+            newtoken = token;
         }
+        console.log(token + " -> " + newtoken);
+        x[0] = newtoken;
+        x[3] = setTimeout(function() {
+            setRefreshSession(newtoken, false);
+        }, 30000); //30 seconds
+        x[1] = Date.now() + 1000 * 50;
     });
 }
 
@@ -1855,7 +1856,7 @@ const onRequestHandler = (req, res) => {
                 return;
             }
             // for example opowiadania/pokaz/1
-            id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)(\/{1,1}[0-9]*)?$/);
+            id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
             if (id) {
                 showTextPage(req, res, params, id, userName);
                 return;
