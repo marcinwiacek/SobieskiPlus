@@ -124,9 +124,9 @@ function decodeFileContent(txt, onlyHeaders) {
     let arr = [];
     let level = DecodingLevel.MainHeaders;
     let comment = null;
+    let t = "";
     arr["commentsnum"] = 0; // for cache we don't want comments in memory; just number
     arr["commentswhen"] = 0; // for cache we don't want comments in memory; just number
-    let t = "";
     txt.split(/\r?\n/).forEach(function(line) {
         if (line == "<!--comment-->") {
             if (comment != null) {
@@ -142,6 +142,14 @@ function decodeFileContent(txt, onlyHeaders) {
             return;
         } else if (line == "<!--change-->") {
             level = DecodingLevel.MainHeaders;
+            if (!onlyHeaders && t != "") {
+                if (!arr["OldText"]) arr["OldText"] = [];
+                let oldtext = [];
+                oldtext["Text"] = t;
+                oldtext["When"] = Date.parse(arr["When"]);
+                arr["OldText"].push(oldtext);
+                t = "";
+            }
             return;
         }
 
@@ -149,14 +157,6 @@ function decodeFileContent(txt, onlyHeaders) {
             case DecodingLevel.MainHeaders:
                 if (line == "") {
                     level = DecodingLevel.MainText;
-                    if (!onlyHeaders && t != "") {
-                        if (!arr["OldText"]) arr["OldText"] = [];
-                        let oldtext = [];
-                        oldtext["Text"] = t;
-                        oldtext["When"] = Date.parse(arr["When"]);
-                        arr["OldText"].push(oldtext);
-                        t = "";
-                    }
                 } else {
                     const x = line.split(":");
                     if (x.length >= 2) {
@@ -768,9 +768,7 @@ function parsePOSTLogout(params, req, res, userName) {
         }
         req.headers['cookie'].split("; ").forEach(function(cookie) {
             console.log("checking session " + session[0] + " " + cookie);
-            if ("session=" + session[0] == cookie) {
-                session[2] = '';
-            }
+            if ("session=" + session[0] == cookie) session[2] = '';
         });
     });
 
@@ -787,16 +785,15 @@ async function parsePOSTRemind(params, req, res, userName) {
         }
         for (let index in cacheUsers) {
             if (found) return;
-            arr = cacheUsers[index];
-            usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
+            usr = crypto.createHash('sha256').update(session[0] + cacheUsers[index]["Who"]).digest("hex");
             if (usr != params["token1"]) return;
-            pass = crypto.createHash('sha256').update(session[0] + arr["Mail"]).digest("hex");
+            pass = crypto.createHash('sha256').update(session[0] + cacheUsers[index]["Mail"]).digest("hex");
             if (pass != params["token2"]) return;
 
             session[2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
-            session[3] = arr["Who"];
+            session[3] = cacheUsers[index]["Who"];
             session[4] = file;
-            sendMailHaslo(arr["Mail"], session[2]);
+            sendMailHaslo(cacheUsers[index]["Mail"], session[2]);
             found = true;
         }
     });
@@ -962,8 +959,8 @@ function addRadio(idname, value, checked) {
         (checked ? " checked" : "") + "><label for=\"" + idname + value + "\">" + value + "</label>";
 }
 
-function addOption(idnamevalue, selected) {
-    return "<option value=\"" + idnamevalue + "\"" + (selected ? " selected" : "") + ">" + idnamevalue + "</option>";
+function addOption(idname, value, selected) {
+    return "<option value=\"" + idname + "\"" + (selected ? " selected" : "") + ">" + value + "</option>";
 }
 
 function addUserLink(name) {
@@ -982,6 +979,7 @@ function showChangePasswordPage(req, res, params, id, userName, userLevel) {
     found = false;
     remindToken.forEach(function(session) {
         if (session[1] < Date.now()) {
+            remindToken.splice(index, 1);
             return;
         }
         if (id[1] == decodeURIComponent(session[2])) {
@@ -1005,7 +1003,10 @@ function showMailVerifyPage(req, res, params, id, userName, userLevel) {
     found = false;
     verifyToken.forEach(function(session) {
         if (found) return;
-        if (session[2] < Date.now()) return;
+        if (session[2] < Date.now()) {
+            verifyToken.splice(index, 1);
+            return;
+        }
         if (id[1] == decodeURIComponent(session[0])) {
             if (!cacheUsers[session[1]]["Type"] || cacheUsers[session[1]]["Type"] == "wlasny") {
                 console.log(cacheUsers[session[1]]["ConfirmMail"]);
@@ -1041,15 +1042,13 @@ function showAddChatPage(req, res, params, userName) {
         return;
     }
 
-    let txt = "<select id=\"users\" name=\"users\" size=5 multiple>";
+    let txt = "";
     for (let index in cacheUsers) {
-        if (cacheUsers[index]["Who"] != userName) {
-            txt += addOption(cacheUsers[index]["Who"], false);
-        }
+        if (cacheUsers[index]["Who"] != userName) txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], false);
     }
 
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\addchat.txt'), userName)
-        .replace("<!--USERS-LIST-->", txt + "</select>"));
+        .replace("<!--USERS-LIST-->", txt));
 }
 
 function showChatPage(req, res, params, id, userName) {
@@ -1111,9 +1110,7 @@ function getChatList(pageNum, userName) {
     let result = [];
 
     cacheChat.forEach((entry, key) => {
-        if (!entry["Who"] || entry["Who"].split(",").includes(userName)) {
-            result.push(entry);
-        }
+        if (!entry["Who"] || entry["Who"].split(",").includes(userName)) result.push(entry);
     });
 
     result.sort(function(a, b) {
@@ -1216,29 +1213,38 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 "<td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>" : "");
 
         }
+
+        let allTypes = [];
+        for (let rodzaj in podstronyType) {
+            allTypes = allTypes.concat(podstronyType[rodzaj]);
+        }
+
         txt = "";
-        ((userName == "") ? ["beta", "poczekalnia"] : ["beta", "poczekalnia", "szkic"]).forEach(function(type) {
-            for (let rodzaj in podstronyType) {
-                const list = getPageList(0,
-                    podstronyType[rodzaj], type,
-                    null,
-                    null, null,
-                    "ostatni",
-                    userName, userLevel,
-                    arr["Who"]);
-                let t = "";
-                if (list[0]) {
-                    list[0].forEach(function(arr) {
-                        t += (t != "" ? "<hr>" : "") + formatListEntry(template, arr);
-                    });
-                }
-                if (t != "") {
-                    txt += "<div class=ramki>Ostatnie teksty (";
-                    type.forEach(function(typ) {
-                        txt += typ + " ";
-                    });
-                    txt += ") - " + rodzaj + "<hr>" + t + "</div>";
-                }
+        ([
+            ["biblioteka"],
+            ["poczekalnia", "beta"],
+            (userName != "") ? ["szkic"] : []
+        ]).forEach(function(state) {
+            if (state.length == 0) return;
+            const list = getPageList(0,
+                allTypes, state,
+                null,
+                null, null,
+                "ostatni",
+                userName, userLevel,
+                arr["Who"]);
+            let t = "";
+            if (list[0]) {
+                list[0].forEach(function(arr) {
+                    t += (t != "" ? "<hr>" : "") + formatListEntry(template, arr);
+                });
+            }
+            if (t != "") {
+                txt += "<div class=ramki>Ostatnie teksty (";
+                state.forEach(function(s) {
+                    txt += s + " "
+                });
+                txt += ")<hr>" + t + "</div>";
             }
         });
 
@@ -1307,14 +1313,14 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
 
     txt = "<select id=\"taxonomy\" name=\"taxonomy\" size=5 multiple>";
     taxonomy.forEach(function(tax) {
-        txt += addOption(tax, (id[2] && arr["Taxonomy"] && arr["Taxonomy"].split(",").includes(tax)));
+        txt += addOption(tax, tax, (id[2] && arr["Taxonomy"] && arr["Taxonomy"].split(",").includes(tax)));
     });
     text = text.replace("<!--TAXONOMY-->", txt + "</select><p>");
 
     if (userLevel == "2") {
         txt = "<select id=\"specialtaxonomy\" name=\"specialtaxonomy\" size=5 multiple>";
         specialTaxonomy.forEach(function(tax) {
-            txt += addOption(tax, (id[2] && arr["SpecialTaxonomy"] && arr["SpecialTaxonomy"].split(",").includes(tax)));
+            txt += addOption(tax, tax, (id[2] && arr["SpecialTaxonomy"] && arr["SpecialTaxonomy"].split(",").includes(tax)));
         });
         text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
     }
@@ -1340,19 +1346,47 @@ function showTextPage(req, res, params, id, userName) {
             return;
         }
 
-        sendHTMLHead(res);
-        res.setHeader('Cache-Control', 'no-store');
-
         let teaser_text = "";
         let main_text = "";
         let when_first = 0;
-        arr["OldText"].forEach(function(t0) {
-            if (when_first == 0) when_first = t0["When"];
-            let t = t0["Text"].slice(0, -1);
-            if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
-            let x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
-            if (x != "") main_text = x;
-        });
+        let versions = "";
+
+        if (arr["Who"] == userName && arr["OldText"].length != 1) {
+            versions = "<br><select id=\"versions\" name=\"versions\" size=5 multiple>";
+            let sel = false;
+            arr["OldText"].forEach(function(t0, index) {
+                if (when_first == 0) when_first = t0["When"];
+                versions += addOption(t0["When"], formatDate(t0["When"]), id[3] ? (t0["When"] == id[3]) : (index == arr["OldText"].length - 1));
+                if (sel) return;
+                let t = t0["Text"].slice(0, -1);
+                if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
+                let x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+                if (x != "") main_text = x;
+                if (id[3] ? (t0["When"] == id[3]) : (index == arr["OldText"].length - 1)) {
+                    sel = true;
+                }
+            });
+            if (!sel) {
+                res.statusCode = 302;
+                res.setHeader('Location', '/');
+                res.end();
+                return;
+            }
+            versions += "</select>";
+            sendHTMLHead(res);
+            res.setHeader('Cache-Control', 'no-store');
+        } else {
+            sendHTMLHead(res);
+            res.setHeader('Cache-Control', 'no-store');
+
+            arr["OldText"].forEach(function(t0) {
+                if (when_first == 0) when_first = t0["When"];
+                let t = t0["Text"].slice(0, -1);
+                if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
+                let x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+                if (x != "") main_text = x;
+            });
+        }
 
         let text = genericReplace(req, res, getFileContentSync('\\internal\\entry.txt'), userName)
             .replace(/<!--TITLE-->/g, arr["Title"])
@@ -1360,6 +1394,7 @@ function showTextPage(req, res, params, id, userName) {
             .replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
             .replace("<!--TYPE-->", arr["Type"])
+            .replace("<!--VERSIONS-->", versions)
             .replace("<!--WHEN-->", formatDate(when_first))
             .replace("<!--WHEN2-->", (when_first != arr["When"] ? "Ostatnio zmienione: " + formatDate(arr["When"]) : ""));
 
@@ -1820,7 +1855,7 @@ const onRequestHandler = (req, res) => {
                 return;
             }
             // for example opowiadania/pokaz/1
-            id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)$/);
+            id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)(\/{1,1}[0-9]*)?$/);
             if (id) {
                 showTextPage(req, res, params, id, userName);
                 return;

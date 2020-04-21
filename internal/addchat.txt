@@ -48,10 +48,12 @@ document.addEventListener("DOMContentLoaded", function(event) {
   <div class=ramki> Nowy chat </div>
   <div class=ramki>
    <form onsubmit="return sendChat()" autocomplete="off"> 
-    Tytuł: <input oninput="sprawdz()" name="title" id="title" type="text" value="tytul" placeholder="Bez tytułu się nie obędzie" size=50>
+    Tytuł: <input oninput="sprawdz()" id="title" type="text" value="tytul" placeholder="Bez tytułu się nie obędzie" size=50>
     <p> Inni użytkownicy
     <p>
+<select id="users" size=5 multiple>
      <!--USERS-LIST-->
+</select>
     <p>
      <button disabled type="submit" id=sub>Zapisz</button>
    </form>

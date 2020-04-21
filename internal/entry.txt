@@ -42,6 +42,7 @@
    <!--TYPE--><br> Dodane:
    <!--WHEN--><br>
    <!--WHEN2-->
+   <!--VERSIONS-->
    <!--TEASER-->
   </div>
   <div class=ramki>
