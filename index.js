@@ -116,10 +116,12 @@ function readFileContentSync(fileName, callback) {
 
 function getFileContentSync(fileName) {
     if (!cacheFiles[fileName]) {
-        const t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", ""));
+        const t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", "").replace("_br", ""));
         // CAN'T USE // comments in JS !!!! Use /* */ instead.
         //        t = t.replace(/(\r\n|\n|\r)/gm, "");
-        if (fileName.includes("_gzip")) {
+        if (fileName.includes("_br")) {
+            cacheFiles[fileName] = zlib.brotliCompressSync(t);
+        } else if (fileName.includes("_gzip")) {
             cacheFiles[fileName] = zlib.gzipSync(t);
         } else if (fileName.includes("_deflate")) {
             cacheFiles[fileName] = zlib.deflateSync(t);
@@ -1715,7 +1717,10 @@ const onRequestHandler = (req, res) => {
         //        res.setHeader('Cache-Control', 'must-revalidate');
         const stats = fs.statSync(path.normalize(__dirname + req.url));
         res.setHeader('Last-Modified', stats.mtime.toUTCString());
-        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
+        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('br')) {
+            res.setHeader('Content-Encoding', 'br');
+            res.end(getFileContentSync(req.url + "_br"));
+        } else if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
             res.setHeader('Content-Encoding', 'gzip');
             res.end(getFileContentSync(req.url + "_gzip"));
         } else if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
