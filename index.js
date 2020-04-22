@@ -424,8 +424,8 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
                     //                    console.log('jest chat3: ' + callbackOther[index0][index][1] + ' ' + userName + ' ' + cacheChat[params["tekst"]]["Who"]);
                     if (callbackOther[index0][index][CallbackField.UserName] != userName &&
                         cacheChat[params["tekst"]]["Who"].split(',').includes(callbackOther[index0][index][CallbackField.UserName])) {
-                        callbackOther[index0][index][CallbackField.Field].write("event: m\n");
-                        callbackOther[index0][index][CallbackField.Field].write("data:\n\n");
+                        callbackOther[index0][index][CallbackField.Response].write("event: m\n");
+                        callbackOther[index0][index][CallbackField.Response].write("data:\n\n");
                     }
                 }
             }
