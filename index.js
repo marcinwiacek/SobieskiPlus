@@ -1288,7 +1288,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     let arr;
     if (id[2]) {
         arr = decodeFileContent(readFileContentSync('\\texts\\' + id[2] + '.txt'), false);
-        if (!podstronyType[id[1]].includes(arr["Type"])) {
+        if (!podstronyType[id[1]].includes(arr["Type"]) || userName!=arr["Who"]) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
             res.end();
@@ -1365,7 +1365,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
     }
 
     readFileContentSync('\\texts\\' + id[2] + '.txt', (data) => {
-        let arr = decodeFileContent(data, false);
+        const arr = decodeFileContent(data, false);
         if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Who"])) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
@@ -1446,8 +1446,10 @@ function showTextPage(req, res, params, id, userName, userLevel) {
                     .replace(/<!--PAGEID-->/g, id[2]) //many entries
                     .replace("<!--OBJECT-->", "texts");
             }
+	    if (userName==arr["Who"]) {
             text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
                 params["q"].replace("pokaz", "zmien").split('/ver')[0] + "\">Edycja ostatniej wersji</a></div>");
+	    }
         }
 
         sendHTMLBody(req, res, text);
