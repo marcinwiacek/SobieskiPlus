@@ -250,14 +250,12 @@ function decodeSourceFile(txt, onlyHeaders) {
 }
 
 function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, forUser) {
-    console.log("stateList = " + stateList);
     let result = [];
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
     const tax = taxonomy ? taxonomy.split(",") : null;
 
     cacheTexts.forEach((entry, key) => {
-        console.log("State " + entry["State"]);
         if ((typeList && !typeList.includes(entry["Type"])) ||
             !stateList.includes(entry["State"]) ||
             (entry["State"] == "szkic" && userName != entry["Who"])) return;
@@ -452,11 +450,8 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
 
         //inform other users about new chat entry
         if (cacheChat[params["tekst"]]["Who"].split(',').includes(userName)) {
-            console.log('jest chat1');
             for (let index0 in callbackOther) {
-                console.log('jest chat2');
                 for (let index in callbackOther[index0]) {
-                    //                    console.log('jest chat3: ' + callbackOther[index0][index][1] + ' ' + userName + ' ' + cacheChat[params["tekst"]]["Who"]);
                     if (callbackOther[index0][index][CallbackField.UserName] != userName &&
                         cacheChat[params["tekst"]]["Who"].split(',').includes(callbackOther[index0][index][CallbackField.UserName])) {
                         callbackOther[index0][index][CallbackField.Response].write("event: m\n");
@@ -512,7 +507,7 @@ function parsePOSTUploadNewText(params, req, res, userName) {
 }
 
 function parsePOSTUploadUpdatedText(params, req, res, userName) {
-    if (!params["version"] ||
+    if (!params["tekst"] || !cacheTexts[params["tekst"]] || !params["version"] ||
         (!(params["teaser"] || params["teaser"] == '') &&
             !params["text"] && !params["state"] && !params["type"] &&
             !params["title"] &&
@@ -523,55 +518,54 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
         res.end();
         return;
     }
-    if (fs.existsSync(__dirname + "\\texts\\" + params["tekst"] + ".txt")) {
-        if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
-            return;
-        }
-
-        const updateTime = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
-
-        txt = "";
-        if (params["title"]) txt += "Title:" + params["title"] + "\n";
-        if (params["state"]) txt += "State:" + params["state"] + "\n";
-        if (params["type"]) txt += "Type:" + params["type"] + "\n";
-        if (params["taxonomy"] || params['taxonomy'] == '') txt += "Taxonomy:" + params["taxonomy"] + "\n";
-        if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') {
-            txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
-        }
-        if (params["teaser"] || params["teaser"] == '') {
-            txt += (params["teaser"] != "" ? "\n" : "") + params["teaser"] + "\n<!--teaser-->\n";
-        }
-        if (params["text"]) {
-            if (!(params["teaser"] || params["teaser"] == '')) txt += "\n";
-            txt += params["text"] + "\n";
-        }
-
-        appendToSourceFile("texts", params["tekst"],
-            "<!--change-->\n" +
-            "When:" + formatDate(updateTime) + "\n" +
-            "Who:" + userName + "\n" +
-            txt
-        );
-
-        //update cache
-        if (params["title"]) cacheTexts[params["tekst"]]["Title"] = params["title"];
-        if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
-        if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
-        if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
-        if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
-        cacheTexts[params["tekst"]]["When"] = updateTime;
-        cacheTexts[params["tekst"]]["Who"] = userName;
-
-        sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
-
-        res.statusCode = 200;
+    if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
+        res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
-        res.end(updateTime.toString());
+        res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
         return;
     }
+
+    const updateTime = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
+
+    txt = "";
+    if (params["title"]) txt += "Title:" + params["title"] + "\n";
+    if (params["state"]) txt += "State:" + params["state"] + "\n";
+    if (params["type"]) txt += "Type:" + params["type"] + "\n";
+    if (params["taxonomy"] || params['taxonomy'] == '') txt += "Taxonomy:" + params["taxonomy"] + "\n";
+    if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') {
+        txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+    }
+    if (userName != cacheTexts[params["tekst"]]["Who"]) {
+        txt += "Who:" + userName + "\n";
+    }
+    if (params["teaser"] || params["teaser"] == '') {
+        txt += (params["teaser"] != "" ? "\n" : "") + params["teaser"] + "\n<!--teaser-->\n";
+    }
+    if (params["text"]) {
+        if (!(params["teaser"] || params["teaser"] == '')) txt += "\n";
+        txt += params["text"] + "\n";
+    }
+
+    appendToSourceFile("texts", params["tekst"],
+        "<!--change-->\n" +
+        "When:" + formatDate(updateTime) + "\n" +
+        txt
+    );
+
+    //update cache
+    if (params["title"]) cacheTexts[params["tekst"]]["Title"] = params["title"];
+    if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
+    if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
+    if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
+    if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
+    cacheTexts[params["tekst"]]["When"] = updateTime;
+    cacheTexts[params["tekst"]]["Who"] = userName;
+
+    sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(updateTime.toString());
 }
 
 function parsePOSTCreateChat(params, req, res, userName) {
@@ -653,7 +647,7 @@ function parsePOSTCreateUser(params, req, res, userName) {
         "When:" + formatDate(Date.now()) + "\n" +
         (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
         (params["typ"] == "g" ? "Type:google\n" : "") +
-        (id == 1 ? "Level:3\n" : "Level:2\n");
+        (Object.keys(cacheUsers).length == 0 ? "Level:3\n" : "Level:2\n");
 
     const id = createNewSourceFile("users", 1, txt);
     addToUsersCache(params["username"], decodeSourceFile(txt, true), id);
@@ -830,8 +824,6 @@ async function parsePOSTRemind(params, req, res, userName) {
 function parsePOSTChangePass(params, req, res, userName) {
     let found = false;
     remindToken.forEach(function(tokenEntry, index) {
-        console.log(tokenEntry[TokenField.Expiry] + " " + Date.now());
-        console.log(params["hash"] + " " + tokenEntry[TokenField.Token3]);
         if (found) return;
         if (tokenEntry[TokenField.Expiry] < Date.now()) {
             remindToken.splice(index, 1);
@@ -979,9 +971,9 @@ function genericReplace(req, res, text, userName) {
             .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
 }
 
-function addRadio(idname, value, checked) {
+function addRadio(idname, value, description, checked) {
     return "<input type=\"radio\" name=\"" + idname + "\" id=" + idname + value + " value=\"" + value + "\"" +
-        (checked ? " checked" : "") + "><label for=\"" + idname + value + "\">" + value + "</label>";
+        (checked ? " checked" : "") + "><label for=\"" + idname + value + "\">" + description + "</label>";
 }
 
 function addOption(idname, value, selected) {
@@ -1164,7 +1156,7 @@ function formatChatEntry(template, arr, userName) {
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
 }
 
-function showAddChangeProfilePage(req, res, params, userName) {
+function showAddChangeProfilePage(req, res, params, userName, userLevel) {
     if (params["q"] == "profil/zmien" && userName == "") {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -1175,6 +1167,13 @@ function showAddChangeProfilePage(req, res, params, userName) {
     sendHTMLHead(res);
 
     let text = genericReplace(req, res, getCacheFileSync('\\internal\\useredit.txt'), userName);
+
+    /*
+    let txt = addRadio("userlevel", "2","standardowy z opcją komentowania",true);
+    if (userLevel == "3") txt+= addRadio("userlevel", "1", "standardowy bez opcji komentowania",false)
+    + addRadio("userlevel", "3", "admin",false);
+                    text=text.replace("<!--LEVEL-->", txt);
+    */
 
     if (params["q"] == "profil/zmien") {
         if (cacheUsers[userName]["Type"] != "google") {
@@ -1328,13 +1327,13 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     podstronyState[id[1]].forEach(function(state) {
         if (userLevel != "3" && state == "biblioteka" && id[1] != "hydepark" &&
             (!id[2] || (id[2] && arr["State"] != "biblioteka"))) return;
-        txt += addRadio("state", state, (!id[2] && state == "szkic" || id[2] && state == arr["State"]));
+        txt += addRadio("state", state, state, (!id[2] && state == "szkic" || id[2] && state == arr["State"]));
     });
     text = text.replace("<!--STATE-->", txt + "<p>");
 
     txt = "";
     podstronyType[id[1]].forEach(function(type) {
-        txt += addRadio("type", type, (podstronyType[id[1]].length == 1 || (id[2] && arr["Type"] == type)));
+        txt += addRadio("type", type, type, (podstronyType[id[1]].length == 1 || (id[2] && arr["Type"] == type)));
     });
     text = text.replace("<!--TYPE-->", txt + "<p>");
 
@@ -1839,7 +1838,7 @@ const onRequestHandler = (req, res) => {
         if (params["q"]) {
             //must be before opowiadania/dodaj i opowiadania/zmien/1
             if (params["q"] == "profil/dodaj") {
-                showAddChangeProfilePage(req, res, params, userName);
+                showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
                 return;
             } else if (params["q"] == "haslo/zmien/1") {
                 showPassReminderPage(req, res, params, userName);

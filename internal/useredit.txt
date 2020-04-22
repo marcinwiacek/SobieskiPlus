@@ -112,6 +112,13 @@ document.addEventListener("DOMContentLoaded", function(event) {
     <table>
      <tr>
       <td colspan=2>
+       Poziom dostępu<br>
+       <!--LEVEL-->
+      </td>
+     </tr>
+     <tr>
+      <td colspan=2>
+       <br>Rodzaj konta<br>
        <input name=type id=w type="radio" <!--CHECKED-WLASNE--> value="wlasne" onClick="setWlasne()">
        <label for=w>Konto z własnym hasłem (wymaga weryfikacji email)</label>
        <p>

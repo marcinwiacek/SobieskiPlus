@@ -24,6 +24,7 @@
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * Edge: nie chowa pasków postępu
+* przejęcie autora (pole Who) przy dodaniu specialtaxonomy
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 
 # Obecne funkcjonalności
