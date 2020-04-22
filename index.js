@@ -862,10 +862,9 @@ function parsePOSTVerifyMail(params, req, res, userName) {
             cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == "1") {
             return;
         }
-        token = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
-            cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex");
-        if (token != params["token"]) return;
-        console.log("verified" + tokenEntry[0]);
+        if (params["token"]!=crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
+            cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex")) return;
+        console.log("verified" + tokenEntry[TokenField.Token]);
         fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[tokenEntry[TokenField.UserName]]["filename"] + ".txt",
             "<!--change-->\n" +
             "When:" + formatDate(Date.now()) + "\n" +
@@ -1684,6 +1683,7 @@ function addToCallback(req, res, id, callback, userName, other, token) {
     console.log("dodaje callback");
     const session = crypto.randomBytes(32).toString('base64');
     if (other && !callback[id]) callback[id] = [];
+    // order consistent with CallbackField
     callback[id][session] = [res, userName, token];
     res.on('close', function() {
         console.log("usuwa callback");
@@ -1693,7 +1693,7 @@ function addToCallback(req, res, id, callback, userName, other, token) {
                 sessionEntry.splice(index, 1);
                 return;
             }
-            if (sessionEntry[SessionField.Token] == callback[id][session][2]) {
+            if (sessionEntry[SessionField.Token] == callback[id][session][CallbackField.Token]) {
                 console.log('delete refresh for session ' + sessionEntry[SessionField.Token]);
                 if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
             }
