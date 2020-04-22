@@ -9,7 +9,6 @@
 # todo z node.JS:
 * change password przez stronę newuser
 * auto odswiezanie wszystkich stron -> częściowo done
-* deaktywacja użytkownika
 * +- (punkty)
 * facebook
 * sesje (Google) - szukanie czy user wylogowany + usuwanie nieaktywnych
@@ -18,11 +17,13 @@
 * zglaszanie do moderacji
 * kolejki tekstów
 * notyfikacje tylko o określonych chatach -> częściowo done
+* deaktywacja użytkownika
+* banowanie przez www -> obecnie przez pole "Ban"
+* poziomy usera przez www -> obecnie 0 non logged, 1 logged no comment edit, 2 logged comment edit, 3 admin
 
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * Edge: nie chowa pasków postępu
-* blad -> jak zmieniany jest tylko status tekstu, to zmieniane jest pole When i data tekstu
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 
 # Obecne funkcjonalności

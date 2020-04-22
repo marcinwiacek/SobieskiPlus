@@ -43,10 +43,29 @@ let cacheChat = [];
 let callbackChat = [];
 let callbackText = [];
 let callbackOther = [];
+const CallbackField = {
+    Response: 0,
+    UserName: 1,
+    Token: 2
+}
 
 let verifyToken = [];
 let remindToken = [];
+const TokenField = {
+    Token: 0,
+    UserName: 1,
+    Expiry: 2,
+    Token2: 3,
+    Token3: 4 // not used in verifyToken
+}
+
 let sessions = [];
+const SessionField = {
+    Token: 0,
+    Expiry: 1,
+    UserName: 2,
+    RefreshCallback: 3
+}
 
 function addToTextCache(name) {
     cacheTexts[name] = decodeFileContent(readFileContentSync('\\texts\\' + name + '.txt'), true);
@@ -90,15 +109,14 @@ function readFileContentSync(fileName, callback) {
             }
         });
     } else {
-        let x = fs.readFileSync(path.normalize(__dirname + fileName), 'utf8');
-        if (x.charCodeAt(0) == 65279) x = x.substring(1);
-        return x;
+        const x = fs.readFileSync(path.normalize(__dirname + fileName), 'utf8');
+        return (x.charCodeAt(0) == 65279) ? x.substring(1) : x;
     }
 }
 
 function getFileContentSync(fileName) {
     if (!cacheFiles[fileName]) {
-        let t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", ""));
+        const t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", ""));
         // CAN'T USE // comments in JS !!!! Use /* */ instead.
         //        t = t.replace(/(\r\n|\n|\r)/gm, "");
         if (fileName.includes("_gzip")) {
@@ -180,7 +198,6 @@ function decodeFileContent(txt, onlyHeaders) {
                 break;
             case DecodingLevel.CommentText:
                 if (!onlyHeaders) comment["Text"] += line + "\n";
-                break;
         }
     });
     if (comment != null) {
@@ -191,7 +208,6 @@ function decodeFileContent(txt, onlyHeaders) {
         arr["commentswhen"] = comment["When"];
     }
     arr["When"] = Date.parse(arr["When"]);
-
     if (t != "") {
         if (!arr["OldText"]) arr["OldText"] = [];
         let oldtext = [];
@@ -203,7 +219,7 @@ function decodeFileContent(txt, onlyHeaders) {
     return arr;
 }
 
-function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, userLevel, forUser) {
+function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, forUser) {
     let result = [];
     const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
     const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
@@ -322,12 +338,12 @@ function sendAllReloadsAfterTextChangeToPage(arr) {
         }
         if (found) {
             for (let index in callbackOther[index0]) {
-                sendReloadToPage(callbackOther[index0][index][0]);
+                sendReloadToPage(callbackOther[index0][index][CallbackField.Response]);
             }
         }
     }
     for (let index in callbackText[arr["filename"]]) {
-        sendReloadToPage(callbackText[arr["filename"]][index][0]);
+        sendReloadToPage(callbackText[arr["filename"]][index][CallbackField.Response]);
     }
 }
 
@@ -344,19 +360,20 @@ function sendCommentToPage(comment, res) {
 }
 
 async function sendVerificationMail(mail, username) {
-    const x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+    const token = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
     const info = await smtp.sendMail({
         from: 'marcin@mwiacek.com',
         to: mail,
         subject: "Zweryfikuj swoje konto w systemie",
-        text: "Link jest ważny przez godzinę: q=verifymail/" + x +
+        text: "Link jest ważny przez godzinę: q=verifymail/" + token +
             "\n Jeżeli straci ważność, spróbuj się zalogować i dostaniesz kolejny mail"
     });
     console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
-    verifyToken.push([x, username, Date.now() + 1000 * 60 * 60, ""]);
+    //order inside TokenField; last field unused
+    verifyToken.push([token, username, Date.now() + 1000 * 60 * 60, "", ""]);
 }
 
-async function sendMailHaslo(mail, token) {
+async function sendRemindPasswordMail(mail, token) {
     const info = await smtp.sendMail({
         from: 'marcin@mwiacek.com',
         to: mail,
@@ -395,7 +412,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
 
     if (isChat) {
         for (let index in callbackChat[params["tekst"]]) {
-            sendCommentToPage(comment, callbackChat[params["tekst"]][index][0]);
+            sendCommentToPage(comment, callbackChat[params["tekst"]][index][CallbackField.Response]);
         }
 
         //inform other users about new chat
@@ -404,11 +421,11 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
             for (let index0 in callbackOther) {
                 console.log('jest chat2');
                 for (let index in callbackOther[index0]) {
-                    console.log('jest chat3: ' + callbackOther[index0][index][1] + ' ' + userName + ' ' + cacheChat[params["tekst"]]["Who"]);
-                    if (callbackOther[index0][index][1] != userName &&
-                        cacheChat[params["tekst"]]["Who"].split(',').includes(callbackOther[index0][index][1])) {
-                        callbackOther[index0][index][0].write("event: m\n");
-                        callbackOther[index0][index][0].write("data:\n\n");
+                    //                    console.log('jest chat3: ' + callbackOther[index0][index][1] + ' ' + userName + ' ' + cacheChat[params["tekst"]]["Who"]);
+                    if (callbackOther[index0][index][CallbackField.UserName] != userName &&
+                        cacheChat[params["tekst"]]["Who"].split(',').includes(callbackOther[index0][index][CallbackField.UserName])) {
+                        callbackOther[index0][index][CallbackField.Field].write("event: m\n");
+                        callbackOther[index0][index][CallbackField.Field].write("data:\n\n");
                     }
                 }
             }
@@ -418,7 +435,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
         cacheTexts[params["tekst"]]["commentsnum"]++;
 
         for (let index in callbackText[params["tekst"]]) {
-            sendCommentToPage(comment, callbackText[params["tekst"]][index][0]);
+            sendCommentToPage(comment, callbackText[params["tekst"]][index][CallbackField.Response]);
         }
     }
     res.statusCode = 200;
@@ -535,7 +552,7 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
 }
 
 function parsePOSTCreateChat(params, req, res, userName) {
-    wrong = false;
+    let wrong = false;
     params["users"].split(',').forEach(function(user) {
         if (!cacheUsers[user]) wrong = true;
     });
@@ -570,7 +587,7 @@ function parsePOSTCreateChat(params, req, res, userName) {
 }
 
 function parsePOSTSubscribeChat(params, req, res, userName) {
-    wrong = false;
+    let wrong = false;
     params["users"].split(',').forEach(function(user) {
         if (!cacheUsers[user]) wrong = true;
     });
@@ -628,7 +645,7 @@ function parsePOSTCreateUser(params, req, res, userName) {
                 "When:" + formatDate(Date.now()) + "\n" +
                 (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
                 (params["typ"] == "g" ? "Type:google\n" : "") +
-                (id == 1 ? "Level:2\n" : "Level:1\n");
+                (id == 1 ? "Level:3\n" : "Level:2\n");
             fd = fs.openSync(__dirname + "\\users\\" + id + ".txt", 'wx');
             fs.appendFileSync(fd, txt, 'utf8');
             addToUsersCache(params["username"], decodeFileContent(txt, true), id);
@@ -677,43 +694,45 @@ function tryOwnLogin(req, params, googleMail) {
     let found = null;
     for (let index in cacheUsers) {
         if (found) return;
-        arr = cacheUsers[index];
-        sessions.forEach(function(session, index) {
+        sessions.forEach(function(session, index2) {
             if (found) return;
-            if (session[1] < Date.now()) {
-                if (session[4] != null) clearTimeout(session[4]);
-                sessions.splice(index, 1);
+            if (session[SessionField.Expiry] < Date.now()) {
+                if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
+                sessions.splice(index2, 1);
                 return;
             }
             req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if ("session=" + session[0] != cookie || session[2] != "") {
+                if ("session=" + session[SessionField.Token] != cookie || session[SessionField.UserName] != "") {
                     return;
                 }
-                console.log("probuje sesje " + session[0]);
+                if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
+                    found = "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
+                    return;
+                }
+                console.log("probuje sesje " + session[SessionField.Token]);
                 if (googleMail) {
-                    console.log(googleMail + " vs " + arr["Mail"]);
+                    console.log(googleMail + " vs " + cacheUsers[index]["Mail"]);
                     //fixme check if verified
-                    if (arr["Type"] == "google" && googleMail == arr["Mail"]) {
+                    if (cacheUsers[index]["Type"] == "google" && googleMail == cacheUsers[index]["Mail"]) {
                         console.log("jest login");
-                        session[2] = arr["Who"];
+                        session[SessionField.UserName] = cacheUsers[index]["Who"];
                         console.log("found");
                         found = "";
                     }
+                    return;
+                }
+                if (cacheUsers[index]["Type"] == "google") return;
+                usr = crypto.createHash('sha256').update(session[SessionField.Token] + cacheUsers[index]["Who"]).digest("hex");
+                if (usr != params["user"]) return;
+                pass = crypto.createHash('sha256').update(session[SessionField.Token] + cacheUsers[index]["Pass"]).digest("hex");
+                if (pass != params["password"]) return;
+                if (params["typ"] != "g" && cacheUsers[index]["ConfirmMail"] == "0") {
+                    sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
+                    found = "Konto niezweryfikowane. Kliknij na link w mailu";
                 } else {
-                    if (!arr["Type"] || arr["Type"] == "wlasny") {
-                        usr = crypto.createHash('sha256').update(session[0] + arr["Who"]).digest("hex");
-                        if (usr != params["user"]) return;
-                        pass = crypto.createHash('sha256').update(session[0] + arr["Pass"]).digest("hex");
-                        if (pass != params["password"]) return;
-                        if (params["typ"] != "g" && arr["ConfirmMail"] == "0") {
-                            sendVerificationMail(arr["Mail"], arr["Who"]);
-                            found = "Konto niezweryfikowane. Kliknij na link w mailu";
-                        } else {
-                            console.log("jest login");
-                            session[2] = arr["Who"];
-                            found = "";
-                        }
-                    }
+                    console.log("jest login");
+                    session[SessionField.UserName] = cacheUsers[index]["Who"];
+                    found = "";
                 }
             });
         });
@@ -763,14 +782,14 @@ function parsePOSTLogout(params, req, res, userName) {
 
     console.log("logout try");
     sessions.forEach(function(session, index) {
-        if (session[1] < Date.now()) {
-            if (session[3] != null) clearTimeout(session[3]);
+        if (session[SessionField.Expiry] < Date.now()) {
+            if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
             sessions.splice(index, 1);
             return;
         }
         req.headers['cookie'].split("; ").forEach(function(cookie) {
-            console.log("checking session " + session[0] + " " + cookie);
-            if ("session=" + session[0] == cookie) session[2] = '';
+            console.log("checking session " + session[SessionField.Token] + " " + cookie);
+            if ("session=" + session[SessionField.Token] == cookie) session[SessionField.UserName] = '';
         });
     });
 
@@ -778,24 +797,25 @@ function parsePOSTLogout(params, req, res, userName) {
 }
 
 async function parsePOSTRemind(params, req, res, userName) {
-    found = false;
-    remindToken.forEach(function(session, index) {
+    let found = false;
+    remindToken.forEach(function(tokenEntry, index1) {
         if (found) return;
-        if (session[1] < Date.now()) {
-            remindToken.splice(index, 1);
+        if (tokenEntry[TokenField.Expiry] < Date.now()) {
+            remindToken.splice(index1, 1);
             return;
         }
         for (let index in cacheUsers) {
             if (found) return;
-            usr = crypto.createHash('sha256').update(session[0] + cacheUsers[index]["Who"]).digest("hex");
-            if (usr != params["token1"]) return;
-            pass = crypto.createHash('sha256').update(session[0] + cacheUsers[index]["Mail"]).digest("hex");
-            if (pass != params["token2"]) return;
+            usr = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Who"]).digest("hex");
+            console.log("compare 1 " + tokenEntry[TokenField.Token] + " " + usr + params["token1"]);
+            if (usr != params["token1"]) continue;
+            pass = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Mail"]).digest("hex");
+            console.log("compare 2 " + tokenEntry[TokenField.Token] + " " + pass + params["token2"]);
+            if (pass != params["token2"]) continue;
 
-            session[2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
-            session[3] = cacheUsers[index]["Who"];
-            session[4] = file;
-            sendMailHaslo(cacheUsers[index]["Mail"], session[2]);
+            tokenEntry[TokenField.Token2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+            tokenEntry[TokenField.UserName] = cacheUsers[index]["Who"];
+            sendRemindPasswordMail(cacheUsers[index]["Mail"], tokenEntry[TokenField.Token2]);
             found = true;
         }
     });
@@ -806,22 +826,23 @@ async function parsePOSTRemind(params, req, res, userName) {
 }
 
 function parsePOSTChangePass(params, req, res, userName) {
-    found = false;
-    remindToken.forEach(function(session, index) {
-        console.log(session[1] + " " + Date.now());
-        console.log(params["hash"] + " " + session[2]);
+    let found = false;
+    remindToken.forEach(function(tokenEntry, index) {
+        console.log(tokenEntry[TokenField.Expiry] + " " + Date.now());
+        console.log(params["hash"] + " " + tokenEntry[TokenField.Token3]);
         if (found) return;
-        if (session[1] < Date.now()) {
+        if (tokenEntry[TokenField.Expiry] < Date.now()) {
             remindToken.splice(index, 1);
             return;
         }
-        if (params["hash"] != session[2]) return;
-        fs.appendFileSync(__dirname + "\\users\\" + session[4],
+        if (params["hash"] != tokenEntry[TokenField.Token3]) return;
+        fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[tokenEntry[TokenField.UserName]]["filename"] + ".txt",
             "<!--change-->\n" +
             "When:" + formatDate(Date.now()) + "\n" +
             "Pass:" + params["token"] + "\n"
         );
-        cacheUsers[session[3]]["Pass"] = params["token"];
+        cacheUsers[tokenEntry[TokenField.UserName]]["Pass"] = params["token"];
+        remindToken.splice(index, 1);
         found = true;
     });
     res.statusCode = found ? 200 : 404;
@@ -831,25 +852,28 @@ function parsePOSTChangePass(params, req, res, userName) {
 
 function parsePOSTVerifyMail(params, req, res, userName) {
     found = false;
-    verifyToken.forEach(function(session, index) {
+    verifyToken.forEach(function(tokenEntry, index) {
         if (found) return;
-        if (session[2] < Date.now()) {
+        if (tokenEntry[TokenField.Expiry] < Date.now()) {
             verifyToken.splice(index, 1);
             return;
         }
-        if ((!cacheUsers[session[1]]["Type"] || cacheUsers[session[1]]["Type"] == "wlasny") &&
-            cacheUsers[session[1]]["ConfirmMail"] == "0") {
-            token = crypto.createHash('sha256').update(session[3] + cacheUsers[session[1]]["Pass"]).digest("hex");
-            if (token != params["token"]) return;
-            console.log("verified" + session[0]);
-            fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[session[1]]["filename"] + ".txt",
-                "<!--change-->\n" +
-                "When:" + formatDate(Date.now()) + "\n" +
-                "ConfirmMail:1\n"
-            );
-            cacheUsers[session[1]]["ConfirmMail"] = "1";
-            found = true;
+        if (cacheUsers[tokenEntry[TokenField.UserName]]["Type"] == "google" ||
+            cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == "1") {
+            return;
         }
+        token = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
+            cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex");
+        if (token != params["token"]) return;
+        console.log("verified" + tokenEntry[0]);
+        fs.appendFileSync(__dirname + "\\users\\" + cacheUsers[tokenEntry[TokenField.UserName]]["filename"] + ".txt",
+            "<!--change-->\n" +
+            "When:" + formatDate(Date.now()) + "\n" +
+            "ConfirmMail:1\n"
+        );
+        cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] = "1";
+        verifyToken.splice(index, 1);
+        found = true;
     });
 
     res.statusCode = found ? 200 : 404;
@@ -935,7 +959,7 @@ function genericReplace(req, res, text, userName) {
 
     text = text.replace("<!--STYLES-->", txt)
         .replace("<!--MENU-->", getFileContentSync('\\internal\\menu' +
-            ((getUserLevelUserName(userName) == "0") ? '0' : '12') +
+            ((userName == "") ? '0' : '123') +
             '.txt'))
         .replace("<!--DARK-LINK-->", "<p><a href=\"?set=dark" +
             ((req.headers['cookie'] && req.headers['cookie'].includes('dark=1')) ? "0\">Wy" : "1\">W") +
@@ -967,69 +991,67 @@ function addUserLink(name) {
     return "<a href=\"?q=profil/pokaz/" + cacheUsers[name]["filename"] + "\">" + name + "</a>";
 }
 
-function showPassReminderPage(req, res, params, userName, userLevel) {
-    let x = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
-    remindToken.push([x, Date.now() + 1000 * 60 * 60, "", "", ""]);
+function showPassReminderPage(req, res, params, userName) {
+    const token = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+    // order like with TokenField
+    remindToken.push([token, "", Date.now() + 1000 * 60 * 60, "", "", ""]);
 
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\passremind.txt'), userName)
-        .replace("<!--HASH-->", x));
+        .replace("<!--HASH-->", token));
 }
 
-function showChangePasswordPage(req, res, params, id, userName, userLevel) {
-    found = false;
-    remindToken.forEach(function(session) {
-        if (session[1] < Date.now()) {
+function showChangePasswordPage(req, res, params, id, userName) {
+    let token = "";
+    remindToken.forEach(function(tokenEntry) {
+        if (token != "") return;
+        if (tokenEntry[TokenField.Expiry] < Date.now()) {
             remindToken.splice(index, 1);
             return;
         }
-        if (id[1] == decodeURIComponent(session[2])) {
-            salt = crypto.randomBytes(32).toString('base64');
-            session[2] = salt;
-            found = true;
+        console.log("compare " + id[1] + " vs " + decodeURIComponent(tokenEntry[TokenField.Token2]));
+        if (id[1] == decodeURIComponent(tokenEntry[TokenField.Token2])) {
+            token = crypto.randomBytes(32).toString('base64');
+            tokenEntry[TokenField.Token3] = token;
         }
     });
 
-    if (!found) {
+    if (token == "") {
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
         return;
     }
 
-    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\passchange.txt'), userName).replace("<!--HASH-->", salt));
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\passchange.txt'), userName)
+        .replace("<!--HASH-->", token));
 }
 
-function showMailVerifyPage(req, res, params, id, userName, userLevel) {
-    found = false;
-    verifyToken.forEach(function(session) {
-        if (found) return;
-        if (session[2] < Date.now()) {
+function showMailVerifyPage(req, res, params, id, userName) {
+    let token = '';
+    verifyToken.forEach(function(tokenEntry) {
+        if (token != '') return;
+        if (tokenEntry[TokenField.Expiry] < Date.now()) {
             verifyToken.splice(index, 1);
             return;
         }
-        if (id[1] == decodeURIComponent(session[0])) {
-            if (!cacheUsers[session[1]]["Type"] || cacheUsers[session[1]]["Type"] == "wlasny") {
-                console.log(cacheUsers[session[1]]["ConfirmMail"]);
-                if (cacheUsers[session[1]]["ConfirmMail"] == 0) {
-                    salt = crypto.randomBytes(32).toString('base64');
-                    session[3] = salt;
-                    found = true;
-                }
-            }
+        if (id[1] == decodeURIComponent(tokenEntry[TokenField.Token]) &&
+            cacheUsers[tokenEntry[TokenField.UserName]]["Type"] != "google" &&
+            cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == 0) {
+            token = crypto.randomBytes(32).toString('base64');
+            tokenEntry[TokenField.Token] = token;
         }
     });
-
-    if (!found) {
+    if (token == '') {
         res.statusCode = 302;
         res.setHeader('Location', '/');
         res.end();
         return;
     }
-
-    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\verifymail.txt'), userName).replace("<!--HASH-->", salt));
+    sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\verifymail.txt'), userName)
+        .replace("<!--HASH-->", token));
 }
 
-function showLoginGooglePage(req, res, params, userName, userLevel) {
+function showLoginGooglePage(req, res, userName) {
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\logingoogle.txt'), userName)
         .replace("<!--SIGN-IN-TOKEN-->", GoogleSignInToken));
 }
@@ -1044,7 +1066,9 @@ function showAddChatPage(req, res, params, userName) {
 
     let txt = "";
     for (let index in cacheUsers) {
-        if (cacheUsers[index]["Who"] != userName) txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], false);
+        if (cacheUsers[index]["Who"] != userName) {
+            txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], false);
+        }
     }
 
     sendHTML(req, res, genericReplace(req, res, getFileContentSync('\\internal\\addchat.txt'), userName)
@@ -1129,7 +1153,7 @@ function formatChatEntry(template, arr, userName) {
     //    template = template.replace("<!--SUB-->", "<a href=javascript:sub(" + arr["filename"] + "," +
     //        !arr["Sub"].split(",").includes(userName) + ");>" + (arr["Sub"].split(",").includes(userName) ? "on" : "off") + "</a>");
     if (arr["Who"]) {
-        txt = "";
+        let txt = "";
         arr["Who"].split(",").forEach(entry => {
             txt += (txt != "" ? ", " : "") + addUserLink(entry);
         });
@@ -1139,7 +1163,7 @@ function formatChatEntry(template, arr, userName) {
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
 }
 
-function showAddChangeProfilePage(req, res, params, userName, userLevel) {
+function showAddChangeProfilePage(req, res, params, userName) {
     if (params["q"] == "profil/zmien" && userName == "") {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -1152,7 +1176,7 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
     let text = genericReplace(req, res, getFileContentSync('\\internal\\useredit.txt'), userName);
 
     if (params["q"] == "profil/zmien") {
-        if (!cacheUsers[userName]["Type"] || cacheUsers[userName]["Type"] == "wlasny") {
+        if (cacheUsers[userName]["Type"] != "google") {
             text = text.replace("<!--CHECKED-WLASNE-->", " checked")
                 .replace("<!--CHECKED-GOOGLE-->", "");
         } else {
@@ -1208,9 +1232,9 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                     txt += (txt != "" ? "<hr>" : "") + formatChatEntry(template, arr, userName);
                 });
             }
-            text = text.replace("<!--CHAT-LIST-->", txt != "" ? "<div class=ramki><table width=100%>" +
-                "<tr><td>" + (userName == arr["Who"] ? "Ostatnie chaty" : "Ostatnie chaty z Tobą") + "</td>" +
-                "<td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>" : "");
+            text = text.replace("<!--CHAT-LIST-->", "<div class=ramki><table width=100%><tr><td>" +
+                (txt != "" ? (userName == arr["Who"] ? "Ostatnie chaty" : "Ostatnie chaty z Tobą") : "Chat") +
+                "</td><td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>");
         }
 
         let allTypes = [];
@@ -1230,7 +1254,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 null,
                 null, null,
                 "ostatni",
-                userName, userLevel,
+                userName,
                 arr["Who"]);
             let t = "";
             if (list[0]) {
@@ -1279,9 +1303,9 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
         let teaser_text = "";
         let main_text = "";
         arr["OldText"].forEach(function(t0) {
-            let t = t0["Text"].slice(0, -1);
+            const t = t0["Text"].slice(0, -1);
             if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
-            let x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+            const x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
             if (x != "") main_text = x;
         });
 
@@ -1301,7 +1325,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
 
     txt = "";
     podstronyState[id[1]].forEach(function(state) {
-        if (userLevel != "2" && state == "biblioteka" && id[1] != "hydepark" &&
+        if (userLevel != "3" && state == "biblioteka" && id[1] != "hydepark" &&
             (!id[2] || (id[2] && arr["State"] != "biblioteka"))) return;
         txt += addRadio("state", state, (!id[2] && state == "szkic" || id[2] && state == arr["State"]));
     });
@@ -1319,7 +1343,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     });
     text = text.replace("<!--TAXONOMY-->", txt + "</select><p>");
 
-    if (userLevel == "2") {
+    if (userLevel == "3") {
         txt = "<select id=\"specialtaxonomy\" name=\"specialtaxonomy\" size=5 multiple>";
         specialTaxonomy.forEach(function(tax) {
             txt += addOption(tax, tax, (id[2] && arr["SpecialTaxonomy"] && arr["SpecialTaxonomy"].split(",").includes(tax)));
@@ -1331,7 +1355,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
 }
 
 // for example opowiadania/pokaz/1
-function showTextPage(req, res, params, id, userName) {
+function showTextPage(req, res, params, id, userName, userLevel) {
     if (!podstronyType[id[1]]) {
         res.statusCode = 302;
         res.setHeader('Location', '/');
@@ -1361,9 +1385,9 @@ function showTextPage(req, res, params, id, userName) {
                 versions += addOption(t0["When"], formatDate(t0["When"]),
                     id[3] ? (t0["When"] == parseInt(id[3].substring(4))) : (index == arr["OldText"].length - 1));
                 if (sel) return;
-                let t = t0["Text"].slice(0, -1);
+                const t = t0["Text"].slice(0, -1);
                 if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
-                let x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+                const x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
                 if (x != "") main_text = x;
                 if (id[3] ? (t0["When"] == parseInt(id[3].substring(4))) : (index == arr["OldText"].length - 1)) {
                     sel = true;
@@ -1384,9 +1408,9 @@ function showTextPage(req, res, params, id, userName) {
 
             arr["OldText"].forEach(function(t0) {
                 if (when_first == 0) when_first = t0["When"];
-                let t = t0["Text"].slice(0, -1);
+                const t = t0["Text"].slice(0, -1);
                 if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
-                let x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
+                const x = (t.search('<!--teaser-->') != -1 ? t.substr(t.search('<!--teaser-->') + 14) : t);
                 if (x != "") main_text = x;
             });
         }
@@ -1416,11 +1440,13 @@ function showTextPage(req, res, params, id, userName) {
         text = text.replace("<!--LASTUPDATE-->", formatDate(lu));
 
         if (userName != "") {
-            text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
-                .replace(/<!--PAGEID-->/g, id[2]) //many entries
-                .replace("<!--OBJECT-->", "texts")
-                .replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
-                    params["q"].replace("pokaz", "zmien").split('/ver')[0] + "\">Edycja ostatniej wersji</a></div>");
+            if (userLevel != "1") {
+                text = text.replace("<!--COMMENTEDIT-->", getFileContentSync('\\internal\\commentedit.txt'))
+                    .replace(/<!--PAGEID-->/g, id[2]) //many entries
+                    .replace("<!--OBJECT-->", "texts");
+            }
+            text = text.replace("<!--LOGIN-EDIT-->", "<div align=right><a href=\"?q=" +
+                params["q"].replace("pokaz", "zmien").split('/ver')[0] + "\">Edycja ostatniej wersji</a></div>");
         }
 
         sendHTMLBody(req, res, text);
@@ -1464,7 +1490,7 @@ function showMainPage(req, res, page, params, userName) {
         null,
         "przyklejonegłówna", null,
         "ostatni",
-        userName, "0",
+        userName,
         null);
 
     let txt = "";
@@ -1480,7 +1506,7 @@ function showMainPage(req, res, page, params, userName) {
         ["biblioteka"], null,
         "główna", "przyklejonegłówna",
         "ostatni",
-        userName, "0",
+        userName,
         null);
 
     txt = "";
@@ -1531,7 +1557,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         tax,
         null, "przyklejone",
         sortLevel == "" ? "ostatni" : sortLevel,
-        userName, userLevel,
+        userName,
         null);
 
     if (pageNum * onThePage > list[1]) {
@@ -1597,7 +1623,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         null,
         "przyklejone", null,
         "ostatni",
-        userName, userLevel,
+        userName,
         null);
 
     txt = "";
@@ -1619,19 +1645,19 @@ function showListPage(req, res, params, id, userName, userLevel) {
 }
 
 function setRefreshSession(token, firstCall) {
-    sessions.forEach(function(x, index) {
-        if (x[0] != token) return;
-        if (x[3] != null) clearTimeout(x[3]);
+    sessions.forEach(function(sessionEntry, index) {
+        if (sessionEntry[SessionField.Token] != token) return;
+        if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
         if (!firstCall) {
             newtoken = crypto.randomBytes(32).toString('base64');
-            [callbackChat, callbackText, callbackOther].forEach(function(cc) {
-                for (let index0 in cc) {
-                    for (let index in cc[index0]) {
-                        if (cc[index0][index][2] != token) continue;
+            [callbackChat, callbackText, callbackOther].forEach(function(callback) {
+                for (let index0 in callback) {
+                    for (let index in callback[index0]) {
+                        if (callback[index0][index][CallbackField.Token] != token) continue;
                         console.log("sending new token");
-                        cc[index0][index][2] = newtoken;
-                        cc[index0][index][0].write("event: s\n");
-                        cc[index0][index][0].write("data: " + newtoken + "\n\n");
+                        callback[index0][index][CallbackField.Token] = newtoken;
+                        callback[index0][index][CallbackField.Response].write("event: s\n");
+                        callback[index0][index][CallbackField.Response].write("data: " + newtoken + "\n\n");
                     }
                 }
             });
@@ -1639,15 +1665,15 @@ function setRefreshSession(token, firstCall) {
             newtoken = token;
         }
         console.log(token + " -> " + newtoken);
-        x[0] = newtoken;
-        x[3] = setTimeout(function() {
+        sessionEntry[SessionField.Token] = newtoken;
+        sessionEntry[SessionField.RefreshCallback] = setTimeout(function() {
             setRefreshSession(newtoken, false);
         }, 30000); //30 seconds
-        x[1] = Date.now() + 1000 * 50;
+        sessionEntry[SessionField.Expiry] = Date.now() + 1000 * 50;
     });
 }
 
-function addToCallback(req, res, id, arra, userName, other, token) {
+function addToCallback(req, res, id, callback, userName, other, token) {
     res.writeHead(200, {
         'Cache-Control': 'no-cache',
         'Content-Type': 'text/event-stream',
@@ -1657,22 +1683,22 @@ function addToCallback(req, res, id, arra, userName, other, token) {
     res.write("data: \n\n");
     console.log("dodaje callback");
     const session = crypto.randomBytes(32).toString('base64');
-    if (other && !arra[id]) arra[id] = [];
-    arra[id][session] = [res, userName, token];
+    if (other && !callback[id]) callback[id] = [];
+    callback[id][session] = [res, userName, token];
     res.on('close', function() {
         console.log("usuwa callback");
-        sessions.forEach(function(s, index) {
-            if (s[1] < Date.now()) {
-                if (s[3] != null) clearTimeout(s[3]);
-                s.splice(index, 1);
+        sessions.forEach(function(sessionEntry, index) {
+            if (sessionEntry[SessionField.Expiry] < Date.now()) {
+                if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
+                sessionEntry.splice(index, 1);
                 return;
             }
-            if (s[0] == arra[id][session][2]) {
-                console.log('delete refresh for session ' + s[0]);
-                if (s[3] != null) clearTimeout(s[3]);
+            if (sessionEntry[SessionField.Token] == callback[id][session][2]) {
+                console.log('delete refresh for session ' + sessionEntry[SessionField.Token]);
+                if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
             }
         });
-        delete arra[id][session];
+        delete callback[id][session];
     });
     setTimeout(function() {
         res.end();
@@ -1713,17 +1739,17 @@ const onRequestHandler = (req, res) => {
     if (req.headers['cookie']) {
         console.log(req.headers['cookie']);
         sessions.forEach(function(session, index) {
-            if (session[1] < Date.now()) {
-                console.log('usuwa sesje ' + session[0]);
-                if (session[3] != null) clearTimeout(session[3]);
+            if (session[SessionField.Expiry] < Date.now()) {
+                console.log('usuwa sesje ' + session[SessionField.Token]);
+                if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index, 1);
                 return;
             }
-            console.log('sprawdza sesje ' + session[0]);
+            console.log('sprawdza sesje ' + session[SessionField.Token]);
             req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if ("session=" + session[0] == cookie) {
+                if ("session=" + session[SessionField.Token] == cookie) {
                     c = false;
-                    if (session[2] != "") userName = session[2];
+                    userName = session[SessionField.UserName];
                 }
             });
         });
@@ -1732,7 +1758,10 @@ const onRequestHandler = (req, res) => {
     if (c) {
         const session = crypto.randomBytes(32).toString('base64');
         res.setHeader('Set-Cookie', 'session=' + session + '; SameSite=Strict; Secure');
+
+        // order must be consistent with SessionField
         sessions.push([session, Date.now() + 1000 * 60, '', null]); // 60 seconds, non logged
+
         console.log("nowa sesja " + session);
     }
 
@@ -1743,37 +1772,37 @@ const onRequestHandler = (req, res) => {
         //PUSH functionality
         //check field format
         if (params["sse"] && req.headers["cookie"]) {
-            found = "";
+            token = "";
             sessions.forEach(function(session, index) {
-                if (session[1] < Date.now()) {
-                    console.log('usuwa sesje ' + session[0]);
-                    if (session[3] != null) clearTimeout(session[3]);
+                if (session[SessionField.Expiry] < Date.now()) {
+                    console.log('usuwa sesje ' + session[SessionField.Token]);
+                    if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                     sessions.splice(index, 1);
                     return;
                 }
                 req.headers['cookie'].split("; ").forEach(function(cookie) {
-                    if ("session=" + session[0] == cookie) {
-                        console.log('znalazl sesje ' + found);
-                        found = session[0];
+                    if ("session=" + session[SessionField.Token] == cookie) {
+                        console.log('znalazl sesje ' + token);
+                        token = session[SessionField.Token];
                     }
                 });
             });
 
-            if (found != "") {
+            if (token != "") {
                 //            console.log(req.headers);
                 //fixme - we need checking URL beginning
                 let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
                 if (id && fs.existsSync(__dirname + "\\chat\\" + id[1] + ".txt")) {
-                    addToCallback(req, res, id[1], callbackChat, userName, false, found);
+                    addToCallback(req, res, id[1], callbackChat, userName, false, token);
                     return;
                 }
                 id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
                 if (id && fs.existsSync(__dirname + "\\texts\\" + id[2] + ".txt")) {
-                    addToCallback(req, res, id[2], callbackText, userName, false, found);
+                    addToCallback(req, res, id[2], callbackText, userName, false, token);
                     return;
                 }
                 const params = url.parse(req.headers['referer'], true).query;
-                addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, found);
+                addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, token);
             }
             return;
         }
@@ -1803,10 +1832,10 @@ const onRequestHandler = (req, res) => {
         if (params["q"]) {
             //must be before opowiadania/dodaj i opowiadania/zmien/1
             if (params["q"] == "profil/dodaj") {
-                showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
+                showAddChangeProfilePage(req, res, params, userName);
                 return;
             } else if (params["q"] == "haslo/zmien/1") {
-                showPassReminderPage(req, res, params, userName, getUserLevelUserName(userName));
+                showPassReminderPage(req, res, params, userName);
                 return;
             }
             if (userName != "") {
@@ -1836,17 +1865,17 @@ const onRequestHandler = (req, res) => {
                 }
             }
             if (params["q"] == "logingoogle") {
-                showLoginGooglePage(req, res, params, userName, getUserLevelUserName(userName));
+                showLoginGooglePage(req, res, userName);
                 return;
             }
             let id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
             if (id) {
-                showChangePasswordPage(req, res, params, id, userName, getUserLevelUserName(userName));
+                showChangePasswordPage(req, res, params, id, userName);
                 return;
             }
             id = params["q"].match(/^verifymail\/([A-Za-z0-9+\/=]+)$/);
             if (id) {
-                showMailVerifyPage(req, res, params, id, userName, getUserLevelUserName(userName));
+                showMailVerifyPage(req, res, params, id, userName);
                 return;
             }
             // must be before opowiadania/pokaz/1
@@ -1858,7 +1887,7 @@ const onRequestHandler = (req, res) => {
             // for example opowiadania/pokaz/1
             id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
             if (id) {
-                showTextPage(req, res, params, id, userName);
+                showTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
                 return;
             }
             // lista - for example opowiadania//biblioteka/1

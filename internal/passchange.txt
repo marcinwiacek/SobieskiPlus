@@ -27,6 +27,7 @@
     if (http.status != 200) {
      alert('verification error');
     } else {
+     alert('Hasło zmienione');
      window.location.reload();
     }
    };
