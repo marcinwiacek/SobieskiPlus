@@ -27,7 +27,7 @@ function sendLogin() {
      alert(http.response);
     }
    } else {
-    window.location.reload();
+/*    window.location.reload(); */
    }
   };
   http.onerror = function() {

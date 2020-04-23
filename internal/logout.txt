@@ -5,7 +5,7 @@
    if (http.status != 200) {
     alert('logout error');
    } else {
-    window.location.reload();
+/*    window.location.reload(); */
    }
   };
   http.onerror = function() {

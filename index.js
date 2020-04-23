@@ -47,7 +47,7 @@ let callbackOther = [];
 const CallbackField = {
     Response: 0,
     UserName: 1,
-    Token: 2
+    SessionToken: 2
 }
 
 let verifyToken = [];
@@ -62,7 +62,7 @@ const TokenField = {
 
 let sessions = [];
 const SessionField = {
-    Token: 0,
+    SessionToken: 0,
     Expiry: 1,
     UserName: 2,
     RefreshCallback: 3
@@ -115,7 +115,7 @@ function readFileContentSync(fileName, callback) {
     }
 }
 
-// fixme: support Brotli files
+// fixme: support Brotli files or LZ4
 function createNewSourceFile(path, initialID, text) {
     let id = initialID;
     while (1) {
@@ -133,12 +133,17 @@ function createNewSourceFile(path, initialID, text) {
     return id;
 }
 
-// fixme: support Brotli files
+// fixme: support Brotli files or LZ4
 function appendToSourceFile(path, ID, text) {
     fs.appendFileSync(__dirname + "\\" + path + "\\" + ID + ".txt", text);
 }
 
 function getSourceFile(path, ID, callback) {
+
+    //var stats = fs.statSync("/dir/file.txt");
+    //var mtime = stats.mtime;
+    //console.log(mtime);
+
     return readFileContentSync('\\' + path + "\\" + ID + '.txt', callback);
 }
 
@@ -375,6 +380,19 @@ function sendAllReloadsAfterTextChangeToPage(arr) {
     for (let index in callbackText[arr["filename"]]) {
         sendReloadToPage(callbackText[arr["filename"]][index][CallbackField.Response]);
     }
+}
+
+function reloadUserSessionsAfterLoginLogout(newUserName, token) {
+    [callbackChat, callbackText, callbackOther].forEach(function(callback) {
+        for (let index0 in callback) {
+            for (let index in callback[index0]) {
+                if (callback[index0][index][CallbackField.SessionToken] != token) continue;
+                callback[index0][index][CallbackField.UserName] = newUserName;
+                console.log("sending refresh");
+                sendReloadToPage(callback[index0][index][CallbackField.Response]);
+            }
+        }
+    });
 }
 
 function sendCommentToPage(comment, res) {
@@ -698,29 +716,30 @@ function tryOwnLogin(req, params, googleMail) {
                 return;
             }
             req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if ("session=" + session[SessionField.Token] != cookie || session[SessionField.UserName] != "") {
+                if ("session=" + session[SessionField.SessionToken] != cookie || session[SessionField.UserName] != "") {
                     return;
                 }
                 if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
                     found = "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
                     return;
                 }
-                console.log("probuje sesje " + session[SessionField.Token]);
+                console.log("probuje sesje " + session[SessionField.SessionToken]);
                 if (googleMail) {
                     console.log(googleMail + " vs " + cacheUsers[index]["Mail"]);
                     //fixme check if verified
                     if (cacheUsers[index]["Type"] == "google" && googleMail == cacheUsers[index]["Mail"]) {
                         console.log("jest login");
                         session[SessionField.UserName] = cacheUsers[index]["Who"];
+                        reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
                         console.log("found");
                         found = "";
                     }
                     return;
                 }
                 if (cacheUsers[index]["Type"] == "google") return;
-                usr = crypto.createHash('sha256').update(session[SessionField.Token] + cacheUsers[index]["Who"]).digest("hex");
+                usr = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Who"]).digest("hex");
                 if (usr != params["user"]) return;
-                pass = crypto.createHash('sha256').update(session[SessionField.Token] + cacheUsers[index]["Pass"]).digest("hex");
+                pass = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Pass"]).digest("hex");
                 if (pass != params["password"]) return;
                 if (params["typ"] != "g" && cacheUsers[index]["ConfirmMail"] == "0") {
                     sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
@@ -728,6 +747,7 @@ function tryOwnLogin(req, params, googleMail) {
                 } else {
                     console.log("jest login");
                     session[SessionField.UserName] = cacheUsers[index]["Who"];
+                    reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
                     found = "";
                 }
             });
@@ -784,8 +804,11 @@ function parsePOSTLogout(params, req, res, userName) {
             return;
         }
         req.headers['cookie'].split("; ").forEach(function(cookie) {
-            console.log("checking session " + session[SessionField.Token] + " " + cookie);
-            if ("session=" + session[SessionField.Token] == cookie) session[SessionField.UserName] = '';
+            console.log("checking session " + session[SessionField.SessionToken] + " " + cookie);
+            if ("session=" + session[SessionField.SessionToken] == cookie) {
+                session[SessionField.UserName] = '';
+                reloadUserSessionsAfterLoginLogout('', session[SessionField.SessionToken]);
+            }
         });
     });
 
@@ -1285,7 +1308,7 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
         return;
     }
     let arr;
-    if (id[2]) {
+    if (id[2]) { //edit
         arr = decodeSourceFile(getSourceFile("texts", id[2]), false);
         if (!podstronyType[id[1]].includes(arr["Type"]) || (userLevel != "3" && userName != arr["Who"])) {
             res.statusCode = 302;
@@ -1322,6 +1345,14 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
             .replace("<!--VERSION-->", 0)
             .replace(/<!--PAGEID-->/g, "0"); //many entries
     }
+
+    let txt = "";
+    for (let index in cacheUsers) {
+        if (cacheUsers[index]["Who"] != userName) {
+            txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], false);
+        }
+    }
+    text = text.replace("<!--BETAUSERS-->", "<select id=\"betausers\" name=\"betausers\" size=5 multiple>" + txt + "</select>");
 
     txt = "";
     podstronyState[id[1]].forEach(function(state) {
@@ -1648,16 +1679,16 @@ function showListPage(req, res, params, id, userName, userLevel) {
 
 function setRefreshSession(token, firstCall) {
     sessions.forEach(function(sessionEntry, index) {
-        if (sessionEntry[SessionField.Token] != token) return;
+        if (sessionEntry[SessionField.SessionToken] != token) return;
         if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
         if (!firstCall) {
             newtoken = crypto.randomBytes(32).toString('base64');
             [callbackChat, callbackText, callbackOther].forEach(function(callback) {
                 for (let index0 in callback) {
                     for (let index in callback[index0]) {
-                        if (callback[index0][index][CallbackField.Token] != token) continue;
+                        if (callback[index0][index][CallbackField.SessionToken] != token) continue;
                         console.log("sending new token");
-                        callback[index0][index][CallbackField.Token] = newtoken;
+                        callback[index0][index][CallbackField.SessionToken] = newtoken;
                         callback[index0][index][CallbackField.Response].write("event: s\n");
                         callback[index0][index][CallbackField.Response].write("data: " + newtoken + "\n\n");
                     }
@@ -1667,7 +1698,7 @@ function setRefreshSession(token, firstCall) {
             newtoken = token;
         }
         console.log(token + " -> " + newtoken);
-        sessionEntry[SessionField.Token] = newtoken;
+        sessionEntry[SessionField.SessionToken] = newtoken;
         sessionEntry[SessionField.RefreshCallback] = setTimeout(function() {
             setRefreshSession(newtoken, false);
         }, 30000); //30 seconds
@@ -1696,8 +1727,8 @@ function addToCallback(req, res, id, callback, userName, other, token) {
                 sessionEntry.splice(index, 1);
                 return;
             }
-            if (sessionEntry[SessionField.Token] == callback[id][session][CallbackField.Token]) {
-                console.log('delete refresh for session ' + sessionEntry[SessionField.Token]);
+            if (sessionEntry[SessionField.SessionToken] == callback[id][session][CallbackField.SessionToken]) {
+                console.log('delete refresh for session ' + sessionEntry[SessionField.SessionToken]);
                 if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
             }
         });
@@ -1746,14 +1777,14 @@ const onRequestHandler = (req, res) => {
         console.log(req.headers['cookie']);
         sessions.forEach(function(session, index) {
             if (session[SessionField.Expiry] < Date.now()) {
-                console.log('usuwa sesje ' + session[SessionField.Token]);
+                console.log('usuwa sesje ' + session[SessionField.SessionToken]);
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index, 1);
                 return;
             }
-            console.log('sprawdza sesje ' + session[SessionField.Token]);
+            console.log('sprawdza sesje ' + session[SessionField.SessionToken]);
             req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if ("session=" + session[SessionField.Token] == cookie) {
+                if ("session=" + session[SessionField.SessionToken] == cookie) {
                     c = false;
                     userName = session[SessionField.UserName];
                 }
@@ -1781,15 +1812,15 @@ const onRequestHandler = (req, res) => {
             token = "";
             sessions.forEach(function(session, index) {
                 if (session[SessionField.Expiry] < Date.now()) {
-                    console.log('usuwa sesje ' + session[SessionField.Token]);
+                    console.log('usuwa sesje ' + session[SessionField.SessionToken]);
                     if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                     sessions.splice(index, 1);
                     return;
                 }
                 req.headers['cookie'].split("; ").forEach(function(cookie) {
-                    if ("session=" + session[SessionField.Token] == cookie) {
+                    if ("session=" + session[SessionField.SessionToken] == cookie) {
                         console.log('znalazl sesje ' + token);
-                        token = session[SessionField.Token];
+                        token = session[SessionField.SessionToken];
                     }
                 });
             });

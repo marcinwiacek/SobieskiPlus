@@ -199,6 +199,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
     <!--TYPE--> Tagi (opcjonalne)<p>
      <!--TAXONOMY-->
      <!--SPECIAL-TAXONOMY--> 
+     <!--BETAUSERS--> 
      Tytuł: <input id=title oninput="sprawdz()" type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50>
     <p> Informacja dla czytających <textarea id="teaser-editor-container"><!--TEASER--></textarea>
     <p> Tekst <textarea id="editor-container"><!--TEXT--></textarea>
