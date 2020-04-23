@@ -45,7 +45,7 @@ let callbackChat = [];
 let callbackText = [];
 let callbackOther = [];
 const CallbackField = {
-    Response: 0,
+    ResponseCallback: 0,
     UserName: 1,
     SessionToken: 2
 }
@@ -56,7 +56,7 @@ const TokenField = {
     Token: 0,
     UserName: 1,
     Expiry: 2,
-    Token2: 3,
+    Token2FromMail: 3,
     Token3: 4 // not used in verifyToken
 }
 
@@ -351,6 +351,32 @@ function sendHTML(req, res, text) {
     sendHTMLBody(req, res, text);
 }
 
+function sendCommentToPage(res, comment) {
+    console.log("jest callback");
+
+    res.write("event: c\n");
+    if (comment) {
+        const template = getCacheFileSync('\\internal\\comment.txt')
+            .replace("<!--USER-->", addUserLink(comment["Who"]))
+            .replace("<!--WHEN-->", formatDate(comment["When"]))
+            .replace("<!--TEXT-->", comment["Text"]);
+
+        res.write("data: " + encodeURI(template) + "\n\n");
+    } else {
+        res.write("data: \n\n");
+    }
+}
+
+function sendInfoAboutChatEntryToPage(res) {
+    res.write("event: m\n");
+    res.write("data:\n\n");
+}
+
+function sendNewTokenToPage(res, newtoken) {
+    res.write("event: s\n");
+    res.write("data: " + newtoken + "\n\n");
+}
+
 function sendReloadToPage(res) {
     res.write("event: r\n");
     res.write("data:\n\n");
@@ -373,12 +399,12 @@ function sendAllReloadsAfterTextChangeToPage(arr) {
         }
         if (found) {
             for (let index in callbackOther[index0]) {
-                sendReloadToPage(callbackOther[index0][index][CallbackField.Response]);
+                sendReloadToPage(callbackOther[index0][index][CallbackField.ResponseCallback]);
             }
         }
     }
     for (let index in callbackText[arr["filename"]]) {
-        sendReloadToPage(callbackText[arr["filename"]][index][CallbackField.Response]);
+        sendReloadToPage(callbackText[arr["filename"]][index][CallbackField.ResponseCallback]);
     }
 }
 
@@ -389,22 +415,10 @@ function reloadUserSessionsAfterLoginLogout(newUserName, token) {
                 if (callback[index0][index][CallbackField.SessionToken] != token) continue;
                 callback[index0][index][CallbackField.UserName] = newUserName;
                 console.log("sending refresh");
-                sendReloadToPage(callback[index0][index][CallbackField.Response]);
+                sendReloadToPage(callback[index0][index][CallbackField.ResponseCallback]);
             }
         }
     });
-}
-
-function sendCommentToPage(comment, res) {
-    console.log("jest callback");
-
-    const template = getCacheFileSync('\\internal\\comment.txt')
-        .replace("<!--USER-->", addUserLink(comment["Who"]))
-        .replace("<!--WHEN-->", formatDate(comment["When"]))
-        .replace("<!--TEXT-->", comment["Text"]);
-
-    res.write("event: c\n");
-    res.write("data: " + encodeURI(template) + "\n\n");
 }
 
 async function sendVerificationMail(mail, username) {
@@ -463,7 +477,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
         cacheChat[params["tekst"]]["commentsnum"]++;
 
         for (let index in callbackChat[params["tekst"]]) {
-            sendCommentToPage(comment, callbackChat[params["tekst"]][index][CallbackField.Response]);
+            sendCommentToPage(callbackChat[params["tekst"]][index][CallbackField.ResponseCallback], comment);
         }
 
         //inform other users about new chat entry
@@ -472,8 +486,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
                 for (let index in callbackOther[index0]) {
                     if (callbackOther[index0][index][CallbackField.UserName] != userName &&
                         cacheChat[params["tekst"]]["Who"].split(',').includes(callbackOther[index0][index][CallbackField.UserName])) {
-                        callbackOther[index0][index][CallbackField.Response].write("event: m\n");
-                        callbackOther[index0][index][CallbackField.Response].write("data:\n\n");
+                        sendInfoAboutChatEntryToPage(callbackOther[index0][index][CallbackField.ResponseCallback]);
                     }
                 }
             }
@@ -483,7 +496,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
         cacheTexts[params["tekst"]]["commentsnum"]++;
 
         for (let index in callbackText[params["tekst"]]) {
-            sendCommentToPage(comment, callbackText[params["tekst"]][index][CallbackField.Response]);
+            sendCommentToPage(callbackText[params["tekst"]][index][CallbackField.ResponseCallback], comment);
         }
     }
     res.statusCode = 200;
@@ -832,9 +845,9 @@ async function parsePOSTRemind(params, req, res, userName) {
             console.log("compare 2 " + tokenEntry[TokenField.Token] + " " + pass + params["token2"]);
             if (pass != params["token2"]) continue;
 
-            tokenEntry[TokenField.Token2] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
+            tokenEntry[TokenField.Token2FromMail] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
             tokenEntry[TokenField.UserName] = cacheUsers[index]["Who"];
-            sendRemindPasswordMail(cacheUsers[index]["Mail"], tokenEntry[TokenField.Token2]);
+            sendRemindPasswordMail(cacheUsers[index]["Mail"], tokenEntry[TokenField.Token2FromMail]);
             found = true;
         }
     });
@@ -1024,8 +1037,8 @@ function showChangePasswordPage(req, res, params, id, userName) {
             remindToken.splice(index, 1);
             return;
         }
-        console.log("compare " + id[1] + " vs " + decodeURIComponent(tokenEntry[TokenField.Token2]));
-        if (id[1] == decodeURIComponent(tokenEntry[TokenField.Token2])) {
+        console.log("compare " + id[1] + " vs " + decodeURIComponent(tokenEntry[TokenField.Token2FromMail]));
+        if (id[1] == decodeURIComponent(tokenEntry[TokenField.Token2FromMail])) {
             token = crypto.randomBytes(32).toString('base64');
             tokenEntry[TokenField.Token3] = token;
         }
@@ -1346,13 +1359,14 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
             .replace(/<!--PAGEID-->/g, "0"); //many entries
     }
 
-    let txt = "";
+/*    let txt = "";
     for (let index in cacheUsers) {
         if (cacheUsers[index]["Who"] != userName) {
             txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], false);
         }
     }
     text = text.replace("<!--BETAUSERS-->", "<select id=\"betausers\" name=\"betausers\" size=5 multiple>" + txt + "</select>");
+*/
 
     txt = "";
     podstronyState[id[1]].forEach(function(state) {
@@ -1689,8 +1703,7 @@ function setRefreshSession(token, firstCall) {
                         if (callback[index0][index][CallbackField.SessionToken] != token) continue;
                         console.log("sending new token");
                         callback[index0][index][CallbackField.SessionToken] = newtoken;
-                        callback[index0][index][CallbackField.Response].write("event: s\n");
-                        callback[index0][index][CallbackField.Response].write("data: " + newtoken + "\n\n");
+                        sendNewTokenToPage(callback[index0][index][CallbackField.ResponseCallback],newtoken);
                     }
                 }
             });
@@ -1712,8 +1725,7 @@ function addToCallback(req, res, id, callback, userName, other, token) {
         'Content-Type': 'text/event-stream',
         'Connection': 'keep-alive',
     });
-    res.write("event: c\n");
-    res.write("data: \n\n");
+    sendCommentToPage(res, null);
     console.log("dodaje callback");
     const session = crypto.randomBytes(32).toString('base64');
     if (other && !callback[id]) callback[id] = [];
