@@ -7,11 +7,11 @@
  <script async>
   <!--JSASYNC-->
 
-  function getRadio() {
+  function getRadio(name) {
    var r = "";
    var e = document.getElementsByTagName('input');
    for (i = 0; i < e.length; i++) {
-    if (e[i].type == "radio" && e[i].checked) {
+    if (e[i].name==name && e[i].type == "radio" && e[i].checked) {
      r = e[i].value;
      break;
     }
@@ -24,7 +24,7 @@
     document.getElementById('sub').disabled = 
       (document.getElementById("username").value == "" || 
         document.getElementById("mail").value == "" || 
-        (getRadio() == "wlasne" && (document.getElementById("pass").value == "" || 
+        (getRadio("type") == "wlasne" && (document.getElementById("pass").value == "" || 
            document.getElementById("pass2").value == "")));
    } else {
      document.getElementById('sub').disabled = 
@@ -49,7 +49,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
   }
 
   function sendF() {
-   if (getRadio() == "wlasne") {
+   if (getRadio("type") == "wlasne") {
     var pass = document.getElementById("pass").value;
     var pass2 = document.getElementById("pass2").value;
     if (pass != pass2) {
@@ -61,14 +61,14 @@ document.addEventListener("DOMContentLoaded", function(event) {
    if ("new_user" == "<!--OPERATION-->") {
     var username = document.getElementById("username").value;
     var params = '<!--OPERATION-->=1&username=' + username + '&mail=' + mail;
-    if (getRadio() == "wlasne") {
+    if (getRadio("type") == "wlasne") {
      params += '&typ=w&pass=' + sha256(pass);
     } else {
      params += '&typ=g';
     }
    } else {
     var params = 'q=<!--OPERATION-->&mail=' + mail;
-    if (getRadio() == "wlasne") {
+    if (getRadio("type") == "wlasne") {
      params += '&typ=w';
      if (pass != "") params += '&pass=' + sha256(pass);
     } else {
@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
      alert(http.response);
     } else {
      if ("new_user" == "<!--OPERATION-->") {
-      if (getRadio() == "wlasne") {
+      if (getRadio("type") == "wlasne") {
        alert('Konto założone. Konieczna jest jeszcze weryfikacja adresu email.');
       } else {
        alert('Konto założone. Adres musi być zweryfikowany przez Google.');
@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
    http.onerror = function() {
     alert(http.response);
    };
-   http.send(params);
+   http.send(params+"&level="+getRadio('userlevel'));
    return false;
   };
  </script>

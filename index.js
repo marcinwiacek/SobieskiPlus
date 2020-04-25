@@ -747,7 +747,9 @@ function parsePOSTSubscribeChat(params, req, res, userName) {
 }
 
 function parsePOSTCreateUser(params, req, res, userName) {
-    if ((params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
+    if (!params["level"] || (params["level"] != '1' && params["level"] != '2' && params["level"] != "3") ||
+        (params["level"] == '3' && getUserLevelUserName(userName) != "3") ||
+        (params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
@@ -766,7 +768,7 @@ function parsePOSTCreateUser(params, req, res, userName) {
         "When:" + formatDate(Date.now()) + "\n" +
         (params["typ"] != "g" ? "ConfirmMail:0\n" : "") +
         (params["typ"] == "g" ? "Type:google\n" : "") +
-        (Object.keys(cacheUsers).length == 0 ? "Level:3\n" : "Level:2\n");
+        (Object.keys(cacheUsers).length == 0 ? "Level:3\n" : "Level:" + params["level"] + "\n");
 
     const id = createNewSourceFile("users", 1, txt);
     addToUsersCache(params["username"], decodeSourceFile(txt, true), id);
@@ -1296,12 +1298,16 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
 
     let text = genericReplace(req, res, getCacheFileSync('\\internal\\useredit.txt'), userName);
 
-    /*
-    let txt = addRadio("userlevel", "2","standardowy z opcją komentowania",true);
-    if (userLevel == "3") txt+= addRadio("userlevel", "1", "standardowy bez opcji komentowania",false)
-    + addRadio("userlevel", "3", "admin",false);
-                    text=text.replace("<!--LEVEL-->", txt);
-    */
+
+    let txt = "";
+    if (Object.keys(cacheUsers).length != 0) {
+        txt += addRadio("userlevel", "1", "standardowy bez opcji komentowania", false) + "<p>" +
+            addRadio("userlevel", "2", "standardowy z opcją komentowania", true);
+        if (userLevel == "3") txt += "<p>" + addRadio("userlevel", "3", "admin", false);
+    } else {
+        txt += "<p>" + addRadio("userlevel", "3", "admin", true);
+    }
+    text = text.replace("<!--LEVEL-->", txt);
 
     if (params["q"] == "profil/zmien") {
         if (cacheUsers[userName]["Type"] != "google") {

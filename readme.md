@@ -19,7 +19,6 @@
 * notyfikacje tylko o określonych chatach -> częściowo done
 * deaktywacja użytkownika
 * banowanie przez www -> obecnie przez pole "Ban"
-* poziomy usera przez www -> obecnie 0 non logged, 1 logged no comment edit, 2 logged comment edit, 3 admin
 
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
