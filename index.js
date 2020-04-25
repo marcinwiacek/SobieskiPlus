@@ -267,6 +267,8 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
 
         if (forUser && entry["Who"] != forUser) return;
 
+        if (userName != entry["Who"] && entry["State"] == "beta" && entry["Beta"] && !entry["Beta"].split(",").includes(userName)) return;
+
         if (entry["Taxonomy"]) {
             if (tax) {
                 let bad = false;
@@ -516,6 +518,7 @@ function parsePOSTUploadNewText(params, req, res, userName) {
     let txt = "Title:" + params["title"] + "\n" +
         "State:" + params["state"] + "\n" +
         "Type:" + params["type"] + "\n";
+    if (params["beta"]) txt += "Beta:" + params["beta"] + "\n";
     if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
     if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
     txt += "When:" + formatDate(Date.now()) + "\n" +
@@ -542,6 +545,7 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
         (!(params["teaser"] || params["teaser"] == '') &&
             !params["text"] && !params["state"] && !params["type"] &&
             !params["title"] &&
+            !(params["beta"] || params["beta"] == '') &&
             !(params["taxonomy"] || params["taxonomy"] == '') &&
             !(params["specialtaxonomy"] || params["specialtaxonomy"] == ''))) {
         res.statusCode = 404;
@@ -559,15 +563,14 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
     const updateTime = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
 
     txt = "";
+    if (userName != cacheTexts[params["tekst"]]["Who"]) txt += "Who:" + userName + "\n";
     if (params["title"]) txt += "Title:" + params["title"] + "\n";
     if (params["state"]) txt += "State:" + params["state"] + "\n";
     if (params["type"]) txt += "Type:" + params["type"] + "\n";
+    if (params["beta"] || params['beta'] == '') txt += "Beta:" + params["beta"] + "\n";
     if (params["taxonomy"] || params['taxonomy'] == '') txt += "Taxonomy:" + params["taxonomy"] + "\n";
     if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') {
         txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
-    }
-    if (userName != cacheTexts[params["tekst"]]["Who"]) {
-        txt += "Who:" + userName + "\n";
     }
     if (params["teaser"] || params["teaser"] == '') {
         txt += (params["teaser"] != "" ? "\n" : "") + params["teaser"] + "\n<!--teaser-->\n";
@@ -587,8 +590,9 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
     if (params["title"]) cacheTexts[params["tekst"]]["Title"] = params["title"];
     if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
     if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
-    if (params["taxonomy"]) cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
-    if (params["specialtaxonomy"]) cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
+    if (params["beta"] || params["beta"] == '') cacheTexts[params["tekst"]]["Beta"] = params["beta"];
+    if (params["taxonomy"] || params["taxonomy"] == '') cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
+    if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
     cacheTexts[params["tekst"]]["When"] = updateTime;
     cacheTexts[params["tekst"]]["Who"] = userName;
 
@@ -720,15 +724,16 @@ function parsePOSTEditUser(params, req, res, userName) {
 function tryOwnLogin(req, params, googleMail) {
     let found = null;
     for (let index in cacheUsers) {
-        if (found) return;
+        if (found != null) return found;
         sessions.forEach(function(session, index2) {
-            if (found) return;
+            if (found != null) return;
             if (session[SessionField.Expiry] < Date.now()) {
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index2, 1);
                 return;
             }
             req.headers['cookie'].split("; ").forEach(function(cookie) {
+                if (found != null) return;
                 if ("session=" + session[SessionField.SessionToken] != cookie || session[SessionField.UserName] != "") {
                     return;
                 }
@@ -1320,9 +1325,8 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
         res.end();
         return;
     }
-    let arr;
+    const arr = id[2] ? decodeSourceFile(getSourceFile("texts", id[2]), false) : null;
     if (id[2]) { //edit
-        arr = decodeSourceFile(getSourceFile("texts", id[2]), false);
         if (!podstronyType[id[1]].includes(arr["Type"]) || (userLevel != "3" && userName != arr["Who"])) {
             res.statusCode = 302;
             res.setHeader('Location', '/');
@@ -1359,14 +1363,15 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
             .replace(/<!--PAGEID-->/g, "0"); //many entries
     }
 
-/*    let txt = "";
+    let txt = "";
     for (let index in cacheUsers) {
         if (cacheUsers[index]["Who"] != userName) {
-            txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], false);
+            const check =
+                id[2] ? (arr["Beta"] ? arr["Beta"].split(",").includes(cacheUsers[index]["Who"]) : false) : false;
+            txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], check);
         }
     }
-    text = text.replace("<!--BETAUSERS-->", "<select id=\"betausers\" name=\"betausers\" size=5 multiple>" + txt + "</select>");
-*/
+    text = text.replace("<!--BETAUSERS-->", txt);
 
     txt = "";
     podstronyState[id[1]].forEach(function(state) {
@@ -1703,7 +1708,7 @@ function setRefreshSession(token, firstCall) {
                         if (callback[index0][index][CallbackField.SessionToken] != token) continue;
                         console.log("sending new token");
                         callback[index0][index][CallbackField.SessionToken] = newtoken;
-                        sendNewTokenToPage(callback[index0][index][CallbackField.ResponseCallback],newtoken);
+                        sendNewTokenToPage(callback[index0][index][CallbackField.ResponseCallback], newtoken);
                     }
                 }
             });

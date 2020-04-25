@@ -25,6 +25,7 @@
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * Edge: nie chowa pasków postępu
 * przejęcie autora (pole Who) przy dodaniu specialtaxonomy
+* drobne poprawki wymagane przy zmianie pola beta
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 
 # Obecne funkcjonalności
@@ -33,6 +34,8 @@
 * edycja i wyświetlanie tekstów (włącznie z przyklejaniem i blokowaniem nadpisywania)
 * listy tekstów
 * tworzenie kont, login/logout (włącznie z Google), przypominanie hasła i weryfikacja email
+* betowanie prywatne
+* (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
 
 # Tworzenie wielu plików z danymi z istniejących:
 

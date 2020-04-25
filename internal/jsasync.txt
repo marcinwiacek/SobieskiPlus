@@ -1,6 +1,6 @@
  function setClassForExternalLinks(tree) {
   for (index = 0; index < tree.length; ++index) {
-   if (tree[index].href.indexOf(window.location.protocol + '//' + window.location.hostname + ':' + window.location.port) != 0 && tree[index].className == '') {
+   if (tree[index].href.indexOf(window.location.protocol + '/' + '/' + window.location.hostname + ':' + window.location.port) != 0 && tree[index].className == '') {
     tree[index].className = 'ext';
    }
   }
@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
  function createPOST() {
   var http = new XMLHttpRequest();
-  var url = window.location.protocol + '//' + window.location.hostname + ':' + window.location.port + window.location.pathname;
+  var url = window.location.protocol + '/' + '/' + window.location.hostname + ':' + window.location.port + window.location.pathname;
   http.open('POST', url, true);
   http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   return http;

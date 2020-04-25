@@ -13,6 +13,7 @@
   var type0 = null;
   var state0 = null;
   var title0 = null;
+  var beta0 = null;
   var taxonomy0 = null;
   var specialtaxonomy0 = null;
   var text0 = null;
@@ -33,12 +34,18 @@
 
   function sprawdz() {
    updated = true;
+   if (getRadio("state")=="beta") {
+     document.getElementById("betausersdiv").style='display:block';
+   } else {
+     document.getElementById("betausersdiv").style='display:none';
+   }
    if (suneditor.getContents(true).trim().length == 0 || 
        document.getElementById("title").value == "") {
     document.getElementById('sub').disabled = true;
    } else {
     if (type0 != getRadio("type") || 
         state0 != getRadio("state") || 
+        beta0 != getRadio("betausers") || 
         title0 != document.getElementById("title").value || 
         taxonomy0 != getListValues("taxonomy") || 
         (document.getElementById("specialtaxonomy")!=null && 
@@ -73,6 +80,12 @@ document.addEventListener("DOMContentLoaded", function(event) {
   type0 = getRadio("type");
   state0 = getRadio("state");
   title0 = document.getElementById("title").value;
+  beta0 = getListValues("betausers");
+   if (getRadio("state")=="beta") {
+     document.getElementById("betausersdiv").style='display:block';
+   } else {
+     document.getElementById("betausersdiv").style='display:none';
+   }
   taxonomy0 = getListValues("taxonomy");
   if (document.getElementById("specialtaxonomy")!=null) {
     specialtaxonomy0 = getListValues("specialtaxonomy");
@@ -113,6 +126,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
    var state = getRadio("state");
    var title = document.getElementById("title").value;
    var taxonomy = getListValues("taxonomy");
+   var beta = getListValues("betausers");
    if (document.getElementById("specialtaxonomy")!=null) {
     var specialtaxonomy = getListValues("specialtaxonomy");
    }
@@ -123,6 +137,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
    if (title != title0) params += '&title=' + title;
    if ( <!--PAGEID--> == 0 || type != type0) params += '&type=' + type;
    if (taxonomy != taxonomy0) params += '&taxonomy=' + taxonomy;
+   if (beta != beta0) params += '&beta=' + beta;
    if (suneditor.getContents(true) != text0) {
     params += '&text=' + encodeURIComponent(suneditor.getContents(true) != "<p><br></p>" ? suneditor.getContents(true) : "");
    }
@@ -199,7 +214,17 @@ document.addEventListener("DOMContentLoaded", function(event) {
     <!--TYPE--> Tagi (opcjonalne)<p>
      <!--TAXONOMY-->
      <!--SPECIAL-TAXONOMY--> 
-     <!--BETAUSERS--> 
+      <div id=betausersdiv style='display:none'>
+        <table width=100%><tr><td>
+          Użytkownicy zaproszeni do bety (bez zaznaczenia beta jest publiczna)<br>
+          <select id="betausers" name="betausers" size=5 multiple>
+            <!--BETAUSERS--> 
+          </select>
+         </td>
+         <td><div id=betausersinfo></div></td>
+        </tr></table>
+      </div>
+     <br>
      Tytuł: <input id=title oninput="sprawdz()" type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50>
     <p> Informacja dla czytających <textarea id="teaser-editor-container"><!--TEASER--></textarea>
     <p> Tekst <textarea id="editor-container"><!--TEXT--></textarea>
