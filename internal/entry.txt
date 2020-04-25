@@ -16,6 +16,18 @@
   });
   /*  document.body.onbeforeunload = function(){source.close();};*/
 
+  function getRadio(name) {
+   var r = "";
+   var e = document.getElementsByTagName('input');
+   for (i = 0; i < e.length; i++) {
+    if (e[i].name==name && e[i].type == "radio" && e[i].checked) {
+     r = e[i].value;
+     break;
+    }
+   }
+   return r;
+  }
+
   function getListValues(name) {
    var result = "";
    for (var i = 0, len = document.getElementById(name).options.length; i < len; i++) {
@@ -27,10 +39,29 @@
   function doit() {
          window.location.href = document.location.href.split('/ver')[0]+'/ver'+getListValues('versions');
   }
+function sendPoint() {
+   http = createPOST();
+   http.onload = function() {
+     if (http.status != 200) {
+      alert(http.response);
+      return;
+     }
+   };
+   http.onerror = function() {
+	alert('error');
+   };
+   http.send("point_text=1&tekst=<!--PAGEID-->&point="+getRadio('point')+"&version=<!--VERSION-->");
+   return false;
+};
+
 document.addEventListener("DOMContentLoaded", function(event) {
   var e = document.getElementsByTagName("option");
   for (var i = 0; i < e.length; i++) {
    e[i].addEventListener("click", doit);
+  }
+  var e = document.getElementsByTagName("input");
+  for (var i = 0; i < e.length; i++) {
+   e[i].addEventListener("change", sendPoint);
   }
 })
 
@@ -62,6 +93,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
    <!--WHEN-->
    <!--WHEN2-->
    <!--VERSIONS-->
+   <!--POINTS-->
    <!--TEASER-->
   </div>
   <div class=ramki>

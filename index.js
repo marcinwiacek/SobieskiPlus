@@ -89,6 +89,16 @@ function getUserLevelUserName(userName) {
     return (userName == "") ? "0" : cacheUsers[userName]["Level"];
 }
 
+function getPointsForText(arr) {
+    if (!arr["Point"]) return 0;
+    let points = 0;
+    arr["Point"].split(',').forEach(function(usr) {
+        points += parseInt(usr.substring(usr.indexOf("#") + 1));
+    });
+    console.log(points + " for text " + arr["filename"]);
+    return points;
+}
+
 function formatDate(date) {
     const d = new Date(date);
     return ret = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' +
@@ -319,6 +329,14 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
         result.sort(function(a, b) {
             let x = a["Who"].localeCompare(b["Who"]);
             return (x == 0) ? (a["When"] > b["When"] ? -1 : 1) : x;
+        });
+    } else if (sortLevel == "punkty") {
+        result.sort(function(a, b) {
+            let aa = getPointsForText(a);
+            let bb = getPointsForText(b);
+            if (aa > bb) return -1;
+            if (aa < bb) return 1;
+            return (a["When"] > b["When"] ? -1 : 1);
         });
     }
 
@@ -595,6 +613,72 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
     if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
     cacheTexts[params["tekst"]]["When"] = updateTime;
     cacheTexts[params["tekst"]]["Who"] = userName;
+
+    sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(updateTime.toString());
+}
+
+function parsePOSTUploadPointText(params, req, res, userName) {
+    if (!params["tekst"] || !params["point"] || !params["version"]) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+    if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
+        return;
+    }
+    let txt = "";
+    let wrong = false;
+    if (parseInt(params["point"]) > 0 && parseInt(params["point"]) < 11) {
+        if (cacheTexts[params["tekst"]]["Point"]) {
+            cacheTexts[params["tekst"]]["Point"].split(',').forEach(function(usr) {
+                // you can vote only once, but... you can remove vote
+                if (usr.indexOf(userName + "#") == 0) wrong = true;
+            });
+            txt = cacheTexts[params["tekst"]]["Point"] + ',';
+        }
+        txt += userName + "#" + params["point"];
+
+        /*    } else if (params["point"] == '0') {
+                wrong = true;
+        txt="";
+                cacheTexts[params["tekst"]]["Point"].split(',').forEach(function(usr) {
+                    // you can vote only once, but... you can remove vote
+                    if (usr.indexOf(userName + "#") == 0) {
+        		wrong = false;
+        		} else {
+                    if (txt != '') txt += ',';
+                    txt += usr;
+        		}
+                });*/
+    } else {
+        wrong = true;
+    }
+    if (wrong) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+
+    const updateTime = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
+
+    appendToSourceFile("texts", params["tekst"],
+        "<!--change-->\n" +
+        "When:" + formatDate(updateTime) + "\n" +
+        "Point:" + txt
+    );
+
+    //update cache
+    cacheTexts[params["tekst"]]["Point"] = txt;
+    cacheTexts[params["tekst"]]["When"] = updateTime;
 
     sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
@@ -932,6 +1016,9 @@ async function parsePOSTforms(params, req, res, userName) {
                 return;
             }
             parsePOSTUploadUpdatedText(params, req, res, userName);
+            return;
+        } else if (params["point_text"] && params["tekst"]) {
+            parsePOSTUploadPointText(params, req, res, userName);
             return;
         } else if (params["new_chat"] && params["title"] && params["users"]) {
             parsePOSTCreateChat(params, req, res, userName);
@@ -1490,6 +1577,14 @@ function showTextPage(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--LASTUPDATE-->", formatDate(lu));
 
         if (userName != "") {
+            let txt = "";
+            for (let i = 1; i < 11; i++) {
+                txt += addRadio("point", i, i, false);
+            }
+            text = text.replace("<!--POINTS-->", "<p>Twoja ocena: " + txt + "<p>")
+                .replace("<!--VERSION-->", arr["When"])
+                .replace(/<!--PAGEID-->/g, id[2]); //many entries
+
             if (userLevel != "1") {
                 text = text.replace("<!--COMMENTEDIT-->", getCacheFileSync('\\internal\\commentedit.txt'))
                     .replace(/<!--PAGEID-->/g, id[2]) //many entries
