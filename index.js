@@ -95,7 +95,6 @@ function getPointsForText(arr) {
     arr["Point"].split(',').forEach(function(usr) {
         points += parseInt(usr.substring(usr.indexOf("#") + 1));
     });
-    console.log(points + " for text " + arr["filename"]);
     return points;
 }
 
@@ -372,8 +371,6 @@ function sendHTML(req, res, text) {
 }
 
 function sendCommentToPage(res, comment) {
-    console.log("jest callback");
-
     res.write("event: c\n");
     if (comment) {
         const template = getCacheFileSync('\\internal\\comment.txt')
@@ -434,7 +431,6 @@ function reloadUserSessionsAfterLoginLogout(newUserName, token) {
             for (let index in callback[index0]) {
                 if (callback[index0][index][CallbackField.SessionToken] != token) continue;
                 callback[index0][index][CallbackField.UserName] = newUserName;
-                console.log("sending refresh");
                 sendReloadToPage(callback[index0][index][CallbackField.ResponseCallback]);
             }
         }
@@ -501,7 +497,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
         }
 
         //inform other users about new chat entry
-        if (cacheChat[params["tekst"]]["Who"].split(',').includes(userName)) {
+        if (cacheChat[params["tekst"]]["Who"] && cacheChat[params["tekst"]]["Who"].split(',').includes(userName)) {
             for (let index0 in callbackOther) {
                 for (let index in callbackOther[index0]) {
                     if (callbackOther[index0][index][CallbackField.UserName] != userName &&
@@ -639,25 +635,12 @@ function parsePOSTUploadPointText(params, req, res, userName) {
     if (parseInt(params["point"]) > 0 && parseInt(params["point"]) < 11) {
         if (cacheTexts[params["tekst"]]["Point"]) {
             cacheTexts[params["tekst"]]["Point"].split(',').forEach(function(usr) {
-                // you can vote only once, but... you can remove vote
+                // you can vote only once
                 if (usr.indexOf(userName + "#") == 0) wrong = true;
             });
             txt = cacheTexts[params["tekst"]]["Point"] + ',';
         }
         txt += userName + "#" + params["point"];
-
-        /*    } else if (params["point"] == '0') {
-                wrong = true;
-        txt="";
-                cacheTexts[params["tekst"]]["Point"].split(',').forEach(function(usr) {
-                    // you can vote only once, but... you can remove vote
-                    if (usr.indexOf(userName + "#") == 0) {
-        		wrong = false;
-        		} else {
-                    if (txt != '') txt += ',';
-                    txt += usr;
-        		}
-                });*/
     } else {
         wrong = true;
     }
@@ -701,54 +684,80 @@ function parsePOSTCreateChat(params, req, res, userName) {
 
     const txt = "Title:" + params["title"] + "\n" +
         "When:" + formatDate(Date.now()) + "\n" +
-        "Who:" + params["users"] + "," + userName + "\n" +
-        "Sub:" + params["users"] + "," + userName + "\n";
+        "Who:" + params["users"] + "," + userName + "\n";
     const id = createNewSourceFile("chat", 1, txt);
     addToChatCache(id.toString(), txt);
+
+    (params["users"] + "," + userName).split(",").forEach(function(entry) {
+        let txt = entry["CSub"] ? entry["CSub"] : "";
+        if (txt != "") txt += ",";
+        txt += id.toString();
+        appendToSourceFile("users", cacheUsers[entry]["filename"],
+            "<!--change-->\n" +
+            "When:" + formatDate(Date.now()) + "\n" +
+            "CSub:" + txt + "\n"
+        );
+        cacheUsers[entry]["CSub"] = txt;
+    });
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
     res.end(id.toString());
 }
 
-function parsePOSTSubscribeChat(params, req, res, userName) {
-    /*    let wrong = false;
-        params["users"].split(',').forEach(function(user) {
-            if (!cacheUsers[user]) wrong = true;
-        });
-        if (wrong) {
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end();
-            return;
-        }
-
-        const txt = "Title:" + params["title"] + "\n" +
-            "When:" + formatDate(Date.now()) + "\n" +
-            "Who:" + params["users"] + "," + userName + "\n" +
-            "Sub:" + params["users"] + "," + userName + "\n";
-        let id = 1;
-        while (1) {
-            let fd;
-            try {
-                fd = fs.openSync(__dirname + "\\chat\\" + id + ".txt", 'wx');
-                fs.appendFileSync(fd, txt, 'utf8');
-                addToChatCache(id.toString(), txt);
-                break;
-            } catch (err) {
-                id++;
-            } finally {
-                if (fd !== undefined) fs.closeSync(fd);
+function parsePOSTSubscribeChatTextEntry(params, req, res, userName, textEntry) {
+    const field = textEntry ? cacheUsers[userName]["ESub"] : cacheUsers[userName]["CSub"];
+    let txt = "";
+    let wrong = false;
+    if (textEntry) {
+        if (!cacheTexts[params["id"]]) wrong = true;
+    } else {
+        if (!cacheChat[params["id"]]) wrong = true;
+    }
+    if (!wrong) {
+        if (params["onoff"] == "true") {
+            if (field) {
+                field.split(",").forEach(function(entry) {
+                    if (entry == params["id"]) wrong = true;
+                });
+                txt = field + ",";
             }
+            txt += params["id"];
+        } else if (params["onoff"] == "false") {
+            wrong = true;
+            field.split(",").forEach(function(entry) {
+                if (entry == params["id"]) {
+                    wrong = false;
+                } else {
+                    if (txt != "") txt += ",";
+                    txt += entry;
+                }
+            });
+        } else {
+            wrong = true;
         }
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end(id.toString());*/
+    }
+    if (!wrong) {
+        appendToSourceFile("users", cacheUsers[userName]["filename"],
+            "<!--change-->\n" +
+            "When:" + formatDate(Date.now()) + "\n" +
+            (textEntry ? "ESub:" : "CSub:") + txt + "\n"
+        );
+        if (textEntry) {
+            cacheUsers[userName]["ESub"] = txt;
+        } else {
+            cacheUsers[userName]["CSub"] = txt;
+        }
+    }
+
+    res.statusCode = wrong ? 404 : 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end();
 }
 
 function parsePOSTCreateUser(params, req, res, userName) {
-    if (!params["level"] || (params["level"] != '1' && params["level"] != '2' && params["level"] != "3") ||
-        (params["level"] == '3' && getUserLevelUserName(userName) != "3") ||
+    if (!params["level"] || (params["level"] != "1" && params["level"] != "2" && params["level"] != "3") ||
+        (Object.keys(cacheUsers).length != 0 && params["level"] == "3" && getUserLevelUserName(userName) != "3") ||
         (params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
@@ -773,10 +782,8 @@ function parsePOSTCreateUser(params, req, res, userName) {
     const id = createNewSourceFile("users", 1, txt);
     addToUsersCache(params["username"], decodeSourceFile(txt, true), id);
 
-    if (params["typ"] != "g") {
-        if (mailSupport) sendVerificationMail(params["mail"], params["username"]);
-    }
-    console.log(id);
+    if (params["typ"] != "g" && mailSupport) sendVerificationMail(params["mail"], params["username"]);
+
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
     res.end(id.toString());
@@ -827,15 +834,12 @@ function tryOwnLogin(req, params, googleMail) {
                     found = "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
                     return;
                 }
-                console.log("probuje sesje " + session[SessionField.SessionToken]);
                 if (googleMail) {
                     console.log(googleMail + " vs " + cacheUsers[index]["Mail"]);
                     //fixme check if verified
                     if (cacheUsers[index]["Type"] == "google" && googleMail == cacheUsers[index]["Mail"]) {
-                        console.log("jest login");
                         session[SessionField.UserName] = cacheUsers[index]["Who"];
                         reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
-                        console.log("found");
                         found = "";
                     }
                     return;
@@ -849,7 +853,6 @@ function tryOwnLogin(req, params, googleMail) {
                     sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
                     found = "Konto niezweryfikowane. Kliknij na link w mailu";
                 } else {
-                    console.log("jest login");
                     session[SessionField.UserName] = cacheUsers[index]["Who"];
                     reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
                     found = "";
@@ -861,7 +864,6 @@ function tryOwnLogin(req, params, googleMail) {
 }
 
 async function parsePOSTLogin(params, req, res, userName) {
-    console.log("probuje login");
     const found = tryOwnLogin(req, params, "");
     res.statusCode = (found == "") ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
@@ -878,18 +880,15 @@ async function parsePOSTGoogleLogin(params, req, res, userName) {
         }).on('error', e => reject(e))
     });
     const txt = await premise;
-    console.log(txt);
     const json = JSON.parse(txt);
 
     if (json.azp != GoogleSignInToken || json.aud != GoogleSignInToken) {
-        console.log("bylo zle");
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
         return;
     }
 
-    console.log("probuje login2");
     const found = tryOwnLogin(req, params, json.email);
     res.statusCode = (found == "") ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
@@ -900,7 +899,6 @@ function parsePOSTLogout(params, req, res, userName) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
 
-    console.log("logout try");
     sessions.forEach(function(session, index) {
         if (session[SessionField.Expiry] < Date.now()) {
             if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
@@ -930,10 +928,8 @@ async function parsePOSTRemind(params, req, res, userName) {
         for (let index in cacheUsers) {
             if (found) return;
             usr = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Who"]).digest("hex");
-            console.log("compare 1 " + tokenEntry[TokenField.Token] + " " + usr + params["token1"]);
             if (usr != params["token1"]) continue;
             pass = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Mail"]).digest("hex");
-            console.log("compare 2 " + tokenEntry[TokenField.Token] + " " + pass + params["token2"]);
             if (pass != params["token2"]) continue;
 
             tokenEntry[TokenField.Token2FromMail] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
@@ -985,7 +981,6 @@ function parsePOSTVerifyMail(params, req, res, userName) {
         }
         if (params["token"] != crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
                 cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex")) return;
-        console.log("verified" + tokenEntry[TokenField.Token]);
         appendToSourceFile("users", cacheUsers[tokenEntry[TokenField.UserName]]["filename"],
             "<!--change-->\n" +
             "When:" + formatDate(Date.now()) + "\n" +
@@ -1027,6 +1022,12 @@ async function parsePOSTforms(params, req, res, userName) {
             return;
         } else if (params["edit_user"] && params["typ"] && params["mail"]) {
             parsePOSTEditUser(params, req, res, userName);
+            return;
+        } else if (params["esub"] && params["id"] && params["onoff"]) {
+            parsePOSTSubscribeChatTextEntry(params, req, res, userName, true);
+            return;
+        } else if (params["csub"] && params["id"] && params["onoff"]) {
+            parsePOSTSubscribeChatTextEntry(params, req, res, userName, false);
             return;
         }
     } else { // UserName == ""
@@ -1131,7 +1132,6 @@ function showChangePasswordPage(req, res, params, id, userName) {
             remindToken.splice(index, 1);
             return;
         }
-        console.log("compare " + id[1] + " vs " + decodeURIComponent(tokenEntry[TokenField.Token2FromMail]));
         if (id[1] == decodeURIComponent(tokenEntry[TokenField.Token2FromMail])) {
             token = crypto.randomBytes(32).toString('base64');
             tokenEntry[TokenField.Token3] = token;
@@ -1267,14 +1267,45 @@ function getChatList(pageNum, userName) {
     return [result.slice(pageNum * onThePage, (pageNum + 1) * onThePage), result.length];
 }
 
+function getESubList(pageNum, userName) {
+    if (!cacheUsers[userName]["ESub"]) return [null, null];
+
+    let result = [];
+
+    cacheUsers[userName]["ESub"].split(',').forEach((ID) => {
+        if (cacheTexts[ID]["State"] == "szkic") return;
+        result.push(cacheTexts[ID]);
+    });
+
+    result.sort(function(a, b) {
+        return (a["When"] == b["When"]) ? 0 : (a["When"] < b["When"] ? 1 : -1);
+    });
+
+    return [result.slice(pageNum * onThePage, (pageNum + 1) * onThePage), result.length];
+}
+
+function subForChat(chatID, userName) {
+    if (!cacheUsers[userName]["CSub"]) {
+        return cacheChat[chatID]["Who"] ? false : true;
+    } else {
+        if (cacheChat[chatID]["Who"]) {
+            return cacheUsers[userName]["CSub"].split(",").includes(chatID);
+        } else {
+            return cacheUsers[userName]["CSub"].split(",").includes(chatID);
+        }
+    }
+}
+
 function formatChatEntry(template, arr, userName) {
     template = template.replace("<!--TITLE-->",
         "<a href=\"?q=chat/pokaz/" + arr["filename"] + "\">" + arr["Title"] + "</a>");
     if (arr["commentsnum"] != "0") {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
-    //    template = template.replace("<!--SUB-->", "<a href=javascript:sub(" + arr["filename"] + "," +
-    //        !arr["Sub"].split(",").includes(userName) + ");>" + (arr["Sub"].split(",").includes(userName) ? "on" : "off") + "</a>");
+
+    template = template.replace("<!--SUB-->", "<a href=javascript:csub(" + arr["filename"] + "," +
+        !subForChat(arr["filename"], userName) + ");>" + (subForChat(arr["filename"], userName) ? "on" : "off") + "</a>");
+
     if (arr["Who"]) {
         let txt = "";
         arr["Who"].split(",").forEach(entry => {
@@ -1297,7 +1328,6 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
     sendHTMLHead(res);
 
     let text = genericReplace(req, res, getCacheFileSync('\\internal\\useredit.txt'), userName);
-
 
     let txt = "";
     if (Object.keys(cacheUsers).length != 0) {
@@ -1369,6 +1399,18 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             text = text.replace("<!--CHAT-LIST-->", "<div class=ramki><table width=100%><tr><td>" +
                 (txt != "" ? (userName == arr["Who"] ? "Ostatnie chaty" : "Ostatnie chaty z Tobą") : "Chat") +
                 "</td><td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>");
+
+            const list2 = getESubList(0, userName);
+            txt = "";
+            if (list2[0]) {
+                list2[0].forEach(function(arr) {
+                    txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
+                });
+            }
+            if (txt != "") {
+                text = text.replace("<!--ESUB-LIST-->", "<div class=ramki><table width=100%><tr><td>Kolejka" +
+                    "</td></tr></table><hr>" + txt + "</div>");
+            }
         }
 
         let allTypes = [];
@@ -1393,7 +1435,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             let t = "";
             if (list[0]) {
                 list[0].forEach(function(arr) {
-                    t += (t != "" ? "<hr>" : "") + formatListEntry(template, arr);
+                    t += (t != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
                 });
             }
             if (t != "") {
@@ -1442,7 +1484,6 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
             if (x != "") main_text = x;
         });
 
-        console.log("time of edit " + arr["When"]);
         text = text.replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
             .replace(/<!--TITLE-->/g, arr["Title"]) //many entries
@@ -1585,7 +1626,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
         if (userName != "") {
             let txt = "";
             for (let i = 1; i < 11; i++) {
-                txt += addRadio("point", i, i, false);
+                txt += addRadio("point", i, i, getPointsForText(arr) == i);
             }
             text = text.replace("<!--POINTS-->", "<p>Twoja ocena: " + txt + "<p>")
                 .replace("<!--VERSION-->", arr["When"])
@@ -1606,7 +1647,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
     });
 }
 
-function formatListEntry(template, arr) {
+function formatListEntry(template, arr, userName) {
     Object.keys(podstronyType).forEach(function(entry) {
         if (podstronyType[entry].includes(arr["Type"])) {
             template = template.replace("<!--TITLE-->",
@@ -1623,6 +1664,17 @@ function formatListEntry(template, arr) {
             txt += tax;
         });
     }
+
+    if (userName != "") {
+        if (!cacheUsers[userName]["ESub"]) {
+            template = template.replace("<!--SUB-->", "<a href=javascript:esub(" + arr["filename"] + ",true);>off</a>");
+        } else {
+            template = template.replace("<!--SUB-->", "<a href=javascript:esub(" + arr["filename"] + "," +
+                !cacheUsers[userName]["ESub"].split(",").includes(arr["filename"]) +
+                ");>" + (cacheUsers[userName]["ESub"].split(",").includes(arr["filename"]) ? "on" : "off") + "</a>");
+        }
+    }
+
     return template.replace("<!--TAXONOMY-->", txt)
         .replace("<!--USER-->", addUserLink(arr["Who"]))
         .replace("<!--TYPE-->", arr["Type"])
@@ -1649,7 +1701,7 @@ function showMainPage(req, res, page, params, userName) {
     let txt = "";
     if (listGlue[0]) {
         listGlue[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
         });
     }
     text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
@@ -1665,7 +1717,7 @@ function showMainPage(req, res, page, params, userName) {
     txt = "";
     if (list[0]) {
         list[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
         });
     }
     text = text.replace("<!--LIST-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "")
@@ -1782,7 +1834,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     txt = "";
     if (listGlue[0]) {
         listGlue[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
         });
     }
     text = text.replace("<!--LIST-GLUE-->", txt != "" ? "<div class=ramki>" + txt + "</div>" : "");
@@ -1790,7 +1842,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     txt = "";
     if (list[0]) {
         list[0].forEach(function(arr) {
-            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr);
+            txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
         });
     }
 
@@ -1807,7 +1859,6 @@ function setRefreshSession(token, firstCall) {
                 for (let index0 in callback) {
                     for (let index in callback[index0]) {
                         if (callback[index0][index][CallbackField.SessionToken] != token) continue;
-                        console.log("sending new token");
                         callback[index0][index][CallbackField.SessionToken] = newtoken;
                         sendNewTokenToPage(callback[index0][index][CallbackField.ResponseCallback], newtoken);
                     }
@@ -1832,13 +1883,11 @@ function addToCallback(req, res, id, callback, userName, other, token) {
         'Connection': 'keep-alive',
     });
     sendCommentToPage(res, null);
-    console.log("dodaje callback");
     const session = crypto.randomBytes(32).toString('base64');
     if (other && !callback[id]) callback[id] = [];
     // order consistent with CallbackField
     callback[id][session] = [res, userName, token];
     res.on('close', function() {
-        console.log("usuwa callback");
         sessions.forEach(function(sessionEntry, index) {
             if (sessionEntry[SessionField.Expiry] < Date.now()) {
                 if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
@@ -1846,7 +1895,6 @@ function addToCallback(req, res, id, callback, userName, other, token) {
                 return;
             }
             if (sessionEntry[SessionField.SessionToken] == callback[id][session][CallbackField.SessionToken]) {
-                console.log('delete refresh for session ' + sessionEntry[SessionField.SessionToken]);
                 if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
             }
         });
@@ -1895,12 +1943,10 @@ const onRequestHandler = (req, res) => {
         console.log(req.headers['cookie']);
         sessions.forEach(function(session, index) {
             if (session[SessionField.Expiry] < Date.now()) {
-                console.log('usuwa sesje ' + session[SessionField.SessionToken]);
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index, 1);
                 return;
             }
-            console.log('sprawdza sesje ' + session[SessionField.SessionToken]);
             req.headers['cookie'].split("; ").forEach(function(cookie) {
                 if ("session=" + session[SessionField.SessionToken] == cookie) {
                     c = false;
@@ -1930,14 +1976,12 @@ const onRequestHandler = (req, res) => {
             token = "";
             sessions.forEach(function(session, index) {
                 if (session[SessionField.Expiry] < Date.now()) {
-                    console.log('usuwa sesje ' + session[SessionField.SessionToken]);
                     if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                     sessions.splice(index, 1);
                     return;
                 }
                 req.headers['cookie'].split("; ").forEach(function(cookie) {
                     if ("session=" + session[SessionField.SessionToken] == cookie) {
-                        console.log('znalazl sesje ' + token);
                         token = session[SessionField.SessionToken];
                     }
                 });
@@ -2101,6 +2145,9 @@ fs.readdirSync(__dirname + '\\users').filter(file => (file.slice(-4) === '.txt')
 })
 
 if (!fs.existsSync(__dirname + '\\chat')) fs.mkdirSync(__dirname + '\\chat');
+if (!fs.existsSync(__dirname + '\\chat\\0.txt')) {
+    fs.appendFileSync(__dirname + "\\chat\\0.txt", "Title:Shoutbox\nWhen:" + formatDate(Date.now()) + "\n");
+}
 fs.readdirSync(__dirname + '\\chat').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     addToChatCache(file.replace(".txt", ""), getSourceFile("chat", file.replace(".txt", "")));
 })

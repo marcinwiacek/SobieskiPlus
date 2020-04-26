@@ -7,17 +7,11 @@
   * https://www.dobreprogramy.pl/marcinw2/Hey-Joe-Potrzymaj-mi-piwo-dlaczego-w-Polsce-nie-ma-wlasnych-OS-ani-przegladarek-ani-wiekszych-pakietow,107517.html
 
 # todo z node.JS:
-* change password przez stronę newuser
-* auto odswiezanie wszystkich stron -> częściowo done
-* +- (punkty)
 * facebook
 * sesje (Google) - szukanie czy user wylogowany + usuwanie nieaktywnych
 * notka na stronie usera
 * subskrypcje web-push (wymagają Notifications z przeglądarki)
 * zglaszanie do moderacji
-* kolejki tekstów
-* notyfikacje tylko o określonych chatach -> częściowo done
-* deaktywacja użytkownika
 * banowanie przez www -> obecnie przez pole "Ban"
 
 # Znane rzeczy z node.JS:
@@ -28,13 +22,14 @@
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 
 # Obecne funkcjonalności
-* pokazywanie popup przy otrzymaniu wiadomości chat
+* pokazywanie popup przy otrzymaniu wiadomości chat (można zapisać się tylko do określonych chatów)
 * chatowanie (dodawanie i wysyłanie)
-* edycja i wyświetlanie tekstów (włącznie z przyklejaniem i blokowaniem nadpisywania)
-* listy tekstów
+* edycja i wyświetlanie tekstów (włącznie z przyklejaniem i blokowaniem nadpisywania; pokazywaniem kolejnych wersji tekstu i teasera)
+* listy i kolejki prywatne tekstów
 * tworzenie kont, login/logout (włącznie z Google), przypominanie hasła i weryfikacja email
-* betowanie prywatne
+* betowanie prywatne i publiczne
 * (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
+* różne poziomy użytkowników
 
 # Tworzenie wielu plików z danymi z istniejących:
 
