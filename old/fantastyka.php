@@ -133,11 +133,88 @@ function findBetween($text, $start, $start2, $end)
     return strstr($f2, $end, true);
 }
 
+function getMon($t)
+{
+    if ($t=="01") { return "Jan";
+    }
+    if ($t=="02") { return "Feb";
+    }
+    if ($t=="03") { return "Mar";
+    }
+    if ($t=="04") { return "Apr";
+    }
+    if ($t=="05") { return "May";
+    }
+    if ($t=="06") { return "Jun";
+    }
+    if ($t=="07") { return "Jul";
+    }
+    if ($t=="08") { return "Aug";
+    }
+    if ($t=="09") { return "Sep";
+    }
+    if ($t=="10") { return "Oct";
+    }
+    if ($t=="11") { return "Nov";
+    }
+    if ($t=="12") { return "Dec";
+    }
+    return "";
+}
+
+function addUserFile($author)
+{
+    global $userID,$path;
+
+        $found=false;
+    foreach (scandir("$path/users") as $key => $filename) {
+        if (!in_array($filename, array(".","..")) && !is_dir("$path/users/$filename")
+            && strstr($filename, ".txt") 
+        ) {
+                $fx=file_get_contents("$path/users/$filename");
+            if (strstr($fx, "Who:$author\n")) {
+                $found = true;
+                break;
+            }
+        }
+    }
+
+    if (!$found) {
+        file_put_contents("$path/users/$userID.txt", "Who:$author\nWhen:26 Apr 2020\nPass:aaa\nMail:marcin@mwiacek.com\nConfirmMail:0\nLevel:2\n");
+        $userID++;
+    }
+
+}
+
+function formatMyText($text)
+{
+        $text = str_replace("<br>", "<br />", $text);
+        $text = str_replace("<hr>", "<hr />", $text);
+        $text = preg_replace('/<p(.*?)>/', "<p\\1 />", $text);
+        $text = str_replace("</p>", "", $text);
+        $text = str_replace("<p />&nbsp; <p />", "<p />", $text);
+        $text = str_replace("<p /><p />", "<p />", $text);
+        $text = str_replace("<p /><p />", "<p />", $text);
+        $text = str_replace("<br /><br />", "<br />", $text);
+        $text = str_replace("<hr /><p />", "<hr />", $text);
+        $text = str_replace("&nbsp;", " ", $text);
+        $text = str_replace("\t\t", "\t", $text);
+        $text = str_replace("  ", " ", $text);
+        $text = str_replace(" <p ", "<p ", $text);
+        $text = str_replace("<p /> <hr />", "<hr />", $text);
+        $text = str_replace("&oacute;", "ó", $text);
+        $text = str_replace("\n\t<span class=\"koniec\">Koniec</span>", "", $text);
+        $text = str_replace("Tagi: , ", "Tagi: ", $text);
+
+    return trim($text);
+}
+
+
 function processArticle($id,$title,$num)
 {
     global $path, $downloadImages, $tocContentOpf1, $allowResume, $log, $set, $context, $userID;
 
-    if ($allowResume && file_exists("$path/OEBPS/$id.xhtml")) { return;
+    if ($allowResume && file_exists("$path/texts/$id.txt")) { return;
     }
 
     if ($set == 4) {
@@ -147,7 +224,8 @@ function processArticle($id,$title,$num)
     }
 
     $descriptionOrHr = trim(findBetween($f, "<div class=\"clear linia\" style=\"margin-top: 1px;\"></div>", "", "</div>"));
-    if ($descriptionOrHr != "") $descriptionOrHr = $descriptionOrHr."\n<!--teaser-->\n";
+    if ($descriptionOrHr != "") { $descriptionOrHr = $descriptionOrHr."\n<!--teaser-->\n";
+    }
 
     $author = findBetween(
         $f, "<p class=\"naglowek-kom\"><a class=\"login\" href=\"/profil/", ">", "<"
@@ -155,6 +233,9 @@ function processArticle($id,$title,$num)
     $author = str_replace("&", "&amp;", $author);
 
     $info = findBetween($f, "<p class=\"data\">", "", "<");
+
+    $data = findBetween($info, "|", "", "|");
+    $d = $data[1].$data[2]." ".getMon($data[4].$data[5])." 20".$data[7].$data[8]." ".$data[14].$data[15].":".$data[17].$data[18].":00";
 
     if ($log) { file_put_contents("$path/log", "before tags\n", FILE_APPEND);
     }
@@ -228,46 +309,43 @@ function processArticle($id,$title,$num)
         $txt = preg_replace('/src=\"(.*?)\"/', "href=\"\\1\"", $txt);
     }
 
-    $txt = str_replace("<br>", "<br />", $txt);
-    $txt = str_replace("<hr>", "<hr />", $txt);
-    $txt = preg_replace('/<p(.*?)>/', "<p\\1 />", $txt);
-    $txt = str_replace("</p>", "", $txt);
-    $txt = str_replace("<p />&nbsp; <p />", "<p />", $txt);
-    $txt = str_replace("<p /><p />", "<p />", $txt);
-    $txt = str_replace("<p /><p />", "<p />", $txt);
-    $txt = str_replace("<br /><br />", "<br />", $txt);
-    $txt = str_replace("<hr /><p />", "<hr />", $txt);
-    $txt = str_replace("&nbsp;", " ", $txt);
-    $txt = str_replace("\t\t", "\t", $txt);
-    $txt = str_replace("  ", " ", $txt);
-    $txt = str_replace(" <p ", "<p ", $txt);
-    $txt = str_replace("<p /> <hr />", "<hr />", $txt);
-    $txt = str_replace("&oacute;", "ó", $txt);
-    $txt = str_replace("\n\t<span class=\"koniec\">Koniec</span>", "", $txt);
-    $txt = str_replace("Tagi: , ", "Tagi: ", $txt);
-
     $txt = "Title:$title\n".
-    "Who:$author\nWhen:26 Apr 2020\nState:biblioteka\nType:opowiadanie\n\n".
-//    "$tags".
-//    "$info\n".
+    "Who:$author\nWhen:$d\nState:biblioteka\nType:opowiadanie\n\n".
+    //    "$tags".
+    //    "$info\n".
     "$descriptionOrHr".
-    trim($txt)."\n";
+    formatMyText($txt)."\n";
 
-$found=false;
-foreach (scandir("$path/users") as $key => $filename) {
-        if (!in_array($filename, array(".","..")) && !is_dir("$path/users/$filename")
-            && strstr($filename, ".txt") ) {
-                $fx=file_get_contents("$path/users/$filename");
-		if (strstr($fx,"Who:$author")) {
-$found = true;
-break;
-}
+    addUserFile($author);
+
+    $f2=$f;
+    $f2=findNext($f2, "<h3>Komentarze</h3>");
+
+    while(true) {
+        if (!strstr($f2, "<article>")) { break;
         }
-    }
+        $f2 = findNext($f2, "<article>");
 
-    if (!$found) {
-       file_put_contents("$path/users/$userID.txt", "Who:$author\nWhen:26 Apr 2020\nPass:aaa\nMail:marcin@mwiacek.com\nConfirmMail:0\nLevel:2\n");
-$userID++;
+        $info = findBetween($f2, "<p class=\"data\">", "", "span class");
+        $data = findBetween($info, "|", "", "<");
+        //        echo $data;
+        $d = $data[1].$data[2]." ".getMon($data[4].$data[5])." 20".$data[7].$data[8]." ".$data[14].$data[15].":".$data[17].$data[18].":00";
+        //        echo $d;
+
+        $author = findBetween(
+            $f2, "<p class=\"naglowek-kom\"><a class=\"login\" href=\"/profil/", ">", "<"
+        );
+        $author = str_replace("&", "&amp;", $author);
+        //        echo $author;
+
+        $text = findBetween($f2, "</aside>", "", "<div class=\"clear");
+        $text = str_replace("		</div>", "", $text);
+
+        //        echo $text;
+
+        $txt=$txt."<!--comment-->\nWho:$author\nWhen:$d\n\n".formatMyText($text)."\n";
+
+        addUserFile($author);
     }
 
     file_put_contents("$path/texts/$id.txt", $txt);
