@@ -1115,9 +1115,10 @@ function genericReplace(req, res, text, userName) {
             .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
 }
 
-function addRadio(idname, value, description, checked) {
+function addRadio(idname, value, description, checked, readonly) {
     return "<input type=\"radio\" name=\"" + idname + "\" id=" + idname + value + " value=\"" + value + "\"" +
-        (checked ? " checked" : "") + "><label for=\"" + idname + value + "\">" + description + "</label>";
+        (readonly ? " disabled" : "") + (checked ? " checked" : "") +
+        "><label for=\"" + idname + value + "\">" + description + "</label>";
 }
 
 function addOption(idname, value, selected) {
@@ -1345,11 +1346,11 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
 
     let txt = "";
     if (Object.keys(cacheUsers).length != 0) {
-        txt += addRadio("userlevel", "1", "standardowy bez opcji komentowania", false) + "<p>" +
-            addRadio("userlevel", "2", "standardowy z opcją komentowania", true);
-        if (userLevel == "3") txt += "<p>" + addRadio("userlevel", "3", "admin", false);
+        txt += addRadio("userlevel", "1", "standardowy bez opcji komentowania", false, false) + "<p>" +
+            addRadio("userlevel", "2", "standardowy z opcją komentowania", true, false);
+        if (userLevel == "3") txt += "<p>" + addRadio("userlevel", "3", "admin", false, false);
     } else {
-        txt += "<p>" + addRadio("userlevel", "3", "admin", true);
+        txt += "<p>" + addRadio("userlevel", "3", "admin", true, false);
     }
     text = text.replace("<!--LEVEL-->", txt);
 
@@ -1525,13 +1526,13 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     podstronyState[id[1]].forEach(function(state) {
         if (userLevel != "3" && state == "biblioteka" && id[1] != "hydepark" &&
             (!id[2] || (id[2] && arr["State"] != "biblioteka"))) return;
-        txt += addRadio("state", state, state, (!id[2] && state == "szkic" || id[2] && state == arr["State"]));
+        txt += addRadio("state", state, state, (!id[2] && state == "szkic" || id[2] && state == arr["State"]), false);
     });
     text = text.replace("<!--STATE-->", txt + "<p>");
 
     txt = "";
     podstronyType[id[1]].forEach(function(type) {
-        txt += addRadio("type", type, type, (podstronyType[id[1]].length == 1 || (id[2] && arr["Type"] == type)));
+        txt += addRadio("type", type, type, (podstronyType[id[1]].length == 1 || (id[2] && arr["Type"] == type)), false);
     });
     text = text.replace("<!--TYPE-->", txt + "<p>");
 
@@ -1639,8 +1640,9 @@ function showTextPage(req, res, params, id, userName, userLevel) {
 
         if (userName != "") {
             let txt = "";
+            const points = getPointsForText(arr);
             for (let i = 1; i < 11; i++) {
-                txt += addRadio("point", i, i, getPointsForText(arr) == i);
+                txt += addRadio("point", i, i, points == i, points != 0);
             }
             text = text.replace("<!--POINTS-->", "<p>Twoja ocena: " + txt + "<p>")
                 .replace("<!--VERSION-->", arr["When"])

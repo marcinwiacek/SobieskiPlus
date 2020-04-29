@@ -55,11 +55,13 @@ function sendPoint() {
 };
 
 document.addEventListener("DOMContentLoaded", function(event) {
+  /* Versions */
   var e = document.getElementsByTagName("option");
   for (var i = 0; i < e.length; i++) {
    e[i].addEventListener("click", doit);
   }
-  var e = document.getElementsByTagName("input");
+  /* Points for evaluating text */
+  var e = document.getElementsByName("point");
   for (var i = 0; i < e.length; i++) {
    e[i].addEventListener("change", sendPoint);
   }
