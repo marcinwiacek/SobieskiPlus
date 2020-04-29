@@ -1,4 +1,5 @@
 //formatted with js-beautify
+//for license ask marcin@mwiacek.com - for example all OSS licenses (like MIT, Apache and GPL2) can be discussed
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -669,12 +670,12 @@ function parsePOSTUploadPointText(params, req, res, userName) {
     appendToSourceFile("texts", params["tekst"],
         "<!--change-->\n" +
         "When:" + formatDate(updateTime) + "\n" +
-        "Point:" + txt
+        "Point:" + txt + "\n"
     );
 
     //update cache
-    cacheTexts[params["tekst"]]["Point"] = txt;
     cacheTexts[params["tekst"]]["When"] = updateTime;
+    cacheTexts[params["tekst"]]["Point"] = txt;
 
     sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
