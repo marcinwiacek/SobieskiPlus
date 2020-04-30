@@ -2069,7 +2069,7 @@ const onRequestHandler = (req, res) => {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/' +
             (req.url.includes('.js') ? 'javascript' : 'css') + '; charset=UTF-8');
-        //        res.setHeader('Cache-Control', 'must-revalidate');
+        res.setHeader('Cache-Control', 'must-revalidate');
         const stats = fs.statSync(path.normalize(__dirname + req.url));
         res.setHeader('Last-Modified', stats.mtime.toUTCString());
         if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('br')) {
