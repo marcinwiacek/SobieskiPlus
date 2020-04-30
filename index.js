@@ -1690,7 +1690,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
             .replace("<!--TEXT-->", main_text)
             .replace("<!--TYPE-->", arr["Type"])
             .replace("<!--VERSIONS-->", "<br>" + versions)
-            .replace("<!--WHEN-->", versions ? "" : "<br>Dodane :" + formatDate(when_first))
+            .replace("<!--WHEN-->", versions ? "" : "<br>Dodane: " + formatDate(when_first))
             .replace("<!--WHEN2-->", (when_first != arr["When"] ? "<br>Ostatnio zmienione: " + formatDate(arr["When"]) : ""));
 
         let lu = arr["When"];
@@ -1991,6 +1991,85 @@ function addToCallback(req, res, id, callback, userName, other, token) {
     setRefreshSession(token, true);
 }
 
+function parseGETWithQParam(req, res, params, userName) {
+    //must be before opowiadania/dodaj i opowiadania/zmien/1
+    if (params["q"] == "profil/dodaj") {
+        showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
+        return;
+    } else if (params["q"] == "haslo/zmien/1") {
+        showPassReminderPage(req, res, params, userName);
+        return;
+    }
+    if (userName != "") {
+        if (params["q"] == "profil/zmien") {
+            showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
+            return;
+        } else if (params["q"] == "chat/dodaj") {
+            showAddChatPage(req, res, params, userName);
+            return;
+        }
+        let id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
+        if (id) {
+            showChatPage(req, res, params, id, userName);
+            return;
+        }
+        // for example opowiadania/dodaj
+        id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
+        if (id) {
+            showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
+            return;
+        }
+        // for example opowiadania/zmien/1
+        id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
+        if (id) {
+            showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
+            return;
+        }
+    }
+    if (params["q"] == "logingoogle") {
+        showLoginGooglePage(req, res, userName);
+        return;
+    }
+    let id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
+    if (id) {
+        showChangePasswordPage(req, res, params, id, userName);
+        return;
+    }
+    id = params["q"].match(/^verifymail\/([A-Za-z0-9+\/=]+)$/);
+    if (id) {
+        showMailVerifyPage(req, res, params, id, userName);
+        return;
+    }
+    // must be before opowiadania/pokaz/1
+    id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
+    if (id) {
+        showProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
+        return;
+    }
+    // for example opowiadania/pokaz/1
+    id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
+    if (id) {
+        showTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
+        return;
+    }
+    // lista - for example opowiadania//biblioteka/1
+    id = params["q"].match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
+    if (id) {
+        showListPage(req, res, params, id, userName, getUserLevelUserName(userName));
+        return;
+    }
+    // main page with page number
+    id = params["q"].match(/^(\/{1,1}[0-9]*)?$/);
+    if (id) {
+        showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
+        return;
+    }
+    res.statusCode = 302;
+    res.setHeader('Location', '/');
+    res.end();
+    return;
+}
+
 const onRequestHandler = (req, res) => {
     if (req.url == "/external/styles.css" || req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
         req.url == "/external/suneditor.min.css" || req.url == "/external/suneditor.min.js") {
@@ -2103,82 +2182,7 @@ const onRequestHandler = (req, res) => {
             return;
         }
         if (params["q"]) {
-            //must be before opowiadania/dodaj i opowiadania/zmien/1
-            if (params["q"] == "profil/dodaj") {
-                showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
-                return;
-            } else if (params["q"] == "haslo/zmien/1") {
-                showPassReminderPage(req, res, params, userName);
-                return;
-            }
-            if (userName != "") {
-                if (params["q"] == "profil/zmien") {
-                    showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
-                    return;
-                } else if (params["q"] == "chat/dodaj") {
-                    showAddChatPage(req, res, params, userName);
-                    return;
-                }
-                let id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
-                if (id) {
-                    showChatPage(req, res, params, id, userName);
-                    return;
-                }
-                // for example opowiadania/dodaj
-                id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
-                if (id) {
-                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-                    return;
-                }
-                // for example opowiadania/zmien/1
-                id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
-                if (id) {
-                    showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-                    return;
-                }
-            }
-            if (params["q"] == "logingoogle") {
-                showLoginGooglePage(req, res, userName);
-                return;
-            }
-            let id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
-            if (id) {
-                showChangePasswordPage(req, res, params, id, userName);
-                return;
-            }
-            id = params["q"].match(/^verifymail\/([A-Za-z0-9+\/=]+)$/);
-            if (id) {
-                showMailVerifyPage(req, res, params, id, userName);
-                return;
-            }
-            // must be before opowiadania/pokaz/1
-            id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
-            if (id) {
-                showProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
-                return;
-            }
-            // for example opowiadania/pokaz/1
-            id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
-            if (id) {
-                showTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-                return;
-            }
-            // lista - for example opowiadania//biblioteka/1
-            id = params["q"].match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
-            if (id) {
-                showListPage(req, res, params, id, userName, getUserLevelUserName(userName));
-                return;
-            }
-            // main page with page number
-            id = params["q"].match(/^(\/{1,1}[0-9]*)?$/);
-            if (id) {
-                showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
-                return;
-            }
-            res.statusCode = 302;
-            res.setHeader('Location', '/');
-            res.end();
-            return;
+            return parseGETWithQParam(req, res, params, userName);
         }
         showMainPage(req, res, 0, [], userName);
         return;
