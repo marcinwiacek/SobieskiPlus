@@ -215,6 +215,40 @@ const DecodingLevel = {
     CommentText: 4
 }
 
+function addPendingCommentToArr(arr, comment, onlyHeaders) {
+    if (comment == null) return;
+    if (!onlyHeaders) {
+        comment["When"] = Date.parse(comment["When"]);
+        if (!arr["Comments"]) {
+            arr["Comments"] = [];
+        } else {
+            if (comment["Edit"]) {
+                for (let index0 in arr["Comments"]) {
+                    if (arr["Comments"][index0]["Who"] == comment["Who"] && arr["Comments"][index0]["When"] == comment["When"]) {
+                        arr["Comments"][index0]["Edit"] = comment["Edit"];
+                        arr["Comments"][index0]["Text"] = comment["Text"];
+                        comment["When"] = 0;
+                        break;
+                    }
+                }
+            }
+            if (comment["When"] != 0) arr["Comments"].push(comment);
+        }
+    }
+    if (comment["When"] != 0) arr["commentsnum"]++;
+    arr["commentswhen"] = comment["Edit"] ? comment["Edit"] : comment["When"];
+}
+
+function addPendingTextToArr(arr, t, onlyHeaders) {
+    if (!onlyHeaders && t != "") {
+        if (!arr["OldText"]) arr["OldText"] = [];
+        let oldtext = [];
+        oldtext["Text"] = t;
+        oldtext["When"] = Date.parse(arr["When"]);
+        arr["OldText"].push(oldtext);
+    }
+}
+
 //fields starting from big char are read from memory
 function decodeSourceFile(txt, onlyHeaders) {
     let arr = [];
@@ -225,29 +259,15 @@ function decodeSourceFile(txt, onlyHeaders) {
     arr["commentswhen"] = 0; // for cache we don't want comments in memory; just number
     txt.split(/\r?\n/).forEach(function(line) {
         if (line == "<!--comment-->") {
-            if (comment != null) {
-                if (!onlyHeaders) {
-                    if (!arr["Comments"]) arr["Comments"] = [];
-                    comment["When"] = Date.parse(comment["When"]);
-                    arr["Comments"].push(comment);
-                }
-                arr["commentsnum"]++;
-                arr["commentswhen"] = comment["When"];
-            }
+            addPendingCommentToArr(arr, comment, onlyHeaders);
             level = DecodingLevel.CommentHeaders;
             comment = [];
             comment["Text"] = "";
             return;
         } else if (line == "<!--change-->") {
             level = DecodingLevel.MainHeaders;
-            if (!onlyHeaders && t != "") {
-                if (!arr["OldText"]) arr["OldText"] = [];
-                let oldtext = [];
-                oldtext["Text"] = t;
-                oldtext["When"] = Date.parse(arr["When"]);
-                arr["OldText"].push(oldtext);
-                t = "";
-            }
+            addPendingTextToArr(arr, t, onlyHeaders);
+            t = "";
             return;
         }
 
@@ -280,23 +300,9 @@ function decodeSourceFile(txt, onlyHeaders) {
                 if (!onlyHeaders) comment["Text"] += line + "\n";
         }
     });
-    if (comment != null) {
-        if (!onlyHeaders) {
-            if (!arr["Comments"]) arr["Comments"] = [];
-            comment["When"] = Date.parse(comment["When"]);
-            arr["Comments"].push(comment);
-        }
-        arr["commentsnum"]++;
-        arr["commentswhen"] = comment["When"];
-    }
+    addPendingCommentToArr(arr, comment, onlyHeaders);
+    addPendingTextToArr(arr, t, onlyHeaders);
     arr["When"] = Date.parse(arr["When"]);
-    if (!onlyHeaders && t != "") {
-        if (!arr["OldText"]) arr["OldText"] = [];
-        let oldtext = [];
-        oldtext["Text"] = t;
-        oldtext["When"] = arr["When"];
-        arr["OldText"].push(oldtext);
-    }
 
     return arr;
 }
@@ -1319,6 +1325,7 @@ function showChatPage(req, res, params, id, userName) {
             arr["Comments"].reverse().forEach(function(comment) {
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
+                    .replace("<!--EDITED-->", comment["Edit"]?" (edited "+formatDate(comment["Edit"])+")":"")
                     .replace("<!--TEXT-->", comment["Text"]);
             });
             text = text.replace("<!--COMMENTS-->", txt);
@@ -1696,6 +1703,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
             arr["Comments"].forEach(function(comment) {
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
+                    .replace("<!--EDITED-->", comment["Edit"]?" (edited "+formatDate(comment["Edit"])+")":"")
                     .replace("<!--TEXT-->", comment["Text"]);
                 lu = comment["When"];
             });
@@ -2064,7 +2072,6 @@ function parseGETWithQParam(req, res, params, userName) {
     res.statusCode = 302;
     res.setHeader('Location', '/');
     res.end();
-    return;
 }
 
 function parseGETWithSetParam(req, res, params) {
