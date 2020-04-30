@@ -43,6 +43,8 @@ let cacheChat = [];
 
 let cacheFiles = [];
 
+let mutexText = [];
+
 let callbackChat = [];
 let callbackText = [];
 let callbackOther = [];
@@ -70,10 +72,40 @@ const SessionField = {
     RefreshCallback: 3
 }
 
+// This is semaphore with max. allowed parallel entries == 1
+function Mutex() {
+    let func = [];
+    let num = 0;
+
+    this.acquire = function() {
+        console.log("acquire " + num);
+        if (num < 1) {
+            num++;
+            return new Promise(resolve => {
+                resolve();
+            });
+        }
+        return new Promise(resolve => {
+            func.push({
+                resolve: resolve
+            });
+        });
+    }
+
+    this.release = function() {
+        console.log("release " + num);
+        num--;
+        if (func.length == 0 || num == 1) return;
+        num++;
+        func.shift().resolve();
+    }
+}
+
 function addToTextCache(fileID, tekst) {
     cacheTexts[fileID] = decodeSourceFile(tekst, true);
     cacheTexts[fileID]["filename"] = fileID;
     callbackText[fileID] = [];
+    mutexText[fileID] = new Mutex();
 }
 
 function addToChatCache(fileID, tekst) {
@@ -477,7 +509,8 @@ async function sendRemindPasswordMail(mail, token) {
 }
 
 // chat or comment to the text
-function parsePOSTUploadComment(params, req, res, userName, isChat) {
+// FIXME: we need probably mutex here
+function parsePOSTUploadComment(params, res, userName, isChat) {
     const folder = isChat ? "chat" : "texts";
 
     //checking for login
@@ -489,7 +522,7 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
         return;
     }
 
-    const t = Date.now();
+    const t = Date.now(); // FIXME: do we need conversion here?
     appendToSourceFile(folder, params["tekst"],
         "<!--comment-->\n" +
         "When:" + formatDate(t) + "\n" +
@@ -534,7 +567,8 @@ function parsePOSTUploadComment(params, req, res, userName, isChat) {
     res.end();
 }
 
-function parsePOSTUploadNewText(params, req, res, userName) {
+// FIXME: do we need mutex here?
+function parsePOSTUploadNewText(params, res, userName) {
     if (!params["text"] || !params["state"] ||
         !params["type"] || !params["title"]) {
         res.statusCode = 404;
@@ -568,24 +602,18 @@ function parsePOSTUploadNewText(params, req, res, userName) {
     });
 }
 
-function parsePOSTUploadUpdatedText(params, req, res, userName) {
-    if (!params["tekst"] || !cacheTexts[params["tekst"]] || !params["version"] ||
-        (!(params["teaser"] || params["teaser"] == '') &&
-            !params["text"] && !params["state"] && !params["type"] &&
-            !params["title"] &&
-            !(params["beta"] || params["beta"] == '') &&
-            !(params["taxonomy"] || params["taxonomy"] == '') &&
-            !(params["specialtaxonomy"] || params["specialtaxonomy"] == ''))) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
-        return;
-    }
+async function updateTextInTextFile(params, res, userName) {
+    console.log("waiting for mutex");
+    await mutexText[params["tekst"]].acquire();
+    console.log("mutex OK");
+
     if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
+        mutexText[params["tekst"]].release();
+
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
-        return;
+        return null;
     }
 
     const updateTime = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
@@ -624,25 +652,48 @@ function parsePOSTUploadUpdatedText(params, req, res, userName) {
     cacheTexts[params["tekst"]]["When"] = updateTime;
     cacheTexts[params["tekst"]]["Who"] = userName;
 
-    sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
+    mutexText[params["tekst"]].release();
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end(updateTime.toString());
+    return updateTime.toString();
 }
 
-function parsePOSTUploadPointText(params, req, res, userName) {
-    if (!params["tekst"] || !params["point"] || !params["version"]) {
+async function parsePOSTUploadUpdatedText(params, res, userName) {
+    if (!params["tekst"] || !cacheTexts[params["tekst"]] || !params["version"] ||
+        (!(params["teaser"] || params["teaser"] == '') &&
+            !params["text"] && !params["state"] && !params["type"] &&
+            !params["title"] &&
+            !(params["beta"] || params["beta"] == '') &&
+            !(params["taxonomy"] || params["taxonomy"] == '') &&
+            !(params["specialtaxonomy"] || params["specialtaxonomy"] == ''))) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
         return;
     }
+
+    const ret = await updateTextInTextFile(params, res, userName);
+    console.log("after mutex");
+    if (ret == null) return;
+
+    sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(ret.toString());
+}
+
+async function updatePointInTextFile(params, res, userName) {
+    console.log("waiting for mutex");
+    await mutexText[params["tekst"]].acquire();
+    console.log("mutex OK");
+
     if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
+        mutexText[params["tekst"]].release();
+
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
-        return;
+        return null;
     }
     let txt = "";
     let wrong = false;
@@ -677,14 +728,31 @@ function parsePOSTUploadPointText(params, req, res, userName) {
     cacheTexts[params["tekst"]]["When"] = updateTime;
     cacheTexts[params["tekst"]]["Point"] = txt;
 
+    mutexText[params["tekst"]].release();
+
+    return updateTime.toString();
+}
+
+async function parsePOSTUploadPointText(params, res, userName) {
+    if (!params["tekst"] || !params["point"] || !params["version"]) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end();
+        return;
+    }
+
+    const ret = await updatePointInTextFile(params, res, userName);
+    console.log("after mutex");
+    if (ret == null) return;
+
     sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
-    res.end(updateTime.toString());
+    res.end(ret.toString());
 }
 
-function parsePOSTCreateChat(params, req, res, userName) {
+function parsePOSTCreateChat(params, res, userName) {
     let wrong = false;
     params["users"].split(',').forEach(function(user) {
         if (!cacheUsers[user]) wrong = true;
@@ -719,7 +787,7 @@ function parsePOSTCreateChat(params, req, res, userName) {
     res.end(id.toString());
 }
 
-function parsePOSTSubscribeChatTextEntry(params, req, res, userName, textEntry) {
+function parsePOSTSubscribeChatTextEntry(params, res, userName, textEntry) {
     const field = textEntry ? cacheUsers[userName]["ESub"] : cacheUsers[userName]["CSub"];
     let txt = "";
     let wrong = false;
@@ -769,7 +837,7 @@ function parsePOSTSubscribeChatTextEntry(params, req, res, userName, textEntry) 
     res.end();
 }
 
-function parsePOSTCreateUser(params, req, res, userName) {
+function parsePOSTCreateUser(params, res, userName) {
     if (!params["level"] || (params["level"] != "1" && params["level"] != "2" && params["level"] != "3") ||
         (Object.keys(cacheUsers).length != 0 && params["level"] == "3" && getUserLevelUserName(userName) != "3") ||
         (params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
@@ -803,7 +871,7 @@ function parsePOSTCreateUser(params, req, res, userName) {
     res.end(id.toString());
 }
 
-function parsePOSTEditUser(params, req, res, userName) {
+function parsePOSTEditUser(params, res, userName) {
     if (params["typ"] != "g" && params["typ"] != "w") {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
@@ -931,7 +999,7 @@ function parsePOSTLogout(params, req, res, userName) {
     res.end();
 }
 
-async function parsePOSTRemind(params, req, res, userName) {
+async function parsePOSTRemind(params, res, userName) {
     let found = false;
     remindToken.forEach(function(tokenEntry, index1) {
         if (found) return;
@@ -958,7 +1026,7 @@ async function parsePOSTRemind(params, req, res, userName) {
     res.end();
 }
 
-function parsePOSTChangePass(params, req, res, userName) {
+function parsePOSTChangePass(params, res, userName) {
     let found = false;
     remindToken.forEach(function(tokenEntry, index) {
         if (found) return;
@@ -981,7 +1049,7 @@ function parsePOSTChangePass(params, req, res, userName) {
     res.end();
 }
 
-function parsePOSTVerifyMail(params, req, res, userName) {
+function parsePOSTVerifyMail(params, res, userName) {
     found = false;
     verifyToken.forEach(function(tokenEntry, index) {
         if (found) return;
@@ -1015,33 +1083,33 @@ async function parsePOSTforms(params, req, res, userName) {
     if (userName != "") {
         if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"]) {
             if (params["obj"] == "chat") {
-                parsePOSTUploadComment(params, req, res, userName, true);
+                parsePOSTUploadComment(params, res, userName, true);
                 return;
             } else if (params["obj"] == "texts") {
-                parsePOSTUploadComment(params, req, res, userName, false);
+                parsePOSTUploadComment(params, res, userName, false);
                 return;
             }
         } else if (params["upload_text"] && params["tekst"]) {
             if (params["tekst"] == "0") {
-                parsePOSTUploadNewText(params, req, res, userName);
+                parsePOSTUploadNewText(params, res, userName);
                 return;
             }
-            parsePOSTUploadUpdatedText(params, req, res, userName);
+            parsePOSTUploadUpdatedText(params, res, userName);
             return;
         } else if (params["point_text"] && params["tekst"]) {
-            parsePOSTUploadPointText(params, req, res, userName);
+            parsePOSTUploadPointText(params, res, userName);
             return;
         } else if (params["new_chat"] && params["title"] && params["users"]) {
-            parsePOSTCreateChat(params, req, res, userName);
+            parsePOSTCreateChat(params, res, userName);
             return;
         } else if (params["edit_user"] && params["typ"] && params["mail"]) {
-            parsePOSTEditUser(params, req, res, userName);
+            parsePOSTEditUser(params, res, userName);
             return;
         } else if (params["esub"] && params["id"] && params["onoff"]) {
-            parsePOSTSubscribeChatTextEntry(params, req, res, userName, true);
+            parsePOSTSubscribeChatTextEntry(params, res, userName, true);
             return;
         } else if (params["csub"] && params["id"] && params["onoff"]) {
-            parsePOSTSubscribeChatTextEntry(params, req, res, userName, false);
+            parsePOSTSubscribeChatTextEntry(params, res, userName, false);
             return;
         }
     } else { // UserName == ""
@@ -1057,16 +1125,16 @@ async function parsePOSTforms(params, req, res, userName) {
         parsePOSTLogout(params, req, res, userName);
         return;
     } else if (params["remind"] && params["token1"] && params["token2"]) {
-        parsePOSTRemind(params, req, res, userName);
+        parsePOSTRemind(params, res, userName);
         return;
     } else if (params["changepass"] && params["hash"] && params["token"]) {
-        parsePOSTChangePass(params, req, res, userName);
+        parsePOSTChangePass(params, res, userName);
         return;
     } else if (params["verify"] && params["token"]) {
-        parsePOSTVerifyMail(params, req, res, userName);
+        parsePOSTVerifyMail(params, res, userName);
         return;
     } else if (params["new_user"] && params["username"] && params["typ"] && params["mail"]) {
-        parsePOSTCreateUser(params, req, res, userName);
+        parsePOSTCreateUser(params, res, userName);
         return;
     }
 
@@ -1645,7 +1713,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
             for (let i = 1; i < 11; i++) {
                 txt += addRadio("point", i, i, points == i, points != 0);
             }
-            text = text.replace("<!--POINTS-->", "<p>Twoja ocena: " + txt + "<p>")
+            text = text.replace("<!--POINTS-->", "<p>Twoja ocena: " + txt)
                 .replace("<!--VERSION-->", arr["When"])
                 .replace(/<!--PAGEID-->/g, id[2]); //many entries
 
@@ -1953,27 +2021,31 @@ const onRequestHandler = (req, res) => {
     }
 
     console.log(' ');
-    let userName = "";
-    let c = true;
+    let cookieSessionToken = "";
+    let userName = null;
     //console.log(req.headers);
     if (req.headers['cookie']) {
         console.log(req.headers['cookie']);
+        req.headers['cookie'].split("; ").forEach(function(cookie) {
+            if (cookie.indexOf("session=") == 0) cookieSessionToken = cookie.substr(8);
+        });
+    }
+    if (cookieSessionToken != "") {
         sessions.forEach(function(session, index) {
             if (session[SessionField.Expiry] < Date.now()) {
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index, 1);
                 return;
             }
-            req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if ("session=" + session[SessionField.SessionToken] == cookie) {
-                    c = false;
-                    userName = session[SessionField.UserName];
-                }
-            });
+            if (cookieSessionToken == session[SessionField.SessionToken]) {
+                userName = session[SessionField.UserName];
+            }
         });
     }
-    console.log('user name is ' + userName);
-    if (c) {
+    if (userName == null) {
+        cookieSessionToken = "";
+        userName = "";
+
         const session = crypto.randomBytes(32).toString('base64');
         res.setHeader('Set-Cookie', 'session=' + session + '; SameSite=Strict; Secure');
 
@@ -1982,6 +2054,7 @@ const onRequestHandler = (req, res) => {
 
         console.log("nowa sesja " + session);
     }
+    console.log('user name is ' + userName);
 
     if (req.method === 'GET') {
         const params = url.parse(req.url, true).query;
@@ -1989,37 +2062,21 @@ const onRequestHandler = (req, res) => {
 
         //PUSH functionality
         //check field format
-        if (params["sse"] && req.headers["cookie"]) {
-            token = "";
-            sessions.forEach(function(session, index) {
-                if (session[SessionField.Expiry] < Date.now()) {
-                    if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
-                    sessions.splice(index, 1);
-                    return;
-                }
-                req.headers['cookie'].split("; ").forEach(function(cookie) {
-                    if ("session=" + session[SessionField.SessionToken] == cookie) {
-                        token = session[SessionField.SessionToken];
-                    }
-                });
-            });
-
-            if (token != "") {
-                //            console.log(req.headers);
-                //fixme - we need checking URL beginning
-                let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
-                if (id && fs.existsSync(__dirname + "//chat//" + id[1] + ".txt")) {
-                    addToCallback(req, res, id[1], callbackChat, userName, false, token);
-                    return;
-                }
-                id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
-                if (id && fs.existsSync(__dirname + "//texts//" + id[2] + ".txt")) {
-                    addToCallback(req, res, id[2], callbackText, userName, false, token);
-                    return;
-                }
-                const params = url.parse(req.headers['referer'], true).query;
-                addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, token);
+        if (params["sse"] && cookieSessionToken != "") {
+            //            console.log(req.headers);
+            //fixme - we need checking URL beginning
+            let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
+            if (id && fs.existsSync(__dirname + "//chat//" + id[1] + ".txt")) {
+                addToCallback(req, res, id[1], callbackChat, userName, false, cookieSessionToken);
+                return;
             }
+            id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
+            if (id && fs.existsSync(__dirname + "//texts//" + id[2] + ".txt")) {
+                addToCallback(req, res, id[2], callbackText, userName, false, cookieSessionToken);
+                return;
+            }
+            const params = url.parse(req.headers['referer'], true).query;
+            addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, cookieSessionToken);
             return;
         }
         if (params["set"]) {

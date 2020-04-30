@@ -94,9 +94,8 @@ document.addEventListener("DOMContentLoaded", function(event) {
    <!--TYPE-->
    <!--WHEN-->
    <!--WHEN2-->
-   <!--VERSIONS-->
    <!--POINTS-->
-   <!--TEASER-->
+   <!--VERSIONS-->
   </div>
   <div class=ramki>
    <center>
@@ -104,6 +103,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
      <!--TITLE-->
     </h1>
    </center>
+   <!--TEASER-->
    <hr>
    <!--TEXT-->
    <hr>
