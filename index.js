@@ -569,8 +569,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
 
 // FIXME: do we need mutex here?
 function parsePOSTUploadNewText(params, res, userName) {
-    if (!params["text"] || !params["state"] ||
-        !params["type"] || !params["title"]) {
+    if (!params["text"] || !params["state"] || !params["type"] || !params["title"]) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
@@ -896,7 +895,7 @@ function parsePOSTEditUser(params, res, userName) {
     res.end();
 }
 
-function tryOwnLogin(req, params, googleMail) {
+function tryOwnLogin(params, googleMail, cookieSessionToken) {
     let found = null;
     for (let index in cacheUsers) {
         if (found != null) return found;
@@ -907,52 +906,49 @@ function tryOwnLogin(req, params, googleMail) {
                 sessions.splice(index2, 1);
                 return;
             }
-            req.headers['cookie'].split("; ").forEach(function(cookie) {
-                if (found != null) return;
-                if ("session=" + session[SessionField.SessionToken] != cookie || session[SessionField.UserName] != "") {
-                    return;
-                }
-                if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
-                    found = "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
-                    return;
-                }
-                if (googleMail) {
-                    console.log(googleMail + " vs " + cacheUsers[index]["Mail"]);
-                    //fixme check if verified
-                    if (cacheUsers[index]["Type"] == "google" && googleMail == cacheUsers[index]["Mail"]) {
-                        session[SessionField.UserName] = cacheUsers[index]["Who"];
-                        reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
-                        found = "";
-                    }
-                    return;
-                }
-                if (cacheUsers[index]["Type"] == "google") return;
-                usr = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Who"]).digest("hex");
-                if (usr != params["user"]) return;
-                pass = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Pass"]).digest("hex");
-                if (pass != params["password"]) return;
-                if (params["typ"] != "g" && cacheUsers[index]["ConfirmMail"] == "0") {
-                    sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
-                    found = "Konto niezweryfikowane. Kliknij na link w mailu";
-                } else {
+            if (cookieSessionToken != session[SessionField.SessionToken] || session[SessionField.UserName] != "") {
+                return;
+            }
+            if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
+                found = "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
+                return;
+            }
+            if (googleMail) {
+                console.log(googleMail + " vs " + cacheUsers[index]["Mail"]);
+                //fixme check if verified
+                if (cacheUsers[index]["Type"] == "google" && googleMail == cacheUsers[index]["Mail"]) {
                     session[SessionField.UserName] = cacheUsers[index]["Who"];
                     reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
                     found = "";
                 }
-            });
+                return;
+            }
+            if (cacheUsers[index]["Type"] == "google") return;
+            usr = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Who"]).digest("hex");
+            if (usr != params["user"]) return;
+            pass = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Pass"]).digest("hex");
+            if (pass != params["password"]) return;
+            if (params["typ"] != "g" && cacheUsers[index]["ConfirmMail"] == "0") {
+                sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
+                found = "Konto niezweryfikowane. Kliknij na link w mailu";
+            } else {
+                session[SessionField.UserName] = cacheUsers[index]["Who"];
+                reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
+                found = "";
+            }
         });
     }
     return found;
 }
 
-async function parsePOSTLogin(params, req, res, userName) {
-    const found = tryOwnLogin(req, params, "");
+async function parsePOSTLogin(params, res, userName, cookieSessionToken) {
+    const found = tryOwnLogin(params, "", cookieSessionToken);
     res.statusCode = (found == "") ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end(found);
 }
 
-async function parsePOSTGoogleLogin(params, req, res, userName) {
+async function parsePOSTGoogleLogin(params, res, userName, cookieSessionToken) {
     // this is not preffered version according to Google, but good enough for this milestone
     const premise = new Promise((resolve, reject) => {
         https.get('https://oauth2.googleapis.com/tokeninfo?id_token=' + params["id"], (resp) => {
@@ -971,13 +967,13 @@ async function parsePOSTGoogleLogin(params, req, res, userName) {
         return;
     }
 
-    const found = tryOwnLogin(req, params, json.email);
+    const found = tryOwnLogin(params, json.email, cookieSessionToken);
     res.statusCode = (found == "") ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end(found);
 }
 
-function parsePOSTLogout(params, req, res, userName) {
+function parsePOSTLogout(params, res, userName, cookieSessionToken) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
 
@@ -987,13 +983,10 @@ function parsePOSTLogout(params, req, res, userName) {
             sessions.splice(index, 1);
             return;
         }
-        req.headers['cookie'].split("; ").forEach(function(cookie) {
-            console.log("checking session " + session[SessionField.SessionToken] + " " + cookie);
-            if ("session=" + session[SessionField.SessionToken] == cookie) {
-                session[SessionField.UserName] = '';
-                reloadUserSessionsAfterLoginLogout('', session[SessionField.SessionToken]);
-            }
-        });
+        if (cookieSessionToken == session[SessionField.SessionToken]) {
+            session[SessionField.UserName] = '';
+            reloadUserSessionsAfterLoginLogout('', session[SessionField.SessionToken]);
+        }
     });
 
     res.end();
@@ -1078,7 +1071,7 @@ function parsePOSTVerifyMail(params, res, userName) {
     res.end();
 }
 
-async function parsePOSTforms(params, req, res, userName) {
+async function parsePOSTforms(params, res, userName, cookieSessionToken) {
     console.log(params);
     if (userName != "") {
         if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"]) {
@@ -1114,15 +1107,15 @@ async function parsePOSTforms(params, req, res, userName) {
         }
     } else { // UserName == ""
         if (params["login"] && params["user"] && params["password"]) {
-            parsePOSTLogin(params, req, res, userName);
+            parsePOSTLogin(params, res, userName, cookieSessionToken);
             return;
         } else if (enableGoogleWithToken && params["glogin"] && params["id"]) {
-            parsePOSTGoogleLogin(params, req, res, userName);
+            parsePOSTGoogleLogin(params, res, userName, cookieSessionToken);
             return;
         }
     }
     if (params["logout"]) {
-        parsePOSTLogout(params, req, res, userName);
+        parsePOSTLogout(params, res, userName, cookieSessionToken);
         return;
     } else if (params["remind"] && params["token1"] && params["token2"]) {
         parsePOSTRemind(params, res, userName);
@@ -2186,7 +2179,7 @@ const onRequestHandler = (req, res) => {
         }
         showMainPage(req, res, 0, [], userName);
         return;
-    } else if (req.headers['content-type'] == "application/x-www-form-urlencoded") { // POST forms
+    } else if (req.headers['content-type'] == "application/x-www-form-urlencoded" && cookieSessionToken != "") { // POST forms
         let body = "";
         req.on('data', function(data) {
             body += data;
@@ -2194,7 +2187,7 @@ const onRequestHandler = (req, res) => {
         });
         req.on('end', function() {
             console.log(body);
-            parsePOSTforms(url.parse("/?" + body, true).query, req, res, userName);
+            parsePOSTforms(url.parse("/?" + body, true).query, res, userName, cookieSessionToken);
             return;
         });
         return;
