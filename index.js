@@ -1639,12 +1639,13 @@ function showTextPage(req, res, params, id, userName, userLevel) {
         let versions = "";
 
         if (arr["Who"] == userName && arr["OldText"].length != 1) {
-            versions = "<br>Wersje tekstu i wstępu<br><select id=\"versions\"  name=\"versions\" size=5>";
+            versions = "";
             let sel = false;
             arr["OldText"].forEach(function(t0, index) {
                 if (when_first == 0) when_first = t0["When"];
-                versions += addOption(t0["When"], formatDate(t0["When"]),
-                    id[3] ? (t0["When"] == parseInt(id[3].substring(4))) : (index == arr["OldText"].length - 1));
+                // descend order
+                versions = addOption(t0["When"], formatDate(t0["When"]),
+                    id[3] ? (t0["When"] == parseInt(id[3].substring(4))) : (index == arr["OldText"].length - 1)) + versions;
                 if (sel) return;
                 const t = t0["Text"].slice(0, -1);
                 if (t.search('<!--teaser-->') != -1) teaser_text = t.substr(0, t.search('<!--teaser-->') - 1);
@@ -1654,6 +1655,8 @@ function showTextPage(req, res, params, id, userName, userLevel) {
                     sel = true;
                 }
             });
+            versions = "<br>Wersje tekstu i wstępu<br><select id=\"versions\"  name=\"versions\" size=5>" + versions;
+
             if (!sel) {
                 res.statusCode = 302;
                 res.setHeader('Location', '/');
@@ -1701,15 +1704,16 @@ function showTextPage(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--LASTUPDATE-->", formatDate(lu));
 
         if (userName != "") {
-            let txt = "";
-            const points = getPointsForText(arr);
-            for (let i = 1; i < 11; i++) {
-                txt += addRadio("point", i, i, points == i, points != 0);
+            if (arr["Who"] != userName) {
+                let txt = "";
+                const points = getPointsForText(arr);
+                for (let i = 1; i < 11; i++) {
+                    txt += addRadio("point", i, i, points == i, points != 0);
+                }
+                text = text.replace("<!--POINTS-->", "<p>Twoja ocena: " + txt)
+                    .replace("<!--VERSION-->", arr["When"])
+                    .replace(/<!--PAGEID-->/g, id[2]); //many entries
             }
-            text = text.replace("<!--POINTS-->", "<p>Twoja ocena: " + txt)
-                .replace("<!--VERSION-->", arr["When"])
-                .replace(/<!--PAGEID-->/g, id[2]); //many entries
-
             if (userLevel != "1") {
                 text = text.replace("<!--COMMENTEDIT-->", getCacheFileSync('//internal//commentedit.txt'))
                     .replace(/<!--PAGEID-->/g, id[2]) //many entries
@@ -2063,6 +2067,47 @@ function parseGETWithQParam(req, res, params, userName) {
     return;
 }
 
+function parseGETWithSetParam(req, res, params) {
+    if (params["set"] == "mobile1") {
+        if (isMobile(req)) {
+            res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
+        } else {
+            res.setHeader('Set-Cookie', 'mobile=1; SameSite=Strict; Secure');
+        }
+    } else if (params["set"] == "mobile0") {
+        if (!isMobile(req)) {
+            res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
+        } else {
+            res.setHeader('Set-Cookie', 'mobile=0; SameSite=Strict; Secure');
+        }
+    } else if (params["set"] == "dark1") {
+        res.setHeader('Set-Cookie', 'dark=1; SameSite=Strict; Secure');
+    } else if (params["set"] == "dark0") {
+        res.setHeader('Set-Cookie', 'dark=0; SameSite=Strict; Secure');
+    }
+    res.statusCode = 302;
+    res.setHeader('Location', req.headers['referer']);
+    res.end();
+}
+
+function parseGETWithSseParam(req, res, userName, cookieSessionToken) {
+    //check field format
+    //            console.log(req.headers);
+    //fixme - we need checking URL beginning
+    let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
+    if (id && fs.existsSync(__dirname + "//chat//" + id[1] + ".txt")) {
+        addToCallback(req, res, id[1], callbackChat, userName, false, cookieSessionToken);
+        return;
+    }
+    id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
+    if (id && fs.existsSync(__dirname + "//texts//" + id[2] + ".txt")) {
+        addToCallback(req, res, id[2], callbackText, userName, false, cookieSessionToken);
+        return;
+    }
+    const params = url.parse(req.headers['referer'], true).query;
+    addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, cookieSessionToken);
+}
+
 const onRequestHandler = (req, res) => {
     if (req.url == "/external/styles.css" || req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
         req.url == "/external/suneditor.min.css" || req.url == "/external/suneditor.min.js") {
@@ -2132,46 +2177,14 @@ const onRequestHandler = (req, res) => {
         const params = url.parse(req.url, true).query;
         console.log(req.url);
 
-        //PUSH functionality
-        //check field format
+        // PUSH functionality
         if (params["sse"] && cookieSessionToken != "") {
-            //            console.log(req.headers);
-            //fixme - we need checking URL beginning
-            let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
-            if (id && fs.existsSync(__dirname + "//chat//" + id[1] + ".txt")) {
-                addToCallback(req, res, id[1], callbackChat, userName, false, cookieSessionToken);
-                return;
-            }
-            id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)$/);
-            if (id && fs.existsSync(__dirname + "//texts//" + id[2] + ".txt")) {
-                addToCallback(req, res, id[2], callbackText, userName, false, cookieSessionToken);
-                return;
-            }
-            const params = url.parse(req.headers['referer'], true).query;
-            addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, cookieSessionToken);
+            parseGETWithSseParam(req, res, userName, cookieSessionToken);
             return;
         }
+        // setting cookies with config
         if (params["set"]) {
-            if (params["set"] == "mobile1") {
-                if (isMobile(req)) {
-                    res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
-                } else {
-                    res.setHeader('Set-Cookie', 'mobile=1; SameSite=Strict; Secure');
-                }
-            } else if (params["set"] == "mobile0") {
-                if (!isMobile(req)) {
-                    res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
-                } else {
-                    res.setHeader('Set-Cookie', 'mobile=0; SameSite=Strict; Secure');
-                }
-            } else if (params["set"] == "dark1") {
-                res.setHeader('Set-Cookie', 'dark=1; SameSite=Strict; Secure');
-            } else if (params["set"] == "dark0") {
-                res.setHeader('Set-Cookie', 'dark=0; SameSite=Strict; Secure');
-            }
-            res.statusCode = 302;
-            res.setHeader('Location', req.headers['referer']);
-            res.end();
+            parseGETWithSetParam(req, res, params);
             return;
         }
         if (params["q"]) {
