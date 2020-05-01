@@ -34,7 +34,7 @@ source.addEventListener("r", function(event) {
  window.location.reload();
 });
 source.addEventListener("m", function(event) {
- alert('You have chat message');
+ alert('You have chat message on chat '+event.data);
 });
 source.addEventListener("s", function(event) {
  document.cookie = "session="+event.data;

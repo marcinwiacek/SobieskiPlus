@@ -148,6 +148,10 @@ function getPointsForText(arr) {
     return points;
 }
 
+function subForChat(chatID, userName) {
+    return cacheUsers[userName]["CSub"] ? cacheUsers[userName]["CSub"].split(",").includes(chatID) : false;
+}
+
 function formatDate(date) {
     const d = new Date(date);
     return ret = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' +
@@ -198,11 +202,9 @@ function appendToSourceFile(path, ID, text) {
 }
 
 function getSourceFile(path, ID, callback) {
-
     //var stats = fs.statSync("/dir/file.txt");
     //var mtime = stats.mtime;
     //console.log(mtime);
-
     return readFileContentSync('//' + path + "//" + ID + '.txt', callback);
 }
 
@@ -476,9 +478,9 @@ function sendCommentToPage(res, comment) {
     }
 }
 
-function sendInfoAboutChatEntryToPage(res) {
+function sendInfoAboutChatEntryToPage(res, id) {
     res.write("event: m\n");
-    res.write("data:\n\n");
+    res.write("data: " + cacheChat[id]["Title"] + "\n\n");
 }
 
 function sendNewTokenToPage(res, newtoken) {
@@ -588,16 +590,16 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
         }
 
         //inform other users about new chat entry
-        if (cacheChat[params["tekst"]]["Who"] && cacheChat[params["tekst"]]["Who"].split(',').includes(userName)) {
-            for (let index0 in callbackOther) {
-                for (let index in callbackOther[index0]) {
-                    if (callbackOther[index0][index][CallbackField.UserName] != userName &&
-                        cacheChat[params["tekst"]]["Who"].split(',').includes(callbackOther[index0][index][CallbackField.UserName])) {
-                        sendInfoAboutChatEntryToPage(callbackOther[index0][index][CallbackField.ResponseCallback]);
-                    }
+        for (let index0 in callbackOther) {
+            for (let index in callbackOther[index0]) {
+                if (callbackOther[index0][index][CallbackField.UserName] != userName &&
+                    subForChat(params["tekst"], callbackOther[index0][index][CallbackField.UserName])) {
+                    sendInfoAboutChatEntryToPage(callbackOther[index0][index][CallbackField.ResponseCallback], params["tekst"]);
                 }
             }
         }
+        //fixme: check the same on other callbackText
+        //fixme: send refresh to user pages for other users
     } else {
         cacheTexts[params["tekst"]]["commentswhen"] = t;
         cacheTexts[params["tekst"]]["commentsnum"]++;
@@ -851,7 +853,7 @@ function parsePOSTSubscribeChatTextEntry(params, res, userName, textEntry) {
         }
     }
 
-    directToOKFileNotFound(res, '', wrong);
+    directToOKFileNotFound(res, '', !wrong);
 }
 
 function parsePOSTCreateUser(params, res, userName) {
@@ -892,8 +894,6 @@ function parsePOSTCreateUser(params, res, userName) {
 
 // FIXME: semaphore?
 function parsePOSTEditUser(params, res, userName) {
-    console.log('jest edycja');
-
     if (params["typ"] != "g" && params["typ"] != "w") {
         directToOKFileNotFound(res, '', false);
         return;
@@ -1359,18 +1359,6 @@ function getESubList(pageNum, userName) {
     });
 
     return [result.slice(pageNum * onThePage, (pageNum + 1) * onThePage), result.length];
-}
-
-function subForChat(chatID, userName) {
-    if (!cacheUsers[userName]["CSub"]) {
-        return cacheChat[chatID]["Who"] ? false : true;
-    } else {
-        if (cacheChat[chatID]["Who"]) {
-            return cacheUsers[userName]["CSub"].split(",").includes(chatID);
-        } else {
-            return cacheUsers[userName]["CSub"].split(",").includes(chatID);
-        }
-    }
 }
 
 function formatChatEntry(template, arr, userName) {
@@ -2140,6 +2128,7 @@ const onRequestHandler = (req, res) => {
             }
             if (cookieSessionToken == session[SessionField.SessionToken]) {
                 userName = session[SessionField.UserName];
+                console.log("found user " + userName);
             }
         });
     }
