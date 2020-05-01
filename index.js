@@ -1150,11 +1150,10 @@ async function parsePOSTforms(params, res, userName, cookieSessionToken) {
 }
 
 function isMobile(req) {
-    if (req.headers['user-agent']) {
-        return req.headers['user-agent'].includes('iPad') || req.headers['user-agent'].includes('iPhone') ||
-            req.headers['user-agent'].includes('Android');
-    }
-    return false;
+    return req.headers['user-agent'] ?
+        req.headers['user-agent'].includes('iPad') || req.headers['user-agent'].includes('iPhone') ||
+        req.headers['user-agent'].includes('Android') :
+        false;
 }
 
 function genericReplace(req, res, text, userName) {
@@ -2093,17 +2092,11 @@ function parseGETWithQParam(req, res, params, userName) {
 
 function parseGETWithSetParam(req, res, params) {
     if (params["set"] == "mobile1") {
-        if (isMobile(req)) {
-            res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
-        } else {
-            res.setHeader('Set-Cookie', 'mobile=1; SameSite=Strict; Secure');
-        }
+        res.setHeader('Set-Cookie', 'mobile=' +
+            isMobile(req) ? "; expires=Sun, 21 Dec 1980 14:14:14 GMT" : "1; SameSite=Strict; Secure");
     } else if (params["set"] == "mobile0") {
-        if (!isMobile(req)) {
-            res.setHeader('Set-Cookie', 'mobile=; expires=Sun, 21 Dec 1980 14:14:14 GMT');
-        } else {
-            res.setHeader('Set-Cookie', 'mobile=0; SameSite=Strict; Secure');
-        }
+        res.setHeader('Set-Cookie', 'mobile=' +
+            isMobile(req) ? "0; SameSite=Strict; Secure" : "; expires=Sun, 21 Dec 1980 14:14:14 GMT");
     } else if (params["set"] == "dark1") {
         res.setHeader('Set-Cookie', 'dark=1; SameSite=Strict; Secure');
     } else if (params["set"] == "dark0") {
@@ -2198,22 +2191,17 @@ const onRequestHandler = (req, res) => {
     console.log('user name is ' + userName);
 
     if (req.method === 'GET') {
-        const params = url.parse(req.url, true).query;
         console.log(req.url);
-
+        const params = url.parse(req.url, true).query;
         if (params["sse"] && cookieSessionToken != "") { // PUSH functionality
             parseGETWithSseParam(req, res, userName, cookieSessionToken);
-            return;
-        }
-        if (params["set"]) { // setting cookies with config
+        } else if (params["set"]) { // setting cookies with config
             parseGETWithSetParam(req, res, params);
-            return;
+        } else if (params["q"]) {
+            parseGETWithQParam(req, res, params, userName);
+        } else {
+            showMainPage(req, res, 0, [], userName);
         }
-        if (params["q"]) {
-            return parseGETWithQParam(req, res, params, userName);
-        }
-        showMainPage(req, res, 0, [], userName);
-        return;
     } else if (req.headers['content-type'] == "application/x-www-form-urlencoded" && cookieSessionToken != "") { // POST
         let body = "";
         req.on('data', function(data) {
@@ -2223,9 +2211,7 @@ const onRequestHandler = (req, res) => {
         req.on('end', function() {
             console.log(body);
             parsePOSTforms(url.parse("/?" + body, true).query, res, userName, cookieSessionToken);
-            return;
         });
-        return;
     }
 };
 
