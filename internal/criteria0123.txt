@@ -2,7 +2,7 @@
  <!--TYPE-->
  <!--STATE-->
  <tr>
-  <td align=right>Tags:</td>
+  <td align=right>Tagi:</td>
   <td>
    <!--TAG-->
   </td>

@@ -34,7 +34,7 @@ if (mailSupport) {
     });
 }
 
-const months = ["Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Lip", "Sie", "Wrz", "Paź", "Lis", "Gru"];
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 let cacheTextsID = 1; //ID for new files - cache
 let cacheTexts = [];
@@ -115,6 +115,22 @@ function addToChatCache(fileID, tekst) {
 }
 
 function addToUsersCache(userName, arr, fileID) {
+    // We have in OldText history of changing sig and note
+    // We should replace it just with latest value to save RAM
+    let sig_text = "";
+    let note_text = "";
+    if (arr["OldText"]) {
+        arr["OldText"].forEach(function(t0, index) {
+            const t = t0["Text"].slice(0, -1);
+            if (t.search('<!--sig-->') != -1) note_text = t.substr(0, t.search('<!--sig-->') - 1);
+            const x = (t.search('<!--sig-->') != -1 ? t.substr(t.search('<!--sig-->') + 11) : t);
+            if (x != "") sig_text = x;
+        });
+        delete arr["OldText"];
+    }
+    arr["sig"] = sig_text;
+    arr["note"] = note_text;
+
     cacheUsers[userName] = arr;
     cacheUsers[userName]["filename"] = fileID;
 }
@@ -434,6 +450,18 @@ function sendHTML(req, res, text) {
     sendHTMLBody(req, res, text);
 }
 
+function directToMain(res) {
+    res.statusCode = 302;
+    res.setHeader('Location', '/');
+    res.end();
+}
+
+function directToOKFileNotFound(res, txt, ok) {
+    res.statusCode = ok ? 200 : 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(txt);
+}
+
 function sendCommentToPage(res, comment) {
     res.write("event: c\n");
     if (comment) {
@@ -534,9 +562,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
     //checking for login
     //checking for correct filename protection
     if (!fs.existsSync(__dirname + "//" + folder + "//" + params["tekst"] + ".txt")) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
@@ -580,17 +606,13 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
             sendCommentToPage(callbackText[params["tekst"]][index][CallbackField.ResponseCallback], comment);
         }
     }
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end();
+    directToOKFileNotFound(res, '', true);
 }
 
 // FIXME: do we need mutex here?
 function parsePOSTUploadNewText(params, res, userName) {
     if (!params["text"] || !params["state"] || !params["type"] || !params["title"]) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
@@ -627,9 +649,7 @@ async function updateTextInTextFile(params, res, userName) {
     if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
         mutexText[params["tekst"]].release();
 
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
+        directToOKFileNotFound(res, 'Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!', false);
         return null;
     }
 
@@ -680,9 +700,7 @@ async function parsePOSTUploadUpdatedText(params, res, userName) {
             !(params["beta"] || params["beta"] == '') &&
             !(params["tag"] || params["tag"] == '') &&
             !(params["special"] || params["special"] == ''))) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
@@ -692,9 +710,7 @@ async function parsePOSTUploadUpdatedText(params, res, userName) {
 
     sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end(ret.toString());
+    directToOKFileNotFound(res, ret.toString(), true);
 }
 
 async function updatePointInTextFile(params, res, userName) {
@@ -705,9 +721,7 @@ async function updatePointInTextFile(params, res, userName) {
     if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
         mutexText[params["tekst"]].release();
 
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end("Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!");
+        directToOKFileNotFound(res, 'Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!', false);
         return null;
     }
     let txt = "";
@@ -725,9 +739,7 @@ async function updatePointInTextFile(params, res, userName) {
         wrong = true;
     }
     if (wrong) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
@@ -750,9 +762,7 @@ async function updatePointInTextFile(params, res, userName) {
 
 async function parsePOSTUploadPointText(params, res, userName) {
     if (!params["tekst"] || !params["point"] || !params["version"]) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
@@ -762,9 +772,7 @@ async function parsePOSTUploadPointText(params, res, userName) {
 
     sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end(ret.toString());
+    directToOKFileNotFound(res, ret.toString(), true);
 }
 
 function parsePOSTCreateChat(params, res, userName) {
@@ -773,9 +781,7 @@ function parsePOSTCreateChat(params, res, userName) {
         if (!cacheUsers[user]) wrong = true;
     });
     if (wrong) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
@@ -797,9 +803,7 @@ function parsePOSTCreateChat(params, res, userName) {
         cacheUsers[entry]["CSub"] = txt;
     });
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end(id.toString());
+    directToOKFileNotFound(res, id.toString(), true);
 }
 
 function parsePOSTSubscribeChatTextEntry(params, res, userName, textEntry) {
@@ -847,28 +851,22 @@ function parsePOSTSubscribeChatTextEntry(params, res, userName, textEntry) {
         }
     }
 
-    res.statusCode = wrong ? 404 : 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end();
+    directToOKFileNotFound(res, '', wrong);
 }
 
 function parsePOSTCreateUser(params, res, userName) {
     if (!params["level"] || (params["level"] != "1" && params["level"] != "2" && params["level"] != "3") ||
         (Object.keys(cacheUsers).length != 0 && params["level"] == "3" && getUserLevelUserName(userName) != "3") ||
         (params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
     if (cacheUsers[params["username"]]) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end("User already exists");
+        directToOKFileNotFound(res, 'Użytkownik o podanym nicku już istnieje', false);
         return;
     }
 
-    const txt = "Who:" + params["username"] + "\n" +
+    let txt = "Who:" + params["username"] + "\n" +
         (params["typ"] == "w" ? "Pass:" + params["pass"] + "\n" : "") +
         "Mail:" + params["mail"] + "\n" +
         "When:" + formatDate(Date.now()) + "\n" +
@@ -876,39 +874,57 @@ function parsePOSTCreateUser(params, res, userName) {
         (params["typ"] == "g" ? "Type:google\n" : "") +
         (Object.keys(cacheUsers).length == 0 ? "Level:3\n" : "Level:" + params["level"] + "\n");
 
+    if (params["note"] || params["note"] == '') {
+        txt += (params["note"] != "" ? "\n" : "") + params["note"] + "\n<!--sig-->\n";
+    }
+    if (params["sig"] || params["sig"] == '') {
+        if (!(params["note"] || params["note"] == '')) txt += "\n";
+        txt += params["sig"] + "\n";
+    }
+
     const id = createNewSourceFile("users", 1, txt);
-    addToUsersCache(params["username"], decodeSourceFile(txt, true), id);
+    addToUsersCache(params["username"], decodeSourceFile(txt, false), id);
 
     if (params["typ"] != "g" && mailSupport) sendVerificationMail(params["mail"], params["username"]);
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end(id.toString());
+    directToOKFileNotFound(res, id.toString(), true);
 }
 
+// FIXME: semaphore?
 function parsePOSTEditUser(params, res, userName) {
+    console.log('jest edycja');
+
     if (params["typ"] != "g" && params["typ"] != "w") {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
     const t = Date.now();
-    appendToSourceFile("users", cacheUsers[userName]["filename"],
-        "<!--change-->\n" +
+
+    let txt = "<!--change-->\n" +
         (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
         (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
         "Mail:" + params["mail"] + "\n" +
-        "When:" + formatDate(t) + "\n");
+        "When:" + formatDate(t) + "\n";
+
+    // In file have change for note/sig, in cache latest value
+    if (params["note"] || params["note"] == '') {
+        txt += (params["note"] != "" ? "\n" : "") + params["note"] + "\n<!--sig-->\n";
+        cacheUsers[userName]["note"] = params["note"];
+    }
+    if (params["sig"] || params["sig"] == '') {
+        if (!(params["note"] || params["note"] == '')) txt += "\n";
+        txt += params["sig"] + "\n";
+        cacheUsers[userName]["sig"] = params["sig"];
+    }
+
+    appendToSourceFile("users", cacheUsers[userName]["filename"], txt);
 
     if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName]["Pass"] = params["pass"];
     cacheUsers[userName]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
     cacheUsers[userName]["Mail"] = params["mail"];
     cacheUsers[userName]["When"] = t;
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end();
+    directToOKFileNotFound(res, '', true);
 }
 
 function tryOwnLogin(params, googleMail, cookieSessionToken) {
@@ -959,9 +975,7 @@ function tryOwnLogin(params, googleMail, cookieSessionToken) {
 
 async function parsePOSTLogin(params, res, userName, cookieSessionToken) {
     const found = tryOwnLogin(params, "", cookieSessionToken);
-    res.statusCode = (found == "") ? 200 : 404;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end(found);
+    directToOKFileNotFound(res, found, (found == ""));
 }
 
 async function parsePOSTGoogleLogin(params, res, userName, cookieSessionToken) {
@@ -977,22 +991,15 @@ async function parsePOSTGoogleLogin(params, res, userName, cookieSessionToken) {
     const json = JSON.parse(txt);
 
     if (json.azp != GoogleSignInToken || json.aud != GoogleSignInToken) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
     const found = tryOwnLogin(params, json.email, cookieSessionToken);
-    res.statusCode = (found == "") ? 200 : 404;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end(found);
+    directToOKFileNotFound(res, found, (found == ""));
 }
 
 function parsePOSTLogout(params, res, userName, cookieSessionToken) {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-
     sessions.forEach(function(session, index) {
         if (session[SessionField.Expiry] < Date.now()) {
             if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
@@ -1005,7 +1012,7 @@ function parsePOSTLogout(params, res, userName, cookieSessionToken) {
         }
     });
 
-    res.end();
+    directToOKFileNotFound(res, '', true);
 }
 
 async function parsePOSTRemind(params, res, userName) {
@@ -1030,9 +1037,7 @@ async function parsePOSTRemind(params, res, userName) {
         }
     });
 
-    res.statusCode = found ? 200 : 404;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end();
+    directToOKFileNotFound(res, '', found);
 }
 
 function parsePOSTChangePass(params, res, userName) {
@@ -1053,9 +1058,7 @@ function parsePOSTChangePass(params, res, userName) {
         remindToken.splice(index, 1);
         found = true;
     });
-    res.statusCode = found ? 200 : 404;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end();
+    directToOKFileNotFound(res, '', found);
 }
 
 function parsePOSTVerifyMail(params, res, userName) {
@@ -1082,9 +1085,7 @@ function parsePOSTVerifyMail(params, res, userName) {
         found = true;
     });
 
-    res.statusCode = found ? 200 : 404;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end();
+    directToOKFileNotFound(res, '', found);
 }
 
 async function parsePOSTforms(params, res, userName, cookieSessionToken) {
@@ -1144,9 +1145,7 @@ async function parsePOSTforms(params, res, userName, cookieSessionToken) {
         return;
     }
 
-    res.statusCode = 404;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end();
+    directToOKFileNotFound(res, '', false);
 }
 
 function isMobile(req) {
@@ -1228,9 +1227,7 @@ function showChangePasswordPage(req, res, params, id, userName) {
     });
 
     if (token == "") {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
 
@@ -1254,9 +1251,7 @@ function showMailVerifyPage(req, res, params, id, userName) {
         }
     });
     if (token == '') {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
     sendHTML(req, res, genericReplace(req, res, getCacheFileSync('//internal//verifymail.txt'), userName)
@@ -1270,9 +1265,7 @@ function showLoginGooglePage(req, res, userName) {
 
 function showAddChatPage(req, res, params, userName) {
     if (userName == "") {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
 
@@ -1289,26 +1282,20 @@ function showAddChatPage(req, res, params, userName) {
 
 function showChatPage(req, res, params, id, userName) {
     if (userName == "") {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
 
     getSourceFile("chat", id[1], (data) => {
         if (data == "") {
-            res.statusCode = 302;
-            res.setHeader('Location', '/');
-            res.end();
+            directToMain(res);
             return;
         }
 
         let arr = decodeSourceFile(data, false);
 
         if (arr["Who"] && !arr["Who"].split(",").includes(userName)) {
-            res.statusCode = 302;
-            res.setHeader('Location', '/');
-            res.end();
+            directToMain(res);
             return;
         }
 
@@ -1409,9 +1396,7 @@ function formatChatEntry(template, arr, userName) {
 
 function showAddChangeProfilePage(req, res, params, userName, userLevel) {
     if (params["q"] == "profil/zmien" && userName == "") {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
 
@@ -1440,14 +1425,18 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
         text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
             .replace("<!--MAIL-PARAMS-->", " value=\"" + cacheUsers[userName]["Mail"] + "\" placeholder=\"Cannot be empty\"")
             .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
-            .replace(/<!--OPERATION-->/g, "edit_user");
-    } else {
+            .replace(/<!--OPERATION-->/g, "edit_user")
+            .replace("<!--NOTE-->", cacheUsers[userName]["note"] ? cacheUsers[userName]["note"] : "")
+            .replace("<!--SIG-->", cacheUsers[userName]["sig"] ? cacheUsers[userName]["sig"] : "");
+    } else { // new profile
         text = text.replace("<!--CHECKED-WLASNE-->", " checked")
             .replace("<!--CHECKED-GOOGLE-->", "")
             .replace("<!--USER-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
             .replace("<!--MAIL-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
             .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Cannot be empty\"")
-            .replace(/<!--OPERATION-->/g, "new_user");
+            .replace(/<!--OPERATION-->/g, "new_user")
+            .replace("<!--NOTE-->", "")
+            .replace("<!--SIG-->", "");
     }
 
     sendHTMLBody(req, res, text);
@@ -1455,22 +1444,18 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
 
 // for example profil/pokaz/1
 function showProfilePage(req, res, params, id, userName, userLevel) {
-    getSourceFile("users", id[1], (data) => {
-        if (data == "") {
-            res.statusCode = 302;
-            res.setHeader('Location', '/');
-            res.end();
-            return;
-        }
-
-        let arr = decodeSourceFile(data, false);
+    for (let index0 in cacheUsers) {
+        if (cacheUsers[index0]["filename"] != id[1]) continue;
+        const arr = cacheUsers[index0];
 
         sendHTMLHead(res);
         res.setHeader('Cache-Control', 'no-store');
 
         let text = genericReplace(req, res, getCacheFileSync('//internal//user.txt'), userName)
             .replace(/<!--TITLE-->/g, arr["Who"])
-            .replace("<!--USER-->", arr["Who"]);
+            .replace("<!--USER-->", arr["Who"])
+            .replace("<!--NOTE-->", arr["note"] ? "<hr>" + arr["note"] : "")
+            .replace("<!--SIG-->", arr["sig"] ? "<hr>" + arr["sig"] : "");
 
         if (userName == arr["Who"]) {
             text = text.replace("<!--USER-EDIT-->", "<a href=\"?q=profil/zmien\">Edycja</a>");
@@ -1538,24 +1523,22 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
         });
 
         sendHTMLBody(req, res, text.replace("<!--TEXT-LIST-->", txt));
-    });
+        return;
+    }
+    directToMain(res);
 }
 
 // for example opowiadania/dodaj
 // for example opowiadania/zmien/1
 function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     if (userLevel == "0" || !podstronyType[id[1]]) {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
     const arr = id[2] ? decodeSourceFile(getSourceFile("texts", id[2]), false) : null;
     if (id[2]) { //edit
         if (!podstronyType[id[1]].includes(arr["Type"]) || (userLevel != "3" && userName != arr["Who"])) {
-            res.statusCode = 302;
-            res.setHeader('Location', '/');
-            res.end();
+            directToMain(res);
             return;
         }
     }
@@ -1631,18 +1614,14 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
 // for example opowiadania/pokaz/1
 function showTextPage(req, res, params, id, userName, userLevel) {
     if (!podstronyType[id[1]]) {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
 
     getSourceFile("texts", id[2], (data) => {
         const arr = decodeSourceFile(data, false);
         if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Who"])) {
-            res.statusCode = 302;
-            res.setHeader('Location', '/');
-            res.end();
+            directToMain(res);
             return;
         }
 
@@ -1671,9 +1650,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
             versions = "<br>Wersje tekstu i wstępu<br><select id=\"versions\"  name=\"versions\" size=5>" + versions;
 
             if (!sel) {
-                res.statusCode = 302;
-                res.setHeader('Location', '/');
-                res.end();
+                directToMain(res);
                 return;
             }
             versions += "</select>";
@@ -1702,7 +1679,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
 
         let text = genericReplace(req, res, getCacheFileSync('//internal//entry.txt'), userName)
             .replace(/<!--TITLE-->/g, arr["Title"])
-            .replace("<!--TAG-->", txt ? "<br>Tags: " + txt : "")
+            .replace("<!--TAG-->", txt ? "<br>Tagi: " + txt : "")
             .replace("<!--USER-->", addUserLink(arr["Who"]))
             .replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
@@ -1854,9 +1831,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         (typ && !podstronyType[rodzaj].includes(typ)) ||
         (status && !podstronyState[rodzaj].includes(status)) || (userLevel == "0" && status == "szkic") ||
         (sortLevel && !sortParam.includes(sortLevel))) {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
 
@@ -1871,9 +1846,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         null);
 
     if (pageNum * onThePage > list[1]) {
-        res.statusCode = 302;
-        res.setHeader('Location', '/');
-        res.end();
+        directToMain(res);
         return;
     }
 
@@ -2045,11 +2018,9 @@ function parseGETWithQParam(req, res, params, userName) {
             showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
             return;
         }
-    } else {
-        if (params["q"] == "logingoogle") {
-            showLoginGooglePage(req, res, userName);
-            return;
-        }
+    } else if (params["q"] == "logingoogle") { // userName==""
+        showLoginGooglePage(req, res, userName);
+        return;
     }
     let id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
     if (id) {
@@ -2085,18 +2056,16 @@ function parseGETWithQParam(req, res, params, userName) {
         showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
         return;
     }
-    res.statusCode = 302;
-    res.setHeader('Location', '/');
-    res.end();
+    directToMain(res);
 }
 
 function parseGETWithSetParam(req, res, params) {
     if (params["set"] == "mobile1") {
         res.setHeader('Set-Cookie', 'mobile=' +
-            isMobile(req) ? "; expires=Sun, 21 Dec 1980 14:14:14 GMT" : "1; SameSite=Strict; Secure");
+            (isMobile(req) ? "; expires=Sun, 21 Dec 1980 14:14:14 GMT" : "1; SameSite=Strict; Secure"));
     } else if (params["set"] == "mobile0") {
         res.setHeader('Set-Cookie', 'mobile=' +
-            isMobile(req) ? "0; SameSite=Strict; Secure" : "; expires=Sun, 21 Dec 1980 14:14:14 GMT");
+            (isMobile(req) ? "0; SameSite=Strict; Secure" : "; expires=Sun, 21 Dec 1980 14:14:14 GMT"));
     } else if (params["set"] == "dark1") {
         res.setHeader('Set-Cookie', 'dark=1; SameSite=Strict; Secure');
     } else if (params["set"] == "dark0") {
@@ -2148,9 +2117,7 @@ const onRequestHandler = (req, res) => {
         }
         return;
     } else if (req.url == "/favicon.ico") {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end();
+        directToOKFileNotFound(res, '', false);
         return;
     }
 
@@ -2226,7 +2193,7 @@ process.on('exit', function(code) {
 
 if (!fs.existsSync(__dirname + '//users')) fs.mkdirSync(__dirname + '//users');
 fs.readdirSync(__dirname + '//users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    arr = decodeSourceFile(getSourceFile("users", file.replace(".txt", "")), true);
+    arr = decodeSourceFile(getSourceFile("users", file.replace(".txt", "")), false);
     if (cacheUsers[arr["Who"]]) process.exit(2); // duplicate user
     addToUsersCache(arr["Who"], arr, file.replace(".txt", ""));
 })

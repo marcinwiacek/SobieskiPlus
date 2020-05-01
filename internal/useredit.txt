@@ -69,7 +69,7 @@
      params += '&typ=g';
     }
    } else {
-    var params = 'q=<!--OPERATION-->&mail=' + mail;
+    var params = '<!--OPERATION-->=1&mail=' + mail;
     if (getRadio("type") == "wlasne") {
      params += '&typ=w';
      if (pass != "") params += '&pass=' + sha256(pass);
@@ -77,6 +77,8 @@
      params += '&typ=g';
     }
    }
+    params += '&note=' + encodeURIComponent(suneditornote.getContents(true) != "<p><br></p>" ? suneditornote.getContents(true) : "");
+    params += '&sig=' + encodeURIComponent(suneditorsig.getContents(true) != "<p><br></p>" ? suneditorsig.getContents(true) : "");
    http = createPOST();
    http.onload = function() {
     if (http.status != 200) {
@@ -118,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
   showPathLabel: false,
   charCounter: true,
   maxCharCount: 10000,
-  placeholder: 'Niechaj narodowie żadni nam się nie dziwują, jak Polacy pięknie siem tu podpisują'
+  placeholder: 'Niechaj narodowie żadni nam się nie dziwujom, jak Polacy pięknie siem tu podpisujom'
  });
 });
  </script>
@@ -167,11 +169,11 @@ document.addEventListener("DOMContentLoaded", function(event) {
      </tr>
      <tr><td colspan=2>
        <p>Notka na stronie (opcjonalna)<br>
-       <textarea id="editor-container-note"></textarea>
+       <textarea id="editor-container-note"><!--NOTE--></textarea>
      </td></tr>
      <tr><td colspan=2>
        Stopka do komentarzy (opcjonalna)<br>
-       <textarea id="editor-container-sig"></textarea>
+       <textarea id="editor-container-sig"><!--SIG--></textarea>
      </td></tr>
      <tr>
       <td colspan=2><button type="submit" id=sub>Zapisz</button></td>
