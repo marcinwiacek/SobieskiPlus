@@ -4,6 +4,8 @@
 <head>
  <!--STYLES-->
  <script src="external/sha256.js" async defer></script>
+ <link type="text/css" rel="stylesheet" href="external/suneditor.min.css">
+ <script src="external/suneditor.min.js"></script>
  <script async>
   <!--JSASYNC-->
 
@@ -32,9 +34,9 @@
    }
   }
 
-document.addEventListener("DOMContentLoaded", function(event) {
-  sprawdz();
-});
+  document.addEventListener("DOMContentLoaded", function(event) {
+    sprawdz();
+  });
 
   function setWlasne() {
    document.getElementById('wlasne').style.visibility = "visible";
@@ -98,6 +100,27 @@ document.addEventListener("DOMContentLoaded", function(event) {
    http.send(params+"&level="+getRadio('userlevel'));
    return false;
   };
+
+var suneditornote = null;
+var suneditorsig = null;
+document.addEventListener("DOMContentLoaded", function(event) {
+ suneditornote = SUNEDITOR.create('editor-container-note', {
+  height: '100%',
+  width: 'auto',
+  showPathLabel: false,
+  charCounter: true,
+  maxCharCount: 10000,
+  placeholder: 'Wykaż się kunsztem'
+ });
+ suneditorsig = SUNEDITOR.create('editor-container-sig', {
+  height: '100%',
+  width: 'auto',
+  showPathLabel: false,
+  charCounter: true,
+  maxCharCount: 10000,
+  placeholder: 'Niechaj narodowie żadni nam się nie dziwują, jak Polacy pięknie siem tu podpisują'
+ });
+});
  </script>
  <meta charset='utf-8'>
  <title>Nowe konto</title>
@@ -109,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
   <div class=ramki> Nowy użytkownik/edycja użytkownika </div>
   <div class=ramki>
    <form onsubmit="return sendF()" autocomplete="off">
-    <table>
+    <table width=100%>
      <tr>
       <td colspan=2>
        Poziom dostępu<br>
@@ -135,13 +158,21 @@ document.addEventListener("DOMContentLoaded", function(event) {
       <td><input oninput="sprawdz()" id=mail type="text" <!--MAIL-PARAMS--> size=50></td>
      </tr>
      <tr id=wlasne>
-      <td>Password:</td>
+      <td>Hasło:</td>
       <td><input oninput="sprawdz()" id=pass type="password" value="" <!--PASS-PARAMS--> size=50><br></td>
      </tr>
      <tr id=wlasne2>
-      <td>Repeat password:</td>
+      <td>Powtórz hasło:</td>
       <td><input oninput="sprawdz()" id=pass2 type="password" value="" <!--PASS-PARAMS--> size=50></td>
      </tr>
+     <tr><td colspan=2>
+       <p>Notka na stronie (opcjonalna)<br>
+       <textarea id="editor-container-note"></textarea>
+     </td></tr>
+     <tr><td colspan=2>
+       Stopka do komentarzy (opcjonalna)<br>
+       <textarea id="editor-container-sig"></textarea>
+     </td></tr>
      <tr>
       <td colspan=2><button type="submit" id=sub>Zapisz</button></td>
      </tr>

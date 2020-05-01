@@ -15,8 +15,8 @@ podstronyState["publicystyka"] = ["szkic", "poczekalnia", "biblioteka"];
 podstronyState["książki"] = ["szkic", "poczekalnia", "biblioteka"];
 podstronyState["hydepark"] = ["szkic", "biblioteka"];
 
-const taxonomy = ["postapo", "upadek cywilizacji", "mrok"];
-const specialTaxonomy = ["przyklejonegłówna", "główna", "przyklejone", "złoto", "srebro"]; //wymaga uprawnien admina
+const tag = ["postapo", "upadek cywilizacji", "mrok"];
+const special = ["przyklejonegłówna", "główna", "przyklejone", "złoto", "srebro"]; //wymaga uprawnien admina
 
 const enableGoogleWithToken = true;
 

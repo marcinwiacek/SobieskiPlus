@@ -34,7 +34,7 @@ if (mailSupport) {
     });
 }
 
-const months = ["Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const months = ["Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Lip", "Sie", "Wrz", "Paź", "Lis", "Gru"];
 
 let cacheTextsID = 1; //ID for new files - cache
 let cacheTexts = [];
@@ -215,27 +215,29 @@ const DecodingLevel = {
     CommentText: 4
 }
 
-function addPendingCommentToArr(arr, comment, onlyHeaders) {
+// Note: edited comment has got original When field + new field Edit with edit time
+function addPendingCommentToArr(arr, comment) {
     if (comment == null) return;
-    if (!onlyHeaders) {
-        comment["When"] = Date.parse(comment["When"]);
-        if (!arr["Comments"]) {
-            arr["Comments"] = [];
-        } else {
-            if (comment["Edit"]) {
-                for (let index0 in arr["Comments"]) {
-                    if (arr["Comments"][index0]["Who"] == comment["Who"] && arr["Comments"][index0]["When"] == comment["When"]) {
-                        arr["Comments"][index0]["Edit"] = comment["Edit"];
-                        arr["Comments"][index0]["Text"] = comment["Text"];
-                        comment["When"] = 0;
-                        break;
-                    }
-                }
+    comment["When"] = Date.parse(comment["When"]);
+    if (!arr["Comments"]) {
+        arr["Comments"] = [];
+    } else if (comment["Edit"]) {
+        comment["Edit"] = Date.parse(comment["Edit"]);
+        for (let index in arr["Comments"]) {
+            if (arr["Comments"][index]["Who"] == comment["Who"] && arr["Comments"][index]["When"] == comment["When"]) {
+                arr["Comments"][index]["Edit"] = comment["Edit"];
+                if (comment["Text"]) arr["Comments"][index]["Text"] = comment["Text"];
+                comment["When"] = 0;
+                break;
             }
-            if (comment["When"] != 0) arr["Comments"].push(comment);
         }
     }
-    if (comment["When"] != 0) arr["commentsnum"]++;
+    if (comment["Edit"] && comment["When"] != 0) console.log("Error with comment time: " + comment["Who"] + "," + comment["When"] + "," + comment["Edit"]);
+    if (comment["When"] != 0) {
+        arr["commentsnum"]++;
+        arr["Comments"].push(comment);
+    }
+    if ((comment["Edit"] ? comment["Edit"] : comment["When"]) < arr["commentswhen"]) console.log("Error!");
     arr["commentswhen"] = comment["Edit"] ? comment["Edit"] : comment["When"];
 }
 
@@ -259,7 +261,7 @@ function decodeSourceFile(txt, onlyHeaders) {
     arr["commentswhen"] = 0; // for cache we don't want comments in memory; just number
     txt.split(/\r?\n/).forEach(function(line) {
         if (line == "<!--comment-->") {
-            addPendingCommentToArr(arr, comment, onlyHeaders);
+            addPendingCommentToArr(arr, comment);
             level = DecodingLevel.CommentHeaders;
             comment = [];
             comment["Text"] = "";
@@ -281,6 +283,9 @@ function decodeSourceFile(txt, onlyHeaders) {
                         // When we get Who for <!--change--> we can override author name
                         if (x[0] != "Who" || (x[0] == "Who" && !arr["Who"])) {
                             arr[x[0]] = line.substring(x[0].length + 1, line.length);
+                            if (Object.keys(cacheTexts).length != 0 && x[0] == "Who" && !cacheUsers[arr["Who"]]) {
+                                console.log("Error with user: " + arr["Who"]);
+                            }
                         }
                     }
                 }
@@ -293,25 +298,32 @@ function decodeSourceFile(txt, onlyHeaders) {
                     level = DecodingLevel.CommentText;
                 } else {
                     const x = line.split(":");
-                    if (x.length >= 2) comment[x[0]] = line.substring(x[0].length + 1, line.length);
+                    if (x.length >= 2) {
+                        comment[x[0]] = line.substring(x[0].length + 1, line.length);
+                        if (Object.keys(cacheTexts).length != 0 && x[0] == "Who" && !cacheUsers[comment["Who"]]) {
+                            console.log("Error with comment user: " + comment["Who"]);
+                        }
+                    }
                 }
                 break;
             case DecodingLevel.CommentText:
                 if (!onlyHeaders) comment["Text"] += line + "\n";
         }
     });
-    addPendingCommentToArr(arr, comment, onlyHeaders);
+    addPendingCommentToArr(arr, comment);
     addPendingTextToArr(arr, t, onlyHeaders);
     arr["When"] = Date.parse(arr["When"]);
+
+    if (onlyHeaders) delete arr["Comments"];
 
     return arr;
 }
 
-function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus, specialtaxonomyminus, sortLevel, userName, forUser) {
+function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminus, sortLevel, userName, forUser) {
     let result = [];
-    const plus = specialtaxonomyplus ? specialtaxonomyplus.split(",") : null;
-    const minus = specialtaxonomyminus ? specialtaxonomyminus.split(",") : null;
-    const tax = taxonomy ? taxonomy.split(",") : null;
+    const plus = specialplus ? specialplus.split(",") : null;
+    const minus = specialminus ? specialminus.split(",") : null;
+    const tax = tag ? tag.split(",") : null;
 
     const t = Date.now();
     for (let index0 in cacheTexts) {
@@ -328,11 +340,11 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
             continue;
         }
 
-        if (entry["Taxonomy"]) {
+        if (entry["Tag"]) {
             if (tax) {
                 let bad = false;
                 tax.forEach(function(special) {
-                    if (!entry["Taxonomy"].split(",").includes(special)) bad = true;
+                    if (!entry["Tag"].split(",").includes(special)) bad = true;
                 });
                 if (bad) continue;
             }
@@ -340,16 +352,16 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
             if (tax) continue;
         }
 
-        if (entry["SpecialTaxonomy"]) {
+        if (entry["Special"]) {
             let bad = false;
             if (plus) {
                 plus.forEach(function(special) {
-                    if (!entry["SpecialTaxonomy"].split(",").includes(special)) bad = true;
+                    if (!entry["Special"].split(",").includes(special)) bad = true;
                 });
             }
             if (!bad && minus) {
                 minus.forEach(function(special) {
-                    if (entry["SpecialTaxonomy"].split(",").includes(special)) bad = true;
+                    if (entry["Special"].split(",").includes(special)) bad = true;
                 });
             }
             if (bad) continue;
@@ -391,7 +403,7 @@ function getPageList(pageNum, typeList, stateList, taxonomy, specialtaxonomyplus
         });
     }
 
-    if (specialtaxonomyplus && specialtaxonomyplus.includes("przyklejone")) {
+    if (specialplus && specialplus.includes("przyklejone")) {
         return [result];
     } else {
         return [result.slice(pageNum * onThePage, (pageNum + 1) * onThePage), result.length];
@@ -425,7 +437,7 @@ function sendHTML(req, res, text) {
 function sendCommentToPage(res, comment) {
     res.write("event: c\n");
     if (comment) {
-        const template = getCacheFileSync('//internal//comment.txt')
+        const template = getCacheFileSync('//internal//comment0123.txt')
             .replace("<!--USER-->", addUserLink(comment["Who"]))
             .replace("<!--WHEN-->", formatDate(comment["When"]))
             .replace("<!--TEXT-->", comment["Text"]);
@@ -586,8 +598,8 @@ function parsePOSTUploadNewText(params, res, userName) {
         "State:" + params["state"] + "\n" +
         "Type:" + params["type"] + "\n";
     if (params["beta"]) txt += "Beta:" + params["beta"] + "\n";
-    if (params["taxonomy"]) txt += "Taxonomy:" + params["taxonomy"] + "\n";
-    if (params["specialtaxonomy"]) txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
+    if (params["tag"]) txt += "Tag:" + params["tag"] + "\n";
+    if (params["special"]) txt += "Special:" + params["special"] + "\n";
     txt += "When:" + formatDate(Date.now()) + "\n" +
         "Who:" + userName + "\n\n" +
         (params["teaser"] ? params["teaser"] + "\n<!--teaser-->\n" : "") +
@@ -629,10 +641,8 @@ async function updateTextInTextFile(params, res, userName) {
     if (params["state"]) txt += "State:" + params["state"] + "\n";
     if (params["type"]) txt += "Type:" + params["type"] + "\n";
     if (params["beta"] || params['beta'] == '') txt += "Beta:" + params["beta"] + "\n";
-    if (params["taxonomy"] || params['taxonomy'] == '') txt += "Taxonomy:" + params["taxonomy"] + "\n";
-    if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') {
-        txt += "SpecialTaxonomy:" + params["specialtaxonomy"] + "\n";
-    }
+    if (params["tag"] || params['tag'] == '') txt += "Tag:" + params["tag"] + "\n";
+    if (params["special"] || params["special"] == '') txt += "Special:" + params["special"] + "\n";
     if (params["teaser"] || params["teaser"] == '') {
         txt += (params["teaser"] != "" ? "\n" : "") + params["teaser"] + "\n<!--teaser-->\n";
     }
@@ -652,8 +662,8 @@ async function updateTextInTextFile(params, res, userName) {
     if (params["state"]) cacheTexts[params["tekst"]]["State"] = params["state"];
     if (params["type"]) cacheTexts[params["tekst"]]["Type"] = params["type"];
     if (params["beta"] || params["beta"] == '') cacheTexts[params["tekst"]]["Beta"] = params["beta"];
-    if (params["taxonomy"] || params["taxonomy"] == '') cacheTexts[params["tekst"]]["Taxonomy"] = params["taxonomy"];
-    if (params["specialtaxonomy"] || params["specialtaxonomy"] == '') cacheTexts[params["tekst"]]["SpecialTaxonomy"] = params["specialtaxonomy"];
+    if (params["tag"] || params["tag"] == '') cacheTexts[params["tekst"]]["Tag"] = params["tag"];
+    if (params["special"] || params["special"] == '') cacheTexts[params["tekst"]]["Special"] = params["special"];
     cacheTexts[params["tekst"]]["When"] = updateTime;
     cacheTexts[params["tekst"]]["Who"] = userName;
 
@@ -668,8 +678,8 @@ async function parsePOSTUploadUpdatedText(params, res, userName) {
             !params["text"] && !params["state"] && !params["type"] &&
             !params["title"] &&
             !(params["beta"] || params["beta"] == '') &&
-            !(params["taxonomy"] || params["taxonomy"] == '') &&
-            !(params["specialtaxonomy"] || params["specialtaxonomy"] == ''))) {
+            !(params["tag"] || params["tag"] == '') &&
+            !(params["special"] || params["special"] == ''))) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'text/plain');
         res.end();
@@ -1081,19 +1091,16 @@ async function parsePOSTforms(params, res, userName, cookieSessionToken) {
     console.log(params);
     if (userName != "") {
         if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"]) {
-            if (params["obj"] == "chat") {
-                parsePOSTUploadComment(params, res, userName, true);
-                return;
-            } else if (params["obj"] == "texts") {
-                parsePOSTUploadComment(params, res, userName, false);
+            if (params["obj"] == "chat" || params["obj"] == "texts") {
+                parsePOSTUploadComment(params, res, userName, params["obj"] == "chat");
                 return;
             }
         } else if (params["upload_text"] && params["tekst"]) {
             if (params["tekst"] == "0") {
                 parsePOSTUploadNewText(params, res, userName);
-                return;
+            } else {
+                parsePOSTUploadUpdatedText(params, res, userName);
             }
-            parsePOSTUploadUpdatedText(params, res, userName);
             return;
         } else if (params["point_text"] && params["tekst"]) {
             parsePOSTUploadPointText(params, res, userName);
@@ -1277,7 +1284,7 @@ function showAddChatPage(req, res, params, userName) {
         }
     }
 
-    sendHTML(req, res, genericReplace(req, res, getCacheFileSync('//internal//addchat.txt'), userName)
+    sendHTML(req, res, genericReplace(req, res, getCacheFileSync('//internal//addchat123.txt'), userName)
         .replace("<!--USERS-LIST-->", txt));
 }
 
@@ -1308,7 +1315,7 @@ function showChatPage(req, res, params, id, userName) {
 
         sendHTMLHead(res);
 
-        let text = genericReplace(req, res, getCacheFileSync('//internal//chat.txt'), userName)
+        let text = genericReplace(req, res, getCacheFileSync('//internal//chat123.txt'), userName)
             .replace(/<!--TITLE-->/g, arr["Title"]); // multiple
 
         if (arr["Who"]) {
@@ -1320,18 +1327,18 @@ function showChatPage(req, res, params, id, userName) {
         }
 
         if (arr["Comments"]) {
-            const template0 = getCacheFileSync('//internal//comment.txt');
+            const template0 = getCacheFileSync('//internal//comment0123.txt');
             let txt = "";
             arr["Comments"].reverse().forEach(function(comment) {
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
-                    .replace("<!--EDITED-->", comment["Edit"]?" (edited "+formatDate(comment["Edit"])+")":"")
+                    .replace("<!--EDITED-->", comment["Edit"] ? " (edited " + formatDate(comment["Edit"]) + ")" : "")
                     .replace("<!--TEXT-->", comment["Text"]);
             });
             text = text.replace("<!--COMMENTS-->", txt);
         }
 
-        sendHTMLBody(req, res, text.replace("<!--COMMENTEDIT-->", getCacheFileSync('//internal//commentedit.txt'))
+        sendHTMLBody(req, res, text.replace("<!--COMMENTEDIT-->", getCacheFileSync('//internal//commentedit123.txt'))
             .replace(/<!--PAGEID-->/g, id[1]) //many entries
             .replace("<!--OBJECT-->", "chat"));
     });
@@ -1605,18 +1612,18 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     });
     text = text.replace("<!--TYPE-->", txt + "<p>");
 
-    txt = "<select id=\"taxonomy\" name=\"taxonomy\" size=5 multiple>";
-    taxonomy.forEach(function(tax) {
-        txt += addOption(tax, tax, (id[2] && arr["Taxonomy"] && arr["Taxonomy"].split(",").includes(tax)));
+    txt = "<select id=\"tag\" name=\"tag\" size=5 multiple>";
+    tag.forEach(function(tax) {
+        txt += addOption(tax, tax, (id[2] && arr["Tag"] && arr["Tag"].split(",").includes(tax)));
     });
-    text = text.replace("<!--TAXONOMY-->", txt + "</select><p>");
+    text = text.replace("<!--TAG-->", txt + "</select><p>");
 
     if (userLevel == "3") {
-        txt = "<select id=\"specialtaxonomy\" name=\"specialtaxonomy\" size=5 multiple>";
-        specialTaxonomy.forEach(function(tax) {
-            txt += addOption(tax, tax, (id[2] && arr["SpecialTaxonomy"] && arr["SpecialTaxonomy"].split(",").includes(tax)));
+        txt = "<select id=\"special\" name=\"special\" size=5 multiple>";
+        special.forEach(function(tax) {
+            txt += addOption(tax, tax, (id[2] && arr["Special"] && arr["Special"].split(",").includes(tax)));
         });
-        text = text.replace("<!--SPECIAL-TAXONOMY-->", txt + "</select><p>");
+        text = text.replace("<!--SPECIAL-->", txt + "</select><p>");
     }
 
     sendHTMLBody(req, res, text);
@@ -1686,8 +1693,17 @@ function showTextPage(req, res, params, id, userName, userLevel) {
             });
         }
 
+        let txt = "";
+        if (arr["Tag"]) {
+            arr["Tag"].split(",").forEach(function(tax) {
+                if (txt != "") txt += ", ";
+                txt += tax;
+            });
+        }
+
         let text = genericReplace(req, res, getCacheFileSync('//internal//entry.txt'), userName)
             .replace(/<!--TITLE-->/g, arr["Title"])
+            .replace("<!--TAG-->", txt ? "<br>Tags: " + txt : "")
             .replace("<!--USER-->", addUserLink(arr["Who"]))
             .replace("<!--TEASER-->", teaser_text)
             .replace("<!--TEXT-->", main_text)
@@ -1698,12 +1714,12 @@ function showTextPage(req, res, params, id, userName, userLevel) {
 
         let lu = arr["When"];
         if (arr["Comments"]) {
-            const template0 = getCacheFileSync('//internal//comment.txt');
+            const template0 = getCacheFileSync('//internal//comment0123.txt');
             let txt = "";
             arr["Comments"].forEach(function(comment) {
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
-                    .replace("<!--EDITED-->", comment["Edit"]?" (edited "+formatDate(comment["Edit"])+")":"")
+                    .replace("<!--EDITED-->", comment["Edit"] ? " (edited " + formatDate(comment["Edit"]) + ")" : "")
                     .replace("<!--TEXT-->", comment["Text"]);
                 lu = comment["When"];
             });
@@ -1723,7 +1739,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
                     .replace(/<!--PAGEID-->/g, id[2]); //many entries
             }
             if (userLevel != "1") {
-                text = text.replace("<!--COMMENTEDIT-->", getCacheFileSync('//internal//commentedit.txt'))
+                text = text.replace("<!--COMMENTEDIT-->", getCacheFileSync('//internal//commentedit123.txt'))
                     .replace(/<!--PAGEID-->/g, id[2]) //many entries
                     .replace("<!--OBJECT-->", "texts");
             }
@@ -1748,8 +1764,8 @@ function formatListEntry(template, arr, userName) {
         template = template.replace("<!--COMMENTSWHEN-->", "(ostatni " + formatDate(arr["commentswhen"]) + ")");
     }
     let txt = "";
-    if (arr["Taxonomy"]) {
-        arr["Taxonomy"].split(",").forEach(function(tax) {
+    if (arr["Tag"]) {
+        arr["Tag"].split(",").forEach(function(tax) {
             if (txt != "") txt += ", ";
             txt += tax;
         });
@@ -1765,7 +1781,7 @@ function formatListEntry(template, arr, userName) {
         }
     }
 
-    return template.replace("<!--TAXONOMY-->", txt)
+    return template.replace("<!--TAG-->", txt)
         .replace("<!--USER-->", addUserLink(arr["Who"]))
         .replace("<!--TYPE-->", arr["Type"])
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"])
@@ -1867,7 +1883,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     let text = genericReplace(req, res, getCacheFileSync('//internal//list.txt'), userName)
         .replace("<!--TITLE-->", rodzaj + (typ != "" ? "/" + typ : "") + (status != "" ? "/" + status : ""))
         .replace("<!--RODZAJ-->", rodzaj)
-        .replace("<!--CRITERIA-->", getCacheFileSync("//internal//criteria.txt"))
+        .replace("<!--CRITERIA-->", getCacheFileSync("//internal//criteria0123.txt"))
         .replace("<!--PREVLINK-->", (pageNum != 0) ?
             buildURLForListPage("&lt; Prev page", rodzaj, typ, status, (pageNum - 1), sortLevel, tax) : "")
         .replace("<!--NEXTLINK-->", ((pageNum + 1) * onThePage < list[1]) ?
@@ -1897,11 +1913,11 @@ function showListPage(req, res, params, id, userName, userLevel) {
     if (num != 1) text = text.replace("<!--STATE-->", "<tr><td align=right>Status:</td><td>" + txt + "</td></tr>");
 
     txt = tax ? buildURLForListPage("wszystkie", rodzaj, typ, status, pageNum, sortLevel, "") : "<b>wszystkie</b>";
-    taxonomy.forEach(function(t) {
+    tag.forEach(function(t) {
         txt += (txt != "" ? " | " : "") +
             (tax == t ? "<b>" + t + "</b>" : buildURLForListPage(t, rodzaj, typ, status, pageNum, sortLevel, t));
     });
-    text = text.replace("<!--TAXONOMY-->", txt);
+    text = text.replace("<!--TAG-->", txt);
 
     txt = "";
     sortParam.forEach(function(s) {
@@ -2030,10 +2046,11 @@ function parseGETWithQParam(req, res, params, userName) {
             showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
             return;
         }
-    }
-    if (params["q"] == "logingoogle") {
-        showLoginGooglePage(req, res, userName);
-        return;
+    } else {
+        if (params["q"] == "logingoogle") {
+            showLoginGooglePage(req, res, userName);
+            return;
+        }
     }
     let id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
     if (id) {
@@ -2184,13 +2201,11 @@ const onRequestHandler = (req, res) => {
         const params = url.parse(req.url, true).query;
         console.log(req.url);
 
-        // PUSH functionality
-        if (params["sse"] && cookieSessionToken != "") {
+        if (params["sse"] && cookieSessionToken != "") { // PUSH functionality
             parseGETWithSseParam(req, res, userName, cookieSessionToken);
             return;
         }
-        // setting cookies with config
-        if (params["set"]) {
+        if (params["set"]) { // setting cookies with config
             parseGETWithSetParam(req, res, params);
             return;
         }
@@ -2199,7 +2214,7 @@ const onRequestHandler = (req, res) => {
         }
         showMainPage(req, res, 0, [], userName);
         return;
-    } else if (req.headers['content-type'] == "application/x-www-form-urlencoded" && cookieSessionToken != "") { // POST forms
+    } else if (req.headers['content-type'] == "application/x-www-form-urlencoded" && cookieSessionToken != "") { // POST
         let body = "";
         req.on('data', function(data) {
             body += data;
@@ -2223,16 +2238,16 @@ process.on('exit', function(code) {
     }
 });
 
-if (!fs.existsSync(__dirname + '//texts')) fs.mkdirSync(__dirname + '//texts');
-fs.readdirSync(__dirname + '//texts').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
-    addToTextCache(file.replace(".txt", ""), getSourceFile("texts", file.replace(".txt", "")));
-})
-
 if (!fs.existsSync(__dirname + '//users')) fs.mkdirSync(__dirname + '//users');
 fs.readdirSync(__dirname + '//users').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
     arr = decodeSourceFile(getSourceFile("users", file.replace(".txt", "")), true);
     if (cacheUsers[arr["Who"]]) process.exit(2); // duplicate user
     addToUsersCache(arr["Who"], arr, file.replace(".txt", ""));
+})
+
+if (!fs.existsSync(__dirname + '//texts')) fs.mkdirSync(__dirname + '//texts');
+fs.readdirSync(__dirname + '//texts').filter(file => (file.slice(-4) === '.txt')).forEach((file) => {
+    addToTextCache(file.replace(".txt", ""), getSourceFile("texts", file.replace(".txt", "")));
 })
 
 if (!fs.existsSync(__dirname + '//chat')) fs.mkdirSync(__dirname + '//chat');

@@ -14,8 +14,8 @@
   var state0 = null;
   var title0 = null;
   var beta0 = null;
-  var taxonomy0 = null;
-  var specialtaxonomy0 = null;
+  var tag0 = null;
+  var special0 = null;
   var text0 = null;
   var teaser0 = null;
   var updated = false;
@@ -47,9 +47,9 @@
         state0 != getRadio("state") || 
         beta0 != getRadio("betausers") || 
         title0 != document.getElementById("title").value || 
-        taxonomy0 != getListValues("taxonomy") || 
-        (document.getElementById("specialtaxonomy")!=null && 
-         specialtaxonomy0 != getListValues("specialtaxonomy")) || 
+        tag0 != getListValues("tag") || 
+        (document.getElementById("special")!=null && 
+         special0 != getListValues("special")) || 
         text0 != suneditor.getContents(true) || teaser0 != teasersuneditor.getContents(true)) {
      document.getElementById('sub').disabled = false;
     } else {
@@ -86,9 +86,9 @@ document.addEventListener("DOMContentLoaded", function(event) {
    } else {
      document.getElementById("betausersdiv").style='display:none';
    }
-  taxonomy0 = getListValues("taxonomy");
-  if (document.getElementById("specialtaxonomy")!=null) {
-    specialtaxonomy0 = getListValues("specialtaxonomy");
+  tag0 = getListValues("tag");
+  if (document.getElementById("special")!=null) {
+    special0 = getListValues("special");
   }
   text0 = suneditor.getContents(true);
   teaser0 = teasersuneditor.getContents(true);
@@ -125,10 +125,10 @@ document.addEventListener("DOMContentLoaded", function(event) {
    }
    var state = getRadio("state");
    var title = document.getElementById("title").value;
-   var taxonomy = getListValues("taxonomy");
+   var tag = getListValues("tag");
    var beta = getListValues("betausers");
-   if (document.getElementById("specialtaxonomy")!=null) {
-    var specialtaxonomy = getListValues("specialtaxonomy");
+   if (document.getElementById("special")!=null) {
+    var special = getListValues("special");
    }
    var progressBar = document.getElementById("progress");
    var params = 'upload_text=1&tekst=<!--PAGEID-->';
@@ -136,7 +136,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
    if ( <!--PAGEID--> == 0 || state != state0) params += '&state=' + state;
    if (title != title0) params += '&title=' + title;
    if ( <!--PAGEID--> == 0 || type != type0) params += '&type=' + type;
-   if (taxonomy != taxonomy0) params += '&taxonomy=' + taxonomy;
+   if (tag != tag0) params += '&tag=' + tag;
    if (beta != beta0) params += '&beta=' + beta;
    if (suneditor.getContents(true) != text0) {
     params += '&text=' + encodeURIComponent(suneditor.getContents(true) != "<p><br></p>" ? suneditor.getContents(true) : "");
@@ -144,7 +144,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
    if (teasersuneditor.getContents(true) != teaser0) {
     params += '&teaser=' + encodeURIComponent(teasersuneditor.getContents(true) != "<p><br></p>" ? teasersuneditor.getContents(true) : "");
    }
-   if (specialtaxonomy != specialtaxonomy0) params += '&specialtaxonomy=' + specialtaxonomy;
+   if (special != special0) params += '&special=' + special;
    http = createPOST();
    http.onprogress = function(e) {
     if (e.lengthComputable) {
@@ -171,10 +171,8 @@ document.addEventListener("DOMContentLoaded", function(event) {
      type0 = getRadio("type");
      state0 = getRadio("state");
      title0 = document.getElementById("title").value;
-     taxonomy0 = getListValues("taxonomy");
-     if (document.getElementById("specialtaxonomy") != null) {
-      specialtaxonomy0 = getListValues("specialtaxonomy");
-     }
+     tag0 = getListValues("tag");
+     if (document.getElementById("special") != null) special0 = getListValues("special");
      text0 = suneditor.getContents(true);
      teaser0 = teasersuneditor.getContents(true);
      version = http.response;
@@ -212,8 +210,8 @@ document.addEventListener("DOMContentLoaded", function(event) {
    <form onsubmit="return sendText()"> Status:
     <!--STATE--> Typ:
     <!--TYPE--> Tagi (opcjonalne)<p>
-     <!--TAXONOMY-->
-     <!--SPECIAL-TAXONOMY--> 
+     <!--TAG-->
+     <!--SPECIAL--> 
       <div id=betausersdiv style='display:none'>
         <table width=100%><tr><td>
           Użytkownicy zaproszeni do bety (bez zaznaczenia beta jest publiczna)<br>

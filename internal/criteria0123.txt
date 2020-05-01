@@ -2,9 +2,9 @@
  <!--TYPE-->
  <!--STATE-->
  <tr>
-  <td align=right>Taxonomy:</td>
+  <td align=right>Tags:</td>
   <td>
-   <!--TAXONOMY-->
+   <!--TAG-->
   </td>
  </tr>
  <tr>

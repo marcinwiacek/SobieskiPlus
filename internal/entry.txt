@@ -92,6 +92,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
   <div class=ramki> Autor:
    <!--USER--><br> Typ:
    <!--TYPE-->
+  <!--TAG-->
    <!--WHEN-->
    <!--WHEN2-->
    <!--POINTS-->
