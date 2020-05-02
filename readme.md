@@ -8,28 +8,31 @@
 
 # todo z node.JS:
 * facebook
-* sesje (Google) - szukanie czy user wylogowany + usuwanie nieaktywnych
-* notka na stronie usera
+* sesje z Google -> szukanie czy user wylogowany + usuwanie nieaktywnych
+* sig -> częściowo done
 * subskrypcje web-push (wymagają Notifications z przeglądarki)
 * zglaszanie do moderacji
-* banowanie przez www -> obecnie przez pole "Ban"
 
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * Edge: nie chowa pasków postępu
 * przejęcie autora (pole Who) przy dodaniu specialtaxonomy
-* drobne poprawki wymagane przy zmianie pola beta
+* drobne poprawki wymagane przy zmianie pola beta (?)
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
+* błędy przy parsowaniu plików są średnio jasne
 
 # Obecne funkcjonalności
-* pokazywanie popup przy otrzymaniu wiadomości chat (można zapisać się tylko do określonych chatów)
-* chatowanie (dodawanie i wysyłanie)
-* edycja i wyświetlanie tekstów (włącznie z przyklejaniem i blokowaniem nadpisywania; pokazywaniem kolejnych wersji tekstu i teasera)
-* listy i kolejki prywatne tekstów
-* tworzenie kont, login/logout (włącznie z Google), przypominanie hasła i weryfikacja email
-* betowanie prywatne i publiczne
-* (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
-* różne poziomy użytkowników
+* chat: pokazywanie popup przy otrzymaniu wiadomości (można zapisać się tylko do określonych chatów)
+* chat: dodawanie i wysyłanie
+* teksty: edycja i wyświetlanie (przyklejanie i blokowanie nadpisywania; pokazywanie wersji tekstu i teasera)
+* teksty: listy i kolejki prywatne
+* teksty: betowanie prywatne i publiczne
+* konta: tworzenie, login/logout (włącznie z Google), przypominanie hasła i weryfikacja email, notka na stronie, sig
+* konta: różne poziomy użytkowników
+* konta: wznawianie połączeń z serwerem (SSE) i przeładowanie, jeśli sesja straciła ważność (np. restart serwera)
+* konta: (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
+* konta: banowanie obecnie przez pole "Ban"
+* komentarze: możliwość edycji (na razie www obsługuje tylko dane z pliku)
 
 # Tworzenie wielu plików z danymi z istniejących:
 

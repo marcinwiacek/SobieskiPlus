@@ -25,3 +25,6 @@ const GoogleSignInToken = "YOUR_CLIENT_ID.apps.googleusercontent.com";
 const sortParam = ["ostatni", "ileKomentarzy", "autor", "ostatniKomentarz", "punkty"];
 
 const mailSupport = true;
+
+const sessionValidity = 60 * 1000; // 60 seconds; session validity setup after creation or using
+const sessionRefreshValidity = 30 * 1000; // 30 seconds; refreshing token

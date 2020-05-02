@@ -29,14 +29,35 @@ document.addEventListener("DOMContentLoaded", function(event) {
   return http;
  }
 
-var source = new EventSource("?sse=1");
-source.addEventListener("r", function(event) {
- window.location.reload();
-});
-source.addEventListener("m", function(event) {
- alert('You have chat message on chat '+event.data);
-});
-source.addEventListener("s", function(event) {
- document.cookie = "session="+event.data;
- console.log('You have token '+event.data);
-});
+ var source=null;
+ function setupSSE() {
+   if (source != null && source.readyState!=2) return;
+   source = new EventSource("?sse=1");
+   console.log('sse setup');
+   source.onopen = function(e) {
+     console.log("SSE open");
+   }
+   source.onerror = function(e) {
+   if (source.readyState == EventSource.CLOSED) {
+     console.log("SSE closed");
+   } else {
+     console.log("SSE error");
+   }
+   source.close();
+   setTimeout(function() {
+     setupSSE();
+   }, 5000); /* 5 seconds */
+  };
+  source.addEventListener("r", function(event) {
+   console.log('reload on sse');
+   window.location.reload();
+  });
+  source.addEventListener("m", function(event) {
+   alert('You have chat message on chat '+event.data);
+  });
+  source.addEventListener("s", function(event) {
+   document.cookie = "session="+event.data;
+   console.log('You have token '+event.data);
+  });
+ }
+ setupSSE();

@@ -465,6 +465,7 @@ function directToOKFileNotFound(res, txt, ok) {
 }
 
 function sendCommentToPage(res, comment) {
+    //  res.cork();
     res.write("event: c\n");
     if (comment) {
         const template = getCacheFileSync('//internal//comment0123.txt')
@@ -476,21 +477,30 @@ function sendCommentToPage(res, comment) {
     } else {
         res.write("data: \n\n");
     }
+    //    res.uncork();
 }
 
 function sendInfoAboutChatEntryToPage(res, id) {
+    //res.cork();
     res.write("event: m\n");
     res.write("data: " + cacheChat[id]["Title"] + "\n\n");
+    //res.uncork();
 }
 
 function sendNewTokenToPage(res, newtoken) {
+    console.log("send new token");
+    //res.cork();
     res.write("event: s\n");
     res.write("data: " + newtoken + "\n\n");
+    //res.uncork();
 }
 
 function sendReloadToPage(res) {
+    console.log('send reload');
+    //    res.cork();
     res.write("event: r\n");
-    res.write("data:\n\n");
+    res.write("data: \n\n");
+    //  res.uncork();
 }
 
 // forcing pages reload after changing concrete text
@@ -928,49 +938,48 @@ function parsePOSTEditUser(params, res, userName) {
 }
 
 function tryOwnLogin(params, googleMail, cookieSessionToken) {
-    let found = null;
     for (let index in cacheUsers) {
-        if (found != null) return found;
-        sessions.forEach(function(session, index2) {
-            if (found != null) return;
+        for (let index2 in sessions) {
+            session = sessions[index2];
             if (session[SessionField.Expiry] < Date.now()) {
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index2, 1);
-                return;
+                continue;
             }
             if (cookieSessionToken != session[SessionField.SessionToken] || session[SessionField.UserName] != "") {
-                return;
-            }
-            if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
-                found = "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
-                return;
+                continue;
             }
             if (googleMail) {
                 console.log(googleMail + " vs " + cacheUsers[index]["Mail"]);
                 //fixme check if verified
                 if (cacheUsers[index]["Type"] == "google" && googleMail == cacheUsers[index]["Mail"]) {
+                    if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
+                        return "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
+                    }
                     session[SessionField.UserName] = cacheUsers[index]["Who"];
                     reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
-                    found = "";
+                    return "";
                 }
-                return;
+                continue;
             }
-            if (cacheUsers[index]["Type"] == "google") return;
+            if (cacheUsers[index]["Type"] == "google") continue;
             usr = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Who"]).digest("hex");
-            if (usr != params["user"]) return;
+            if (usr != params["user"]) continue;
             pass = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Pass"]).digest("hex");
-            if (pass != params["password"]) return;
+            if (pass != params["password"]) continue;
             if (params["typ"] != "g" && cacheUsers[index]["ConfirmMail"] == "0") {
                 sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
-                found = "Konto niezweryfikowane. Kliknij na link w mailu";
-            } else {
-                session[SessionField.UserName] = cacheUsers[index]["Who"];
-                reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
-                found = "";
+                return "Konto niezweryfikowane. Kliknij na link w mailu";
             }
-        });
+            if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
+                return "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
+            }
+            session[SessionField.UserName] = cacheUsers[index]["Who"];
+            reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
+            return "";
+        }
     }
-    return found;
+    return "Zły użytkownik lub hasło";
 }
 
 async function parsePOSTLogin(params, res, userName, cookieSessionToken) {
@@ -1000,31 +1009,31 @@ async function parsePOSTGoogleLogin(params, res, userName, cookieSessionToken) {
 }
 
 function parsePOSTLogout(params, res, userName, cookieSessionToken) {
-    sessions.forEach(function(session, index) {
+    for (let index2 in sessions) {
+        session = sessions[index2];
         if (session[SessionField.Expiry] < Date.now()) {
             if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
             sessions.splice(index, 1);
-            return;
+            continue;
         }
         if (cookieSessionToken == session[SessionField.SessionToken]) {
             session[SessionField.UserName] = '';
             reloadUserSessionsAfterLoginLogout('', session[SessionField.SessionToken]);
+            break;
         }
-    });
+    };
 
     directToOKFileNotFound(res, '', true);
 }
 
 async function parsePOSTRemind(params, res, userName) {
-    let found = false;
-    remindToken.forEach(function(tokenEntry, index1) {
-        if (found) return;
+    for (let index1 in remindToken) {
+        tokenEntry = remindToken[index1];
         if (tokenEntry[TokenField.Expiry] < Date.now()) {
             remindToken.splice(index1, 1);
-            return;
+            continue;
         }
         for (let index in cacheUsers) {
-            if (found) return;
             usr = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Who"]).digest("hex");
             if (usr != params["token1"]) continue;
             pass = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Mail"]).digest("hex");
@@ -1033,22 +1042,22 @@ async function parsePOSTRemind(params, res, userName) {
             tokenEntry[TokenField.Token2FromMail] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
             tokenEntry[TokenField.UserName] = cacheUsers[index]["Who"];
             sendRemindPasswordMail(cacheUsers[index]["Mail"], tokenEntry[TokenField.Token2FromMail]);
-            found = true;
+            directToOKFileNotFound(res, '', true);
+            return;
         }
-    });
+    }
 
-    directToOKFileNotFound(res, '', found);
+    directToOKFileNotFound(res, '', false);
 }
 
 function parsePOSTChangePass(params, res, userName) {
-    let found = false;
-    remindToken.forEach(function(tokenEntry, index) {
-        if (found) return;
+    for (let index in remindToken) {
+        tokenEntry = remindToken[index];
         if (tokenEntry[TokenField.Expiry] < Date.now()) {
             remindToken.splice(index, 1);
-            return;
+            continue;
         }
-        if (params["hash"] != tokenEntry[TokenField.Token3]) return;
+        if (params["hash"] != tokenEntry[TokenField.Token3]) continue;
         appendToSourceFile("users", cacheUsers[tokenEntry[TokenField.UserName]]["filename"],
             "<!--change-->\n" +
             "When:" + formatDate(Date.now()) + "\n" +
@@ -1056,25 +1065,25 @@ function parsePOSTChangePass(params, res, userName) {
         );
         cacheUsers[tokenEntry[TokenField.UserName]]["Pass"] = params["token"];
         remindToken.splice(index, 1);
-        found = true;
-    });
-    directToOKFileNotFound(res, '', found);
+        directToOKFileNotFound(res, '', true);
+        return;
+    }
+    directToOKFileNotFound(res, '', false);
 }
 
 function parsePOSTVerifyMail(params, res, userName) {
-    found = false;
-    verifyToken.forEach(function(tokenEntry, index) {
-        if (found) return;
+    for (let index in verifyToken) {
+        tokenEntry = verifyToken[index];
         if (tokenEntry[TokenField.Expiry] < Date.now()) {
             verifyToken.splice(index, 1);
-            return;
+            continue;
         }
         if (cacheUsers[tokenEntry[TokenField.UserName]]["Type"] == "google" ||
             cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == "1") {
-            return;
+            continue;
         }
         if (params["token"] != crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
-                cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex")) return;
+                cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex")) continue;
         appendToSourceFile("users", cacheUsers[tokenEntry[TokenField.UserName]]["filename"],
             "<!--change-->\n" +
             "When:" + formatDate(Date.now()) + "\n" +
@@ -1082,10 +1091,10 @@ function parsePOSTVerifyMail(params, res, userName) {
         );
         cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] = "1";
         verifyToken.splice(index, 1);
-        found = true;
-    });
-
-    directToOKFileNotFound(res, '', found);
+        directToOKFileNotFound(res, '', true);
+        return;
+    }
+    directToOKFileNotFound(res, '', false);
 }
 
 async function parsePOSTforms(params, res, userName, cookieSessionToken) {
@@ -1214,18 +1223,18 @@ function showPassReminderPage(req, res, params, userName) {
 
 function showChangePasswordPage(req, res, params, id, userName) {
     let token = "";
-    remindToken.forEach(function(tokenEntry) {
-        if (token != "") return;
+    for (let index in remindToken) {
+        tokenEntry = remindToken[index];
         if (tokenEntry[TokenField.Expiry] < Date.now()) {
             remindToken.splice(index, 1);
-            return;
+            continue;
         }
         if (id[1] == decodeURIComponent(tokenEntry[TokenField.Token2FromMail])) {
             token = crypto.randomBytes(32).toString('base64');
             tokenEntry[TokenField.Token3] = token;
+            break;
         }
-    });
-
+    }
     if (token == "") {
         directToMain(res);
         return;
@@ -1237,19 +1246,20 @@ function showChangePasswordPage(req, res, params, id, userName) {
 
 function showMailVerifyPage(req, res, params, id, userName) {
     let token = '';
-    verifyToken.forEach(function(tokenEntry) {
-        if (token != '') return;
+    for (let index in verifyToken) {
+        tokenEntry = verifyToken[index];
         if (tokenEntry[TokenField.Expiry] < Date.now()) {
             verifyToken.splice(index, 1);
-            return;
+            continue;
         }
         if (id[1] == decodeURIComponent(tokenEntry[TokenField.Token]) &&
             cacheUsers[tokenEntry[TokenField.UserName]]["Type"] != "google" &&
             cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == 0) {
             token = crypto.randomBytes(32).toString('base64');
             tokenEntry[TokenField.Token] = token;
+            break;
         }
-    });
+    }
     if (token == '') {
         directToMain(res);
         return;
@@ -1463,16 +1473,18 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 (txt != "" ? (userName == arr["Who"] ? "Ostatnie chaty" : "Ostatnie chaty z Tobą") : "Chat") +
                 "</td><td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>");
 
-            const list2 = getESubList(0, userName);
-            txt = "";
-            if (list2[0]) {
-                list2[0].forEach(function(arr) {
-                    txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
-                });
-            }
-            if (txt != "") {
-                text = text.replace("<!--ESUB-LIST-->", "<div class=ramki><table width=100%><tr><td>Kolejka" +
-                    "</td></tr></table><hr>" + txt + "</div>");
+            if (userName == arr["Who"]) {
+                const list2 = getESubList(0, userName);
+                txt = "";
+                if (list2[0]) {
+                    list2[0].forEach(function(arr) {
+                        txt += (txt != "" ? "<hr>" : "") + formatListEntry(template, arr, userName);
+                    });
+                }
+                if (txt != "") {
+                    text = text.replace("<!--ESUB-LIST-->", "<div class=ramki><table width=100%><tr><td>Kolejka" +
+                        "</td></tr></table><hr>" + txt + "</div>");
+                }
             }
         }
 
@@ -1916,8 +1928,10 @@ function showListPage(req, res, params, id, userName, userLevel) {
 }
 
 function setRefreshSession(token, firstCall) {
-    sessions.forEach(function(sessionEntry, index) {
-        if (sessionEntry[SessionField.SessionToken] != token) return;
+    for (let index in sessions) {
+        sessionEntry = sessions[index];
+        if (sessionEntry[SessionField.SessionToken] != token) continue;
+        sessionEntry[SessionField.Expiry] = Date.now() + 1000 * 50; // 50 seconds
         if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
         if (!firstCall) {
             newtoken = crypto.randomBytes(32).toString('base64');
@@ -1925,6 +1939,7 @@ function setRefreshSession(token, firstCall) {
                 for (let index0 in callback) {
                     for (let index in callback[index0]) {
                         if (callback[index0][index][CallbackField.SessionToken] != token) continue;
+                        console.log("we update token to " + newtoken);
                         callback[index0][index][CallbackField.SessionToken] = newtoken;
                         sendNewTokenToPage(callback[index0][index][CallbackField.ResponseCallback], newtoken);
                     }
@@ -1937,38 +1952,44 @@ function setRefreshSession(token, firstCall) {
         sessionEntry[SessionField.SessionToken] = newtoken;
         sessionEntry[SessionField.RefreshCallback] = setTimeout(function() {
             setRefreshSession(newtoken, false);
-        }, 30000); //30 seconds
-        sessionEntry[SessionField.Expiry] = Date.now() + 1000 * 50;
-    });
+        }, sessionRefreshValidity);
+        break;
+    }
 }
 
 function addToCallback(req, res, id, callback, userName, other, token) {
     res.writeHead(200, {
         'Cache-Control': 'no-cache',
         'Content-Type': 'text/event-stream',
-        'Connection': 'keep-alive',
+        'Connection': 'keep-alive'
     });
+    //res.connection.setKeepAlive(true);
+    //res.connection.setTimeout(0);
     sendCommentToPage(res, null);
     const session = crypto.randomBytes(32).toString('base64');
     if (other && !callback[id]) callback[id] = [];
     // order consistent with CallbackField
     callback[id][session] = [res, userName, token];
     res.on('close', function() {
-        sessions.forEach(function(sessionEntry, index) {
+        console.log('closing callback ' + callback[id][session][2]);
+        for (let index in sessions) {
+            sessionEntry = sessions[index];
             if (sessionEntry[SessionField.Expiry] < Date.now()) {
                 if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
-                sessionEntry.splice(index, 1);
-                return;
+                sessions.splice(index, 1);
+                continue;
             }
             if (sessionEntry[SessionField.SessionToken] == callback[id][session][CallbackField.SessionToken]) {
                 if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
+                //   sessions.splice(index, 1);
+                break;
             }
-        });
+        }
         delete callback[id][session];
     });
-    setTimeout(function() {
-        res.end();
-    }, 60000); //60 seconds
+    //    setTimeout(function() {
+    //        res.end();
+    //    }, 90000); //90 seconds
     setRefreshSession(token, true);
 }
 
@@ -2064,22 +2085,26 @@ function parseGETWithSetParam(req, res, params) {
     res.end();
 }
 
-function parseGETWithSseParam(req, res, userName, cookieSessionToken) {
+function parseGETWithSseParam(req, res, userName, cookieSessionToken, newCookieSessionToken) {
+    const token = (cookieSessionToken == "") ? newCookieSessionToken : cookieSessionToken;
     //check field format
     //            console.log(req.headers);
     //fixme - we need checking URL beginning
     let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
     if (id && fs.existsSync(__dirname + "//chat//" + id[1] + ".txt")) {
-        addToCallback(req, res, id[1], callbackChat, userName, false, cookieSessionToken);
+        addToCallback(req, res, id[1], callbackChat, userName, false, token);
+        //        if (cookieSessionToken == "") sendReloadToPage(res);
         return;
     }
     id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
     if (id && fs.existsSync(__dirname + "//texts//" + id[2] + ".txt")) {
-        addToCallback(req, res, id[2], callbackText, userName, false, cookieSessionToken);
+        addToCallback(req, res, id[2], callbackText, userName, false, token);
+        //      if (cookieSessionToken == "") sendReloadToPage(res);
         return;
     }
     const params = url.parse(req.headers['referer'], true).query;
-    addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, cookieSessionToken);
+    addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, token);
+    // if (cookieSessionToken == "") sendReloadToPage(res);
 }
 
 const onRequestHandler = (req, res) => {
@@ -2120,18 +2145,24 @@ const onRequestHandler = (req, res) => {
         });
     }
     if (cookieSessionToken != "") {
-        sessions.forEach(function(session, index) {
+        for (let index in sessions) {
+            session = sessions[index];
+            console.log("mamy sesję1 " + session[SessionField.SessionToken]);
             if (session[SessionField.Expiry] < Date.now()) {
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index, 1);
-                return;
+                continue;
             }
+            console.log("mamy sesję2 " + session[SessionField.SessionToken]);
             if (cookieSessionToken == session[SessionField.SessionToken]) {
                 userName = session[SessionField.UserName];
                 console.log("found user " + userName);
+                session[SessionField.Expiry] += sessionValidity;
+                break;
             }
-        });
+        }
     }
+    newCookieSessionToken = "";
     if (userName == null) {
         cookieSessionToken = "";
         userName = "";
@@ -2140,17 +2171,24 @@ const onRequestHandler = (req, res) => {
         res.setHeader('Set-Cookie', 'session=' + session + '; SameSite=Strict; Secure');
 
         // order must be consistent with SessionField
-        sessions.push([session, Date.now() + 1000 * 60, '', null]); // 60 seconds, non logged
+        sessions.push([session, Date.now() + sessionValidity, '', null]); // non logged
 
         console.log("nowa sesja " + session);
+
+        newCookieSessionToken = session;
     }
     console.log('user name is ' + userName);
 
     if (req.method === 'GET') {
         console.log(req.url);
         const params = url.parse(req.url, true).query;
-        if (params["sse"] && cookieSessionToken != "") { // PUSH functionality
-            parseGETWithSseParam(req, res, userName, cookieSessionToken);
+        if (params["sse"]) { // PUSH functionality
+            parseGETWithSseParam(req, res, userName, cookieSessionToken, newCookieSessionToken);
+            if (cookieSessionToken == "") {
+                setTimeout(function() {
+                    sendReloadToPage(res);
+                }, 2000); // 2 seconds
+            }
         } else if (params["set"]) { // setting cookies with config
             parseGETWithSetParam(req, res, params);
         } else if (params["q"]) {

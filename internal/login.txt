@@ -21,13 +21,9 @@ function sendLogin() {
   http = createPOST();
   http.onload = function() {
    if (http.status != 200) {
-    if (http.response == "") {
-     alert("Błędny użytkownik lub hasło");
-    } else {
      alert(http.response);
-    }
-   } else {
-/*    window.location.reload(); */
+/*   } else {
+    window.location.reload(); */
    }
   };
   http.onerror = function() {

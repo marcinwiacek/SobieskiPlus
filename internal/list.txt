@@ -3,7 +3,23 @@
 
 <head>
  <!--STYLES-->
- <script async><!--JSASYNC--></script>
+ <script async><!--JSASYNC-->
+  /* FIXME: share it with other files */
+  function esub(id, czyon) {
+   http = createPOST();
+   http.onload = function() {
+    if (http.status != 200) {
+     alert(http.response);
+    } else {
+     window.location.reload();
+    }
+   };
+   http.onerror = function() {
+    alert('error');
+   };
+   http.send("esub=1&id=" + id + "&onoff=" + czyon);
+  }
+  </script>
  <meta charset='utf-8'>
  <title>
   <!--TITLE-->
