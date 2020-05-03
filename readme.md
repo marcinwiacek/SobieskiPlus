@@ -38,6 +38,7 @@
 * konta: (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
 * konta: banowanie na określony czas
 * komentarze: możliwość edycji (na razie www obsługuje tylko dane z pliku)
+* chat i komentarze: załączanie sygnaturek
 
 # Tworzenie wielu plików z danymi z istniejących:
 

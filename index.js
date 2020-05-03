@@ -584,7 +584,10 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
         "<!--comment-->\n" +
         "When:" + formatDate(t) + "\n" +
         "Who:" + userName + "\n\n" +
-        params["comment"] + "\n"
+        params["comment"] +
+        (cacheUsers[userName]["sig"] && cacheUsers[userName]["sig"] != '' ?
+            "<div class=\"sygnaturka\">" + cacheUsers[userName]["sig"] + "</div>" : "") +
+        "\n"
     );
 
     comment = [];
