@@ -48,13 +48,15 @@
     <tr>
      <td>Użytkownik
       <!--USER-->
-<!--NOTE-->
-<!--SIG-->
      </td>
      <td align=right>
       <!--USER-EDIT-->
      </td>
     </tr>
+<tr><td colspan=2>
+<!--NOTE-->
+<!--SIG-->
+</td></tr>
    </table>
   </div>
    <!--CHAT-LIST-->

@@ -1470,7 +1470,7 @@ function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
 
     let txt = "";
 
-    if (user && userLevel == "3") { //edit
+    if (user && userLevel == "3" && user != userName) { //edit
         if (cacheUsers[user]["Ban"]) {
             txt += "<p>Ostatni ban do: " + formatDate(cacheUsers[user]["Ban"]);
         }
@@ -1485,12 +1485,14 @@ function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
         text = text.replace("<!--BAN-->", txt);
     }
 
-    //fixme - we need to take old level
     txt = "";
     if (Object.keys(cacheUsers).length != 0) {
-        txt += addRadio("userlevel", "1", "standardowy bez opcji komentowania", false, false) + "<p>" +
-            addRadio("userlevel", "2", "standardowy z opcją komentowania", true, false);
-        if (userLevel == "3") txt += "<p>" + addRadio("userlevel", "3", "admin", false, false);
+        txt += addRadio("userlevel", "1", "standardowy bez opcji komentowania",
+                user ? cacheUsers[user]["Level"] == "1" : false, false) + "<p>" +
+            addRadio("userlevel", "2", "standardowy z opcją komentowania",
+                user ? cacheUsers[user]["Level"] == "2" : true, false);
+        if (userLevel == "3") txt += "<p>" + addRadio("userlevel", "3", "admin",
+            user ? cacheUsers[user]["Level"] == "3" : false, false);
     } else {
         txt += "<p>" + addRadio("userlevel", "3", "admin", true, false);
     }
