@@ -331,6 +331,7 @@ function decodeSourceFile(txt, onlyHeaders) {
     addPendingCommentToArr(arr, comment);
     addPendingTextToArr(arr, t, onlyHeaders);
     arr["When"] = Date.parse(arr["When"]);
+    arr["Ban"] = Date.parse(arr["Ban"]);
 
     if (onlyHeaders) delete arr["Comments"];
 
@@ -343,7 +344,7 @@ function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminu
     const minus = specialminus ? specialminus.split(",") : null;
     const tax = tag ? tag.split(",") : null;
 
-    const t = Date.now();
+    //    const t = Date.now();
     for (let index0 in cacheTexts) {
         entry = cacheTexts[index0];
 
@@ -389,7 +390,7 @@ function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminu
         result.push(entry);
     }
 
-    console.log(Date.now() - t);
+    //    console.log(Date.now() - t);
 
     if (sortLevel == "ostatni") {
         result.sort(function(a, b) {
@@ -459,7 +460,6 @@ function directToMain(res) {
 }
 
 function directToOKFileNotFound(res, txt, ok) {
-    console.log(txt);
     res.statusCode = ok ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end(txt);
@@ -910,6 +910,23 @@ function parsePOSTEditUser(params, res, userName) {
         directToOKFileNotFound(res, '', false);
         return;
     }
+    let user = null;
+    if (params["id"]) {
+        for (let index in cacheUsers) {
+            if (cacheUsers[index]["filename"] == params["id"]) {
+                user = cacheUsers[index]["Who"];
+                break;
+            }
+        }
+        if (user == null || (params["ban"] && getUserLevelUserName(userName) != "3") ||
+            (getUserLevelUserName(userName) != "3" && userName != user)) {
+            directToOKFileNotFound(res, '', false);
+            return;
+        }
+    } else {
+        user = userName;
+    }
+
     const t = Date.now();
 
     let txt = "<!--change-->\n" +
@@ -917,32 +934,41 @@ function parsePOSTEditUser(params, res, userName) {
         (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
         (params["mail"] ? "Mail:" + params["mail"] + "\n" + (params["typ"] != "g" ? "ConfirmMail:0\n" : "") : "") +
         "When:" + formatDate(t) + "\n";
+    if (userName != user) txt += "Who:" + userName + "\n";
+
+    if (params["ban"]) {
+        const banvalue = formatDate(Date.now() + parseInt(params["ban"]));
+        txt += "Ban:" + banvalue + "\n";
+        cacheUsers[user]["Ban"] = Date.parse(banvalue);
+    }
 
     // In file have change for note/sig, in cache latest value
     if (params["note"] || params["note"] == '') {
         txt += (params["note"] != "" ? "\n" : "") + params["note"] + "\n<!--sig-->\n";
-        cacheUsers[userName]["note"] = params["note"];
+        cacheUsers[user]["note"] = params["note"];
     }
     if (params["sig"] || params["sig"] == '') {
         if (!(params["note"] || params["note"] == '')) txt += "\n";
         txt += params["sig"] + "\n";
-        cacheUsers[userName]["sig"] = params["sig"];
+        cacheUsers[user]["sig"] = params["sig"];
     }
 
-    appendToSourceFile("users", cacheUsers[userName]["filename"], txt);
+    appendToSourceFile("users", cacheUsers[user]["filename"], txt);
 
     if (params["typ"] == "w" && params["pass"]) {
         console.log('jest haslo');
-        cacheUsers[userName]["Pass"] = params["pass"];
+        cacheUsers[user]["Pass"] = params["pass"];
     }
-    cacheUsers[userName]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
-    cacheUsers[userName]["When"] = t;
+    cacheUsers[user]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
+    cacheUsers[user]["When"] = t;
     if (params["mail"]) {
-        cacheUsers[userName]["Mail"] = params["mail"];
+        cacheUsers[user]["Mail"] = params["mail"];
         if (params["typ"] != "g" && mailSupport) {
-            cacheUsers[userName]["ConfirmMail"] = "0";
-            sendVerificationMail(params["mail"], userName);
+            cacheUsers[user]["ConfirmMail"] = "0";
+            sendVerificationMail(params["mail"], user);
         }
+    }
+    if (params["mail"] || params["ban"]) {
         // logout from all sessions
         // it should be done with SSE
         for (let index2 in sessions) {
@@ -952,7 +978,7 @@ function parsePOSTEditUser(params, res, userName) {
                 sessions.splice(index, 1);
                 continue;
             }
-            if (session[SessionField.UserName] == userName) {
+            if (session[SessionField.UserName] == user) {
                 session[SessionField.UserName] = '';
                 reloadUserSessionsAfterLoginLogout('', session[SessionField.SessionToken]);
             }
@@ -1422,10 +1448,25 @@ function formatChatEntry(template, arr, userName) {
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"]);
 }
 
-function showAddChangeProfilePage(req, res, params, userName, userLevel) {
-    if (params["q"] == "profil/zmien" && userName == "") {
-        directToMain(res);
-        return;
+function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
+    let user = null;
+    if (id != null) { //edit
+        for (let index in cacheUsers) {
+            if (cacheUsers[index]["filename"] == id[1]) {
+                user = cacheUsers[index]["Who"];
+                break;
+            }
+        }
+        console.log('editing user ' + user + ' ' + userName + " " + id[1]);
+        if (userLevel == "0" || (userLevel != "3" && user != userName)) {
+            directToMain(res);
+            return;
+        }
+    } else {
+        if (userLevel == "0") {
+            directToMain(res);
+            return;
+        }
     }
 
     sendHTMLHead(res);
@@ -1434,11 +1475,22 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
 
     let txt = "";
 
-    /*        txt += addRadio("ban", "3600000", "1h", false, false) + "<p>" +
-                addRadio("userlevel", "86400000", "24h", true, false)+
-                addRadio("userlevel", "604800000", "7dni", true, false);
-    */
+    if (user && userLevel == "3") { //edit
+        if (cacheUsers[user]["Ban"]) {
+            txt += "<p>Ostatni ban do: " + formatDate(cacheUsers[user]["Ban"]);
+        }
+        txt += "<p>Ban: ";
+        if (cacheUsers[user]["Ban"] && cacheUsers[user]["Ban"] >= Date.now()) {
+            txt += addRadio("ban", "0", "wyłącz", false, false);
+        }
+        txt += addRadio("ban", "", "nie zmieniaj", true, false) +
+            addRadio("ban", "3600000", "1h ", false, false) +
+            addRadio("ban", "86400000", "24h", false, false) +
+            addRadio("ban", "604800000", "7 dni", false, false);
+        text = text.replace("<!--BAN-->", txt);
+    }
 
+    //fixme - we need to take old level
     txt = "";
     if (Object.keys(cacheUsers).length != 0) {
         txt += addRadio("userlevel", "1", "standardowy bez opcji komentowania", false, false) + "<p>" +
@@ -1449,20 +1501,21 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
     }
     text = text.replace("<!--LEVEL-->", txt);
 
-    if (params["q"] == "profil/zmien") {
-        if (cacheUsers[userName]["Type"] != "google") {
+    if (user) { //edit
+        if (cacheUsers[user]["Type"] != "google") {
             text = text.replace("<!--CHECKED-WLASNE-->", " checked")
                 .replace("<!--CHECKED-GOOGLE-->", "");
         } else {
             text = text.replace("<!--CHECKED-WLASNE-->", "")
                 .replace("<!--CHECKED-GOOGLE-->", " checked");
         }
-        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
-            .replace(/<!--MAIL-->/g, cacheUsers[userName]["Mail"])
+        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[user]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
+            .replace(/<!--MAIL-->/g, cacheUsers[user]["Mail"])
             .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
             .replace(/<!--OPERATION-->/g, "edit_user")
-            .replace("<!--NOTE-->", cacheUsers[userName]["note"] ? cacheUsers[userName]["note"] : "")
-            .replace("<!--SIG-->", cacheUsers[userName]["sig"] ? cacheUsers[userName]["sig"] : "");
+            .replace("<!--NOTE-->", cacheUsers[user]["note"] ? cacheUsers[user]["note"] : "")
+            .replace("<!--SIG-->", cacheUsers[user]["sig"] ? cacheUsers[user]["sig"] : "")
+            .replace(/<!--ID-->/g, (user != userName) ? id[1] : "");
     } else { // new profile
         text = text.replace("<!--CHECKED-WLASNE-->", " checked")
             .replace("<!--CHECKED-GOOGLE-->", "")
@@ -1471,7 +1524,8 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
             .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Cannot be empty\"")
             .replace(/<!--OPERATION-->/g, "new_user")
             .replace("<!--NOTE-->", "")
-            .replace("<!--SIG-->", "");
+            .replace("<!--SIG-->", "")
+            .replace("<!--ID-->", '');
     }
 
     sendHTMLBody(req, res, text);
@@ -1492,8 +1546,8 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             .replace("<!--NOTE-->", arr["note"] ? "<hr>" + arr["note"] : "")
             .replace("<!--SIG-->", arr["sig"] ? "<hr>" + arr["sig"] : "");
 
-        if (userName == arr["Who"]) {
-            text = text.replace("<!--USER-EDIT-->", "<a href=\"?q=profil/zmien\">Edycja</a>");
+        if (userName == arr["Who"] || userLevel == "3") {
+            text = text.replace("<!--USER-EDIT-->", "<a href=\"?q=profil/zmien/" + id[1] + "\">Edycja</a>");
         }
 
         const template = getCacheFileSync('//internal//listentry.txt');
@@ -2033,21 +2087,23 @@ function addToCallback(req, res, id, callback, userName, other, token) {
 function parseGETWithQParam(req, res, params, userName) {
     //must be before opowiadania/dodaj i opowiadania/zmien/1
     if (params["q"] == "profil/dodaj") {
-        showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
+        showAddChangeProfilePage(req, res, params, null, userName, getUserLevelUserName(userName));
         return;
     } else if (params["q"] == "haslo/zmien/1") {
         showPassReminderPage(req, res, params, userName);
         return;
     }
     if (userName != "") {
-        if (params["q"] == "profil/zmien") {
-            showAddChangeProfilePage(req, res, params, userName, getUserLevelUserName(userName));
-            return;
-        } else if (params["q"] == "chat/dodaj") {
+        if (params["q"] == "chat/dodaj") {
             showAddChatPage(req, res, params, userName);
             return;
         }
-        let id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
+        let id = params["q"].match(/^profil\/zmien\/([0-9]+)$/);
+        if (id) {
+            showAddChangeProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
+            return;
+        }
+        id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
         if (id) {
             showChatPage(req, res, params, id, userName);
             return;

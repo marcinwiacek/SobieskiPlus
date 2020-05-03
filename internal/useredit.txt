@@ -62,7 +62,7 @@
     }
    }
    var mail = document.getElementById("mail").value;
-   if ("new_user" == "<!--OPERATION-->") {
+   if ("<!--OPERATION-->" == "new_user") {
     var username = document.getElementById("username").value;
     var params = '<!--OPERATION-->=1&username=' + username + '&mail=' + mail;
     if (getRadio("type") == "wlasne") {
@@ -80,6 +80,8 @@
       }
       params += '&mail=' + mail;
     }
+    if ('<!--ID-->'!='')      params += '&id=<!--ID-->';
+    if (getRadio("ban") != "") params+="&ban="+getRadio("ban");
     if (getRadio("type") == "wlasne") {
      params += '&typ=w';
      if (pass != "") params += '&pass=' + sha256(pass);
@@ -89,6 +91,7 @@
    }
    params += '&note=' + encodeURIComponent(suneditornote.getContents(true) != "<p><br></p>" ? suneditornote.getContents(true) : "");
    params += '&sig=' + encodeURIComponent(suneditorsig.getContents(true) != "<p><br></p>" ? suneditorsig.getContents(true) : "");
+   params += "&level="+getRadio('userlevel');
    http = createPOST();
    http.onload = function() {
      alert(http.response);
@@ -97,7 +100,7 @@
    http.onerror = function() {
      alert(http.response);
    };
-   http.send(params+"&level="+getRadio('userlevel'));
+   http.send(params);
    return false;
   };
 

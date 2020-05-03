@@ -12,7 +12,6 @@
 * sig -> częściowo done
 * subskrypcje web-push (wymagają Notifications z przeglądarki)
 * zglaszanie do moderacji
-* obsługa ban przez www
 * obsługa ukrywania komentarzy w becie prywatnej (kwestie formatu)
 * obsługa deaktywacji tekstów i userów
 * dodawanie tagów przez www
@@ -37,7 +36,7 @@
 * konta: różne poziomy użytkowników
 * konta: wznawianie połączeń z serwerem (SSE) i przeładowanie, jeśli sesja straciła ważność (np. restart serwera)
 * konta: (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
-* konta: banowanie obecnie przez pole "Ban"
+* konta: banowanie na określony czas
 * komentarze: możliwość edycji (na razie www obsługuje tylko dane z pliku)
 
 # Tworzenie wielu plików z danymi z istniejących:
