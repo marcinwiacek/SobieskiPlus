@@ -459,6 +459,7 @@ function directToMain(res) {
 }
 
 function directToOKFileNotFound(res, txt, ok) {
+    console.log(txt);
     res.statusCode = ok ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end(txt);
@@ -550,7 +551,7 @@ async function sendVerificationMail(mail, username) {
         text: "Link jest ważny przez godzinę: q=verifymail/" + token +
             "\n Jeżeli straci ważność, spróbuj się zalogować i dostaniesz kolejny mail"
     });
-    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+    console.log("Preview URL (username " + username + "): %s", nodemailer.getTestMessageUrl(info));
     //order inside TokenField; last field unused
     verifyToken.push([token, username, Date.now() + 1000 * 60 * 60, "", ""]);
 }
@@ -894,12 +895,13 @@ function parsePOSTCreateUser(params, res, userName) {
         txt += params["sig"] + "\n";
     }
 
-    const id = createNewSourceFile("users", 1, txt);
-    addToUsersCache(params["username"], decodeSourceFile(txt, false), id);
+    addToUsersCache(params["username"], decodeSourceFile(txt, false), createNewSourceFile("users", 1, txt));
 
     if (params["typ"] != "g" && mailSupport) sendVerificationMail(params["mail"], params["username"]);
 
-    directToOKFileNotFound(res, id.toString(), true);
+    directToOKFileNotFound(res, (params["typ"] == "g" ?
+        "Konto założone. Adres musi być zweryfikowany przez Google." :
+        "Konto założone. Konieczna jest jeszcze weryfikacja adresu email. Kliknij na link w mailu."), true);
 }
 
 // FIXME: semaphore?
@@ -913,7 +915,7 @@ function parsePOSTEditUser(params, res, userName) {
     let txt = "<!--change-->\n" +
         (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
         (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
-        "Mail:" + params["mail"] + "\n" +
+        (params["mail"] ? "Mail:" + params["mail"] + "\n" + (params["typ"] != "g" ? "ConfirmMail:0\n" : "") : "") +
         "When:" + formatDate(t) + "\n";
 
     // In file have change for note/sig, in cache latest value
@@ -929,12 +931,36 @@ function parsePOSTEditUser(params, res, userName) {
 
     appendToSourceFile("users", cacheUsers[userName]["filename"], txt);
 
-    if (params["typ"] == "w" && params["pass"] != "") cacheUsers[userName]["Pass"] = params["pass"];
+    if (params["typ"] == "w" && params["pass"]) {
+        console.log('jest haslo');
+        cacheUsers[userName]["Pass"] = params["pass"];
+    }
     cacheUsers[userName]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
-    cacheUsers[userName]["Mail"] = params["mail"];
     cacheUsers[userName]["When"] = t;
+    if (params["mail"]) {
+        cacheUsers[userName]["Mail"] = params["mail"];
+        if (params["typ"] != "g" && mailSupport) {
+            cacheUsers[userName]["ConfirmMail"] = "0";
+            sendVerificationMail(params["mail"], userName);
+        }
+        // logout from all sessions
+        // it should be done with SSE
+        for (let index2 in sessions) {
+            session = sessions[index2];
+            if (session[SessionField.Expiry] < Date.now()) {
+                if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
+                sessions.splice(index, 1);
+                continue;
+            }
+            if (session[SessionField.UserName] == userName) {
+                session[SessionField.UserName] = '';
+                reloadUserSessionsAfterLoginLogout('', session[SessionField.SessionToken]);
+            }
+        };
+    }
 
-    directToOKFileNotFound(res, '', true);
+    // NOTE: info about mail verification is not sent here - after logging out we normally reload sessions
+    directToOKFileNotFound(res, "Konto zmienione", true);
 }
 
 function tryOwnLogin(params, googleMail, cookieSessionToken) {
@@ -1082,6 +1108,10 @@ function parsePOSTVerifyMail(params, res, userName) {
             cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == "1") {
             continue;
         }
+        console.log('verity token -' + tokenEntry[TokenField.UserName] + '- -' + tokenEntry[TokenField.Token] + '-');
+        console.log(params["token"] + " vs " + crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
+            cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex"));
+
         if (params["token"] != crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
                 cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex")) continue;
         appendToSourceFile("users", cacheUsers[tokenEntry[TokenField.UserName]]["filename"],
@@ -1118,7 +1148,7 @@ async function parsePOSTforms(params, res, userName, cookieSessionToken) {
         } else if (params["new_chat"] && params["title"] && params["users"]) {
             parsePOSTCreateChat(params, res, userName);
             return;
-        } else if (params["edit_user"] && params["typ"] && params["mail"]) {
+        } else if (params["edit_user"] && params["typ"]) {
             parsePOSTEditUser(params, res, userName);
             return;
         } else if (params["esub"] && params["id"] && params["onoff"]) {
@@ -1403,6 +1433,13 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
     let text = genericReplace(req, res, getCacheFileSync('//internal//useredit.txt'), userName);
 
     let txt = "";
+
+    /*        txt += addRadio("ban", "3600000", "1h", false, false) + "<p>" +
+                addRadio("userlevel", "86400000", "24h", true, false)+
+                addRadio("userlevel", "604800000", "7dni", true, false);
+    */
+
+    txt = "";
     if (Object.keys(cacheUsers).length != 0) {
         txt += addRadio("userlevel", "1", "standardowy bez opcji komentowania", false, false) + "<p>" +
             addRadio("userlevel", "2", "standardowy z opcją komentowania", true, false);
@@ -1421,7 +1458,7 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
                 .replace("<!--CHECKED-GOOGLE-->", " checked");
         }
         text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[userName]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
-            .replace("<!--MAIL-PARAMS-->", " value=\"" + cacheUsers[userName]["Mail"] + "\" placeholder=\"Cannot be empty\"")
+            .replace(/<!--MAIL-->/g, cacheUsers[userName]["Mail"])
             .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
             .replace(/<!--OPERATION-->/g, "edit_user")
             .replace("<!--NOTE-->", cacheUsers[userName]["note"] ? cacheUsers[userName]["note"] : "")
@@ -1430,7 +1467,7 @@ function showAddChangeProfilePage(req, res, params, userName, userLevel) {
         text = text.replace("<!--CHECKED-WLASNE-->", " checked")
             .replace("<!--CHECKED-GOOGLE-->", "")
             .replace("<!--USER-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
-            .replace("<!--MAIL-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
+            .replace(/<!--MAIL-->/g, '')
             .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Cannot be empty\"")
             .replace(/<!--OPERATION-->/g, "new_user")
             .replace("<!--NOTE-->", "")
@@ -2085,29 +2122,25 @@ function parseGETWithSetParam(req, res, params) {
     res.end();
 }
 
-function parseGETWithSseParam(req, res, userName, cookieSessionToken, newCookieSessionToken) {
-    const token = (cookieSessionToken == "") ? newCookieSessionToken : cookieSessionToken;
+function parseGETWithSseParam(req, res, userName, token) {
     //check field format
     //            console.log(req.headers);
     //fixme - we need checking URL beginning
     let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
     if (id && fs.existsSync(__dirname + "//chat//" + id[1] + ".txt")) {
         addToCallback(req, res, id[1], callbackChat, userName, false, token);
-        //        if (cookieSessionToken == "") sendReloadToPage(res);
         return;
     }
     id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
     if (id && fs.existsSync(__dirname + "//texts//" + id[2] + ".txt")) {
         addToCallback(req, res, id[2], callbackText, userName, false, token);
-        //      if (cookieSessionToken == "") sendReloadToPage(res);
         return;
     }
     const params = url.parse(req.headers['referer'], true).query;
     addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, token);
-    // if (cookieSessionToken == "") sendReloadToPage(res);
 }
 
-const onRequestHandler = (req, res) => {
+function processExternalFiles(req, res) {
     if (req.url == "/external/styles.css" || req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
         req.url == "/external/suneditor.min.css" || req.url == "/external/suneditor.min.js") {
         res.statusCode = 200;
@@ -2128,11 +2161,16 @@ const onRequestHandler = (req, res) => {
         } else {
             res.end(getCacheFileSync(req.url));
         }
-        return;
+        return true;
     } else if (req.url == "/favicon.ico") {
         directToOKFileNotFound(res, '', false);
-        return;
+        return true;
     }
+    return false;
+}
+
+const onRequestHandler = (req, res) => {
+    if (processExternalFiles(req, res)) return;
 
     console.log(' ');
     let cookieSessionToken = "";
@@ -2147,13 +2185,13 @@ const onRequestHandler = (req, res) => {
     if (cookieSessionToken != "") {
         for (let index in sessions) {
             session = sessions[index];
-            console.log("mamy sesję1 " + session[SessionField.SessionToken]);
+            //            console.log("mamy sesję1 " + session[SessionField.SessionToken]);
             if (session[SessionField.Expiry] < Date.now()) {
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index, 1);
                 continue;
             }
-            console.log("mamy sesję2 " + session[SessionField.SessionToken]);
+            //            console.log("mamy sesję2 " + session[SessionField.SessionToken]);
             if (cookieSessionToken == session[SessionField.SessionToken]) {
                 userName = session[SessionField.UserName];
                 console.log("found user " + userName);
@@ -2162,20 +2200,17 @@ const onRequestHandler = (req, res) => {
             }
         }
     }
-    newCookieSessionToken = "";
+    const newCookieSessionToken = (userName == null);
     if (userName == null) {
-        cookieSessionToken = "";
         userName = "";
+        const cookieSessionToken = crypto.randomBytes(32).toString('base64');
 
-        const session = crypto.randomBytes(32).toString('base64');
-        res.setHeader('Set-Cookie', 'session=' + session + '; SameSite=Strict; Secure');
+        res.setHeader('Set-Cookie', 'session=' + cookieSessionToken + '; SameSite=Strict; Secure');
 
         // order must be consistent with SessionField
-        sessions.push([session, Date.now() + sessionValidity, '', null]); // non logged
+        sessions.push([cookieSessionToken, Date.now() + sessionValidity, '', null]); // non logged
 
-        console.log("nowa sesja " + session);
-
-        newCookieSessionToken = session;
+        console.log("nowa sesja " + cookieSessionToken);
     }
     console.log('user name is ' + userName);
 
@@ -2183,8 +2218,8 @@ const onRequestHandler = (req, res) => {
         console.log(req.url);
         const params = url.parse(req.url, true).query;
         if (params["sse"]) { // PUSH functionality
-            parseGETWithSseParam(req, res, userName, cookieSessionToken, newCookieSessionToken);
-            if (cookieSessionToken == "") {
+            parseGETWithSseParam(req, res, userName, cookieSessionToken);
+            if (newCookieSessionToken) {
                 setTimeout(function() {
                     sendReloadToPage(res);
                 }, 2000); // 2 seconds
