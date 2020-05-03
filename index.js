@@ -1836,7 +1836,7 @@ function formatListEntry(template, arr, userName) {
         });
     }
 
-    if (userName != arr["Who"]) {
+    if (userName != "" && userName != arr["Who"]) {
         if (!cacheUsers[userName]["ESub"]) {
             template = template.replace("<!--SUB-->", "<a href=javascript:esub(" + arr["filename"] + ",true);>off</a>");
         } else {
