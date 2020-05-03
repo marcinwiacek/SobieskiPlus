@@ -12,6 +12,12 @@
 * sig -> częściowo done
 * subskrypcje web-push (wymagają Notifications z przeglądarki)
 * zglaszanie do moderacji
+* obsługa ban przez www
+* obsługa ukrywania komentarzy w becie prywatnej (kwestie formatu)
+* obsługa deaktywacji tekstów i userów
+* dodawanie tagów przez www
+* dodawanie konkursów przez www
+* notyfikacje o nowych wiadomościach w menu (potrzebne pole, kiedy user ostatni raz oglądał swoją stronę)
 
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
