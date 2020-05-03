@@ -1465,11 +1465,6 @@ function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
             directToMain(res);
             return;
         }
-    } else {
-        if (userLevel == "0") {
-            directToMain(res);
-            return;
-        }
     }
 
     sendHTMLHead(res);
