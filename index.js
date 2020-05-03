@@ -579,24 +579,21 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
         return;
     }
 
-    const t = Date.now(); // FIXME: do we need conversion here?
-    appendToSourceFile(folder, params["tekst"],
-        "<!--comment-->\n" +
-        "When:" + formatDate(t) + "\n" +
-        "Who:" + userName + "\n\n" +
-        params["comment"] +
-        (cacheUsers[userName]["sig"] && cacheUsers[userName]["sig"] != '' ?
-            "<div class=\"sygnaturka\">" + cacheUsers[userName]["sig"] + "</div>" : "") +
-        "\n"
-    );
-
     comment = [];
     comment["Who"] = userName;
-    comment["When"] = t;
-    comment["Text"] = params["comment"];
+    comment["When"] = Date.now(); // FIXME: do we need conversion here?;
+    comment["Text"] = params["comment"] + (cacheUsers[userName]["sig"] && cacheUsers[userName]["sig"] != '' ?
+        "<div class=\"sygnaturka\">" + cacheUsers[userName]["sig"] + "</div>" : "");
+
+    appendToSourceFile(folder, params["tekst"],
+        "<!--comment-->\n" +
+        "When:" + formatDate(comment["When"]) + "\n" +
+        "Who:" + userName + "\n\n" +
+        comment["text"] + "\n"
+    );
 
     if (isChat) {
-        cacheChat[params["tekst"]]["commentswhen"] = t;
+        cacheChat[params["tekst"]]["commentswhen"] = comment["When"];
         cacheChat[params["tekst"]]["commentsnum"]++;
 
         for (let index in callbackChat[params["tekst"]]) {
@@ -615,7 +612,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
         //fixme: check the same on other callbackText
         //fixme: send refresh to user pages for other users
     } else {
-        cacheTexts[params["tekst"]]["commentswhen"] = t;
+        cacheTexts[params["tekst"]]["commentswhen"] = comment["When"];
         cacheTexts[params["tekst"]]["commentsnum"]++;
 
         for (let index in callbackText[params["tekst"]]) {

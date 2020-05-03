@@ -9,7 +9,6 @@
 # todo z node.JS:
 * facebook
 * sesje z Google -> szukanie czy user wylogowany + usuwanie nieaktywnych
-* sig -> częściowo done
 * subskrypcje web-push (wymagają Notifications z przeglądarki)
 * zglaszanie do moderacji
 * obsługa ukrywania komentarzy w becie prywatnej (kwestie formatu)
@@ -25,7 +24,6 @@
 * drobne poprawki wymagane przy zmianie pola beta (?)
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 * błędy przy parsowaniu plików są średnio jasne
-* update sig w cache
 
 # Obecne funkcjonalności
 * chat: pokazywanie popup przy otrzymaniu wiadomości (można zapisać się tylko do określonych chatów)
