@@ -359,6 +359,8 @@ function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminu
             !stateList.includes(entry["State"]) ||
             (entry["State"] == "szkic" && userName != entry["Who"])) continue;
 
+        if (cacheUsers[entry["Who"]]["Active"] && cacheUsers[entry["Who"]]["Active"] == "0") continue;
+
         if (forUser && entry["Who"] != forUser) continue;
 
         if (userName != "" && userName != entry["Who"] && entry["State"] == "beta" &&
@@ -1005,6 +1007,8 @@ function parsePOSTEditUser(params, res, userName) {
 
 function tryOwnLogin(params, googleMail, cookieSessionToken) {
     for (let index in cacheUsers) {
+        if (cacheUsers[index]["Active"] && cacheUsers[index]["Active"] == "0") continue;
+        if ((googleMail != "") != (cacheUsers[index]["Type"] == "google")) continue;
         for (let index2 in sessions) {
             session = sessions[index2];
             if (session[SessionField.Expiry] < Date.now()) {
@@ -1018,21 +1022,18 @@ function tryOwnLogin(params, googleMail, cookieSessionToken) {
             if (googleMail) {
                 console.log(googleMail + " vs " + cacheUsers[index]["Mail"]);
                 //fixme check if verified
-                if (cacheUsers[index]["Type"] == "google" && googleMail == cacheUsers[index]["Mail"]) {
-                    if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
-                        return "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
-                    }
-                    session[SessionField.UserName] = cacheUsers[index]["Who"];
-                    reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
-                    return "";
+                if (googleMail != cacheUsers[index]["Mail"]) continue;
+                if (cacheUsers[index]["Ban"] && cacheUsers[index]["Ban"] > Date.now()) {
+                    return "Konto zablokowane przez administratora do " + formatDate(cacheUsers[index]["Ban"]);
                 }
-                continue;
+                session[SessionField.UserName] = cacheUsers[index]["Who"];
+                reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
+                return "";
             }
-            if (cacheUsers[index]["Type"] == "google") continue;
-            usr = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Who"]).digest("hex");
-            if (usr != params["user"]) continue;
-            pass = crypto.createHash('sha256').update(session[SessionField.SessionToken] + cacheUsers[index]["Pass"]).digest("hex");
-            if (pass != params["password"]) continue;
+            if (params["user"] != crypto.createHash('sha256').update(session[SessionField.SessionToken] +
+                    cacheUsers[index]["Who"]).digest("hex")) continue;
+            if (params["password"] != crypto.createHash('sha256').update(session[SessionField.SessionToken] +
+                    cacheUsers[index]["Pass"]).digest("hex")) continue;
             if (params["typ"] != "g" && cacheUsers[index]["ConfirmMail"] == "0") {
                 sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
                 return "Konto niezweryfikowane. Kliknij na link w mailu";
@@ -1347,6 +1348,7 @@ function showAddChatPage(req, res, params, userName) {
 
     let txt = "";
     for (let index in cacheUsers) {
+        if (cacheUsers[index]["Active"] && cacheUsers[index]["Active"] == "0") continue;
         if (cacheUsers[index]["Who"] != userName) {
             txt += addOption(cacheUsers[index]["Who"], cacheUsers[index]["Who"], false);
         }
@@ -1392,6 +1394,7 @@ function showChatPage(req, res, params, id, userName) {
             const template0 = getCacheFileSync('//internal//comment0123.txt');
             let txt = "";
             arr["Comments"].reverse().forEach(function(comment) {
+                if (cacheUsers[comment["Who"]]["Active"] && cacheUsers[comment["Who"]]["Active"] == "0") return;
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
                     .replace("<!--EDITED-->", comment["Edit"] ? " (edited " + formatDate(comment["Edit"]) + ")" : "")
@@ -1542,6 +1545,8 @@ function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
 function showProfilePage(req, res, params, id, userName, userLevel) {
     for (let index0 in cacheUsers) {
         if (cacheUsers[index0]["filename"] != id[1]) continue;
+        if (cacheUsers[index0]["Active"] && cacheUsers[index0]["Active"] == "0") continue;
+
         const arr = cacheUsers[index0];
 
         sendHTMLHead(res);
@@ -1791,6 +1796,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
             const template0 = getCacheFileSync('//internal//comment0123.txt');
             let txt = "";
             arr["Comments"].forEach(function(comment) {
+                if (cacheUsers[comment["Who"]]["Active"] && cacheUsers[comment["Who"]]["Active"] == "0") return;
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
                     .replace("<!--EDITED-->", comment["Edit"] ? " (edited " + formatDate(comment["Edit"]) + ")" : "")

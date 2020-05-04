@@ -38,6 +38,7 @@
 * konta: wznawianie połączeń z serwerem (SSE) i przeładowanie, jeśli sesja straciła ważność (np. restart serwera)
 * konta: (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
 * konta: banowanie na określony czas
+* konta: ukrywanie usera przez pole Active=0
 * komentarze: możliwość edycji (na razie www obsługuje tylko dane z pliku)
 
 # Tworzenie wielu plików z danymi z istniejących:
