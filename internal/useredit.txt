@@ -9,7 +9,11 @@
  <script async>
   <!--JSASYNC-->
 
-  mail0='<!--MAIL-->';
+  var mail0 = '<!--MAIL-->';
+  var sig0;
+  var note0;
+  var type0;
+  var level0;
 
   function getRadio(name) {
    var r = "";
@@ -24,7 +28,7 @@
   }
 
   function sprawdz() {
-   if ("new_user" == "<!--OPERATION-->") {
+   if ("<!--OPERATION-->" == "new_user") {
     document.getElementById('sub').disabled = 
       (document.getElementById("username").value == "" || 
         document.getElementById("mail").value == "" || 
@@ -32,13 +36,13 @@
            document.getElementById("pass2").value == "")));
    } else {
      document.getElementById('sub').disabled = 
-       (document.getElementById("mail").value == "");
+       !(document.getElementById("mail").value != "" ||
+    sig0 != suneditorsig.getContents(true) ||
+    note0 != suneditornote.getContents(true) ||
+    type0 != getRadio("type") ||
+    level0 != getRadio('userlevel'));
    }
   }
-
-  document.addEventListener("DOMContentLoaded", function(event) {
-    sprawdz();
-  });
 
   function setWlasne() {
    document.getElementById('wlasne').style.visibility = "visible";
@@ -62,16 +66,17 @@
     }
    }
    var mail = document.getElementById("mail").value;
+   var params = '<!--OPERATION-->=1';
    if ("<!--OPERATION-->" == "new_user") {
-    var username = document.getElementById("username").value;
-    var params = '<!--OPERATION-->=1&username=' + username + '&mail=' + mail;
+    params += '&username=' + document.getElementById("username").value + '&mail=' + mail;
     if (getRadio("type") == "wlasne") {
-     params += '&typ=w&pass=' + sha256(pass);
+     params += '&typ=w';
+     params += '&pass=' + sha256(pass);
     } else {
      params += '&typ=g';
     }
-   } else {
-    var params = '<!--OPERATION-->=1';
+    params += "&level="+getRadio('userlevel');
+   } else if ("<!--OPERATION-->" == "edit_user") {
     if (mail != mail0) {
       if (getRadio("type") == "wlasne") {
         alert("Konieczna jest jeszcze weryfikacja adresu email. Kliknij na link w mailu.");
@@ -80,18 +85,20 @@
       }
       params += '&mail=' + mail;
     }
-    if ('<!--ID-->'!='')      params += '&id=<!--ID-->';
-    if (getRadio("ban") != "") params+="&ban="+getRadio("ban");
-    if (getRadio("type") == "wlasne") {
-     params += '&typ=w';
-     if (pass != "") params += '&pass=' + sha256(pass);
-    } else {
-     params += '&typ=g';
+    if (type0 != getRadio("type")) {
+     if (getRadio("type") == "wlasne") {
+      params += '&typ=w';
+      if (pass != "") params += '&pass=' + sha256(pass);
+     } else {
+      params += '&typ=g';
+     }
     }
+    if (level0 != getRadio('userlevel')) params += "&level="+getRadio('userlevel');
+    if ('<!--ID-->'!='') params += '&id=<!--ID-->';
+    if (getRadio("ban") != "") params+="&ban="+getRadio("ban");
    }
-   params += '&note=' + encodeURIComponent(suneditornote.getContents(true) != "<p><br></p>" ? suneditornote.getContents(true) : "");
-   params += '&sig=' + encodeURIComponent(suneditorsig.getContents(true) != "<p><br></p>" ? suneditorsig.getContents(true) : "");
-   params += "&level="+getRadio('userlevel');
+   if (note0 != suneditornote.getContents(true)) params += '&note=' + encodeURIComponent(suneditornote.getContents(true) != "<p><br></p>" ? suneditornote.getContents(true) : "");
+   if (sig0 != suneditorsig.getContents(true)) params += '&sig=' + encodeURIComponent(suneditorsig.getContents(true) != "<p><br></p>" ? suneditorsig.getContents(true) : "");
    http = createPOST();
    http.onload = function() {
      alert(http.response);
@@ -123,6 +130,11 @@
     maxCharCount: 10000,
     placeholder: 'Niechaj narodowie żadni nam się nie dziwujom, jak Polacy pięknie siem tu podpisujom'
    });
+    sig0 = suneditorsig.getContents(true);
+    note0 = suneditornote.getContents(true);
+    type0 = getRadio("type");
+    level0 = getRadio('userlevel');
+    sprawdz();
   });
  </script>
  <meta charset='utf-8'>

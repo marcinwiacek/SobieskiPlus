@@ -121,10 +121,17 @@ function addToUsersCache(userName, arr, fileID) {
     let note_text = "";
     if (arr["OldText"]) {
         arr["OldText"].forEach(function(t0, index) {
+            console.log(t0["When"] + "-" + t0["Text"] + "-");
             const t = t0["Text"].slice(0, -1);
-            if (t.search('<!--sig-->') != -1) note_text = t.substr(0, t.search('<!--sig-->') - 1);
+            if (t.search('<!--sig-->') != -1) {
+                note_text = t.substr(0, t.search('<!--sig-->') - 1);
+                if (note_text == "<!--del-->") note_text = "";
+            }
             const x = (t.search('<!--sig-->') != -1 ? t.substr(t.search('<!--sig-->') + 11) : t);
-            if (x != "") sig_text = x;
+            if (x != "") {
+                sig_text = x;
+                if (sig_text == "<!--del-->") sig_text = "";
+            }
         });
         delete arr["OldText"];
     }
@@ -210,9 +217,9 @@ function getSourceFile(path, ID, callback) {
 
 function getCacheFileSync(fileName) {
     if (!cacheFiles[fileName]) {
-        const t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", "").replace("_br", ""));
+        let t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", "").replace("_br", ""));
         // CAN'T USE // comments in JS !!!! Use /* */ instead.
-        //        t = t.replace(/(\r\n|\n|\r)/gm, "");
+        if (compressInternal) t = t.replace(/(\r\n|\n|\r)/gm, "");
         if (fileName.includes("_br")) {
             cacheFiles[fileName] = zlib.brotliCompressSync(t);
         } else if (fileName.includes("_gzip")) {
@@ -589,7 +596,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
         "<!--comment-->\n" +
         "When:" + formatDate(comment["When"]) + "\n" +
         "Who:" + userName + "\n\n" +
-        comment["text"] + "\n"
+        comment["Text"] + "\n"
     );
 
     if (isChat) {
@@ -906,7 +913,7 @@ function parsePOSTCreateUser(params, res, userName) {
 
 // FIXME: semaphore?
 function parsePOSTEditUser(params, res, userName) {
-    if (params["typ"] != "g" && params["typ"] != "w") {
+    if (params["typ"] && (params["typ"] != "g" && params["typ"] != "w")) {
         directToOKFileNotFound(res, '', false);
         return;
     }
@@ -930,11 +937,13 @@ function parsePOSTEditUser(params, res, userName) {
     const t = Date.now();
 
     let txt = "<!--change-->\n" +
-        (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
-        (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n") +
         (params["mail"] ? "Mail:" + params["mail"] + "\n" + (params["typ"] != "g" ? "ConfirmMail:0\n" : "") : "") +
         "When:" + formatDate(t) + "\n";
     if (userName != user) txt += "Who:" + userName + "\n";
+    if (params["typ"]) {
+        txt += (params["typ"] == "w" && params["pass"] ? "Pass:" + params["pass"] + "\n" : "") +
+            (params["typ"] == "g" ? "Type:google\n" : "Type:wlasny\n");
+    }
 
     if (params["ban"]) {
         const banvalue = formatDate(Date.now() + parseInt(params["ban"]));
@@ -943,23 +952,28 @@ function parsePOSTEditUser(params, res, userName) {
     }
 
     // In file have change for note/sig, in cache latest value
-    if (params["note"] || params["note"] == '') {
-        txt += (params["note"] != "" ? "\n" : "") + params["note"] + "\n<!--sig-->\n";
-        cacheUsers[user]["note"] = params["note"];
-    }
-    if (params["sig"] || params["sig"] == '') {
-        if (!(params["note"] || params["note"] == '')) txt += "\n";
-        txt += params["sig"] + "\n";
-        cacheUsers[user]["sig"] = params["sig"];
+    if (params["note"] || params["sig"] || params["note"] == '' || params["sig"] == '') {
+        txt += "\n";
+        if (params["note"] || params["note"] == '') {
+            txt += (params["note"] == "" ? "<!--del-->" : params["note"]) + "\n";
+            cacheUsers[user]["note"] = params["note"];
+        }
+        txt += "<!--sig-->\n";
+        if (params["sig"] || params["sig"] == '') {
+            txt += (params["sig"] == "" ? "<!--del-->" : params["sig"]) + "\n";
+            cacheUsers[user]["sig"] = params["sig"];
+        }
     }
 
     appendToSourceFile("users", cacheUsers[user]["filename"], txt);
 
-    if (params["typ"] == "w" && params["pass"]) {
-        console.log('jest haslo');
-        cacheUsers[user]["Pass"] = params["pass"];
+    if (params["typ"]) {
+        if (params["typ"] == "w" && params["pass"]) {
+            console.log('jest haslo');
+            cacheUsers[user]["Pass"] = params["pass"];
+        }
+        cacheUsers[user]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
     }
-    cacheUsers[user]["Type"] = (params["typ"] == "g" ? "google\n" : "wlasny");
     cacheUsers[user]["When"] = t;
     if (params["mail"]) {
         cacheUsers[user]["Mail"] = params["mail"];
@@ -1134,10 +1148,6 @@ function parsePOSTVerifyMail(params, res, userName) {
             cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == "1") {
             continue;
         }
-        console.log('verity token -' + tokenEntry[TokenField.UserName] + '- -' + tokenEntry[TokenField.Token] + '-');
-        console.log(params["token"] + " vs " + crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
-            cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex"));
-
         if (params["token"] != crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
                 cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex")) continue;
         appendToSourceFile("users", cacheUsers[tokenEntry[TokenField.UserName]]["filename"],
@@ -1174,7 +1184,7 @@ async function parsePOSTforms(params, res, userName, cookieSessionToken) {
         } else if (params["new_chat"] && params["title"] && params["users"]) {
             parsePOSTCreateChat(params, res, userName);
             return;
-        } else if (params["edit_user"] && params["typ"]) {
+        } else if (params["edit_user"]) {
             parsePOSTEditUser(params, res, userName);
             return;
         } else if (params["esub"] && params["id"] && params["onoff"]) {
@@ -1506,9 +1516,9 @@ function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
             text = text.replace("<!--CHECKED-WLASNE-->", "")
                 .replace("<!--CHECKED-GOOGLE-->", " checked");
         }
-        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[user]["Who"] + "\" placeholder=\"Cannot be empty\" readonly ")
+        text = text.replace("<!--USER-PARAMS-->", " value=\"" + cacheUsers[user]["Who"] + "\" placeholder=\"Nie może być pusty\" readonly ")
             .replace(/<!--MAIL-->/g, cacheUsers[user]["Mail"])
-            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Leave empty if you don't want to change it\"")
+            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Pozostaw pusty jeśli nie chcesz zmieniać\"")
             .replace(/<!--OPERATION-->/g, "edit_user")
             .replace("<!--NOTE-->", cacheUsers[user]["note"] ? cacheUsers[user]["note"] : "")
             .replace("<!--SIG-->", cacheUsers[user]["sig"] ? cacheUsers[user]["sig"] : "")
@@ -1516,9 +1526,9 @@ function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
     } else { // new profile
         text = text.replace("<!--CHECKED-WLASNE-->", " checked")
             .replace("<!--CHECKED-GOOGLE-->", "")
-            .replace("<!--USER-PARAMS-->", " value=\"\" placeholder=\"Cannot be empty\"")
+            .replace("<!--USER-PARAMS-->", " value=\"\" placeholder=\"Nie może być pusty\"")
             .replace(/<!--MAIL-->/g, '')
-            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Cannot be empty\"")
+            .replace(/<!--PASS-PARAMS-->/g, " placeholder=\"Nie może być pusty\"")
             .replace(/<!--OPERATION-->/g, "new_user")
             .replace("<!--NOTE-->", "")
             .replace("<!--SIG-->", "")
@@ -2019,10 +2029,10 @@ function setRefreshSession(token, firstCall) {
     for (let index in sessions) {
         sessionEntry = sessions[index];
         if (sessionEntry[SessionField.SessionToken] != token) continue;
-        sessionEntry[SessionField.Expiry] = Date.now() + 1000 * 50; // 50 seconds
+        sessionEntry[SessionField.Expiry] = Date.now() + sessionValidity;
         if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
+        const newtoken = firstCall ? token : crypto.randomBytes(32).toString('base64');
         if (!firstCall) {
-            newtoken = crypto.randomBytes(32).toString('base64');
             [callbackChat, callbackText, callbackOther].forEach(function(callback) {
                 for (let index0 in callback) {
                     for (let index in callback[index0]) {
@@ -2033,8 +2043,6 @@ function setRefreshSession(token, firstCall) {
                     }
                 }
             });
-        } else {
-            newtoken = token;
         }
         console.log(token + " -> " + newtoken);
         sessionEntry[SessionField.SessionToken] = newtoken;
@@ -2069,7 +2077,6 @@ function addToCallback(req, res, id, callback, userName, other, token) {
             }
             if (sessionEntry[SessionField.SessionToken] == callback[id][session][CallbackField.SessionToken]) {
                 if (sessionEntry[SessionField.RefreshCallback] != null) clearTimeout(sessionEntry[SessionField.RefreshCallback]);
-                //   sessions.splice(index, 1);
                 break;
             }
         }

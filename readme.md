@@ -20,14 +20,16 @@
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
 * Edge: nie chowa pasków postępu
-* przejęcie autora (pole Who) przy dodaniu specialtaxonomy
-* drobne poprawki wymagane przy zmianie pola beta (?)
+* przejęcie autora (pole Who) przy dodaniu specialtaxonomy (ciagle prawda ?)
+* drobne poprawki wymagane przy zmianie pola beta (ciagle prawda ?)
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 * błędy przy parsowaniu plików są średnio jasne
+* subskrypcje do chatów czasem się nie włączają jak należy
 
 # Obecne funkcjonalności
 * chat: pokazywanie popup przy otrzymaniu wiadomości (można zapisać się tylko do określonych chatów)
 * chat: dodawanie i wysyłanie
+* chat i komentarze: załączanie sygnaturek
 * teksty: edycja i wyświetlanie (przyklejanie i blokowanie nadpisywania; pokazywanie wersji tekstu i teasera)
 * teksty: listy i kolejki prywatne
 * teksty: betowanie prywatne i publiczne
@@ -37,7 +39,6 @@
 * konta: (wy)logowywanie usera ze wszystkich zakładek przy tej samej sesji
 * konta: banowanie na określony czas
 * komentarze: możliwość edycji (na razie www obsługuje tylko dane z pliku)
-* chat i komentarze: załączanie sygnaturek
 
 # Tworzenie wielu plików z danymi z istniejących:
 
