@@ -1,4 +1,4 @@
-//formatted with js-beautify
+//formatted with js-beautify -e "\n"
 //for license ask marcin@mwiacek.com - for example all OSS licenses (like MIT, Apache and GPL2) can be discussed
 
 const crypto = require('crypto');
@@ -14,8 +14,8 @@ const vm = require('vm')
 vm.runInThisContext(fs.readFileSync(__dirname + '//config.js'));
 
 let smtp = "";
-//const nodemailer = require('nodemailer');
-const nodemailer = require(path.normalize(process.argv[0].replace("node.exe", "") + '//node_modules//nodemailer'));
+const nodemailer = require('nodemailer');
+//const nodemailer = require(path.normalize(process.argv[0].replace("node.exe", "") + '//node_modules//nodemailer'));
 if (mailSupport) {
     nodemailer.createTestAccount((err, account) => {
         if (err) {
@@ -352,6 +352,9 @@ function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminu
     const tax = tag ? tag.split(",") : null;
 
     //    const t = Date.now();
+
+    // times are going very high, when you use forEach here.
+    //    cacheTexts.forEach(function(entry) {
     for (let index0 in cacheTexts) {
         entry = cacheTexts[index0];
 
@@ -398,6 +401,7 @@ function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminu
         }
         result.push(entry);
     }
+    // });
 
     //    console.log(Date.now() - t);
 
@@ -521,10 +525,10 @@ function sendAllReloadsAfterTextChangeToPage(arr) {
         //list page
         let id0 = index0.match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
         if (id0) {
-            //it can be more granular            
+            //it can be more granular
             if (podstronyType[id0[1]].includes(arr["Type"])) found = true;
         } else {
-            //it can be more granular            
+            //it can be more granular
             id0 = index0.match(/^(\/{1,1}[0-9]*)?$/);
             if (id0) found = true;
         }
@@ -592,7 +596,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
     comment["Who"] = userName;
     comment["When"] = Date.now(); // FIXME: do we need conversion here?;
     comment["Text"] = params["comment"] + (cacheUsers[userName]["sig"] && cacheUsers[userName]["sig"] != '' ?
-        "<div class=\"sygnaturka\">" + cacheUsers[userName]["sig"] + "</div>" : "");
+        "<p class=\"sygnaturka\" />" + cacheUsers[userName]["sig"] : "");
 
     appendToSourceFile(folder, params["tekst"],
         "<!--comment-->\n" +
@@ -707,7 +711,7 @@ async function updateTextInTextFile(params, res, userName) {
     if (params["tag"] || params["tag"] == '') cacheTexts[params["tekst"]]["Tag"] = params["tag"];
     if (params["special"] || params["special"] == '') cacheTexts[params["tekst"]]["Special"] = params["special"];
     cacheTexts[params["tekst"]]["When"] = updateTime;
-    cacheTexts[params["tekst"]]["Who"] = userName;
+    //cacheTexts[params["tekst"]]["Who"] = userName;
 
     mutexText[params["tekst"]].release();
 
@@ -1030,10 +1034,10 @@ function tryOwnLogin(params, googleMail, cookieSessionToken) {
                 reloadUserSessionsAfterLoginLogout(cacheUsers[index]["Who"], session[SessionField.SessionToken]);
                 return "";
             }
-            if (params["user"] != crypto.createHash('sha256').update(session[SessionField.SessionToken] +
-                    cacheUsers[index]["Who"]).digest("hex")) continue;
-            if (params["password"] != crypto.createHash('sha256').update(session[SessionField.SessionToken] +
-                    cacheUsers[index]["Pass"]).digest("hex")) continue;
+            if (params["user"] != crypto.createHash('sha256').update(
+                    session[SessionField.SessionToken] + cacheUsers[index]["Who"]).digest("hex")) continue;
+            if (params["password"] != crypto.createHash('sha256').update(
+                    session[SessionField.SessionToken] + cacheUsers[index]["Pass"]).digest("hex")) continue;
             if (params["typ"] != "g" && cacheUsers[index]["ConfirmMail"] == "0") {
                 sendVerificationMail(cacheUsers[index]["Mail"], cacheUsers[index]["Who"]);
                 return "Konto niezweryfikowane. Kliknij na link w mailu";
@@ -1101,10 +1105,10 @@ async function parsePOSTRemind(params, res, userName) {
             continue;
         }
         for (let index in cacheUsers) {
-            usr = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Who"]).digest("hex");
-            if (usr != params["token1"]) continue;
-            pass = crypto.createHash('sha256').update(tokenEntry[TokenField.Token] + cacheUsers[index]["Mail"]).digest("hex");
-            if (pass != params["token2"]) continue;
+            if (params["token1"] != crypto.createHash('sha256').update(
+                    tokenEntry[TokenField.Token] + cacheUsers[index]["Who"]).digest("hex")) continue;
+            if (params["token2"] != crypto.createHash('sha256').update(
+                    tokenEntry[TokenField.Token] + cacheUsers[index]["Mail"]).digest("hex")) continue;
 
             tokenEntry[TokenField.Token2FromMail] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
             tokenEntry[TokenField.UserName] = cacheUsers[index]["Who"];
@@ -1149,8 +1153,9 @@ function parsePOSTVerifyMail(params, res, userName) {
             cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] == "1") {
             continue;
         }
-        if (params["token"] != crypto.createHash('sha256').update(tokenEntry[TokenField.Token] +
-                cacheUsers[tokenEntry[TokenField.UserName]]["Pass"]).digest("hex")) continue;
+        if (params["token"] != crypto.createHash('sha256').update(
+                tokenEntry[TokenField.Token] + cacheUsers[tokenEntry[TokenField.UserName]]["Pass"])
+            .digest("hex")) continue;
         appendToSourceFile("users", cacheUsers[tokenEntry[TokenField.UserName]]["filename"],
             "<!--change-->\n" +
             "When:" + formatDate(Date.now()) + "\n" +
@@ -1164,61 +1169,45 @@ function parsePOSTVerifyMail(params, res, userName) {
     directToOKFileNotFound(res, '', false);
 }
 
+// return values from sub functions are ignored.
 async function parsePOSTforms(params, res, userName, cookieSessionToken) {
     console.log(params);
     if (userName != "") {
-        if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"]) {
-            if (params["obj"] == "chat" || params["obj"] == "texts") {
-                parsePOSTUploadComment(params, res, userName, params["obj"] == "chat");
-                return;
-            }
+        if (params["upload_comment"] && params["obj"] && params["tekst"] && params["comment"] &&
+            (params["obj"] == "chat" || params["obj"] == "texts")) {
+            return parsePOSTUploadComment(params, res, userName, params["obj"] == "chat");
         } else if (params["upload_text"] && params["tekst"]) {
-            if (params["tekst"] == "0") {
-                parsePOSTUploadNewText(params, res, userName);
-            } else {
+            return params["tekst"] == "0" ?
+                parsePOSTUploadNewText(params, res, userName) :
                 parsePOSTUploadUpdatedText(params, res, userName);
-            }
-            return;
         } else if (params["point_text"] && params["tekst"]) {
-            parsePOSTUploadPointText(params, res, userName);
-            return;
+            return parsePOSTUploadPointText(params, res, userName);
         } else if (params["new_chat"] && params["title"] && params["users"]) {
-            parsePOSTCreateChat(params, res, userName);
-            return;
+            return parsePOSTCreateChat(params, res, userName);
         } else if (params["edit_user"]) {
-            parsePOSTEditUser(params, res, userName);
-            return;
+            return parsePOSTEditUser(params, res, userName);
         } else if (params["esub"] && params["id"] && params["onoff"]) {
-            parsePOSTSubscribeChatTextEntry(params, res, userName, true);
-            return;
+            return parsePOSTSubscribeChatTextEntry(params, res, userName, true);
         } else if (params["csub"] && params["id"] && params["onoff"]) {
-            parsePOSTSubscribeChatTextEntry(params, res, userName, false);
-            return;
+            return parsePOSTSubscribeChatTextEntry(params, res, userName, false);
         }
     } else { // UserName == ""
         if (params["login"] && params["user"] && params["password"]) {
-            parsePOSTLogin(params, res, userName, cookieSessionToken);
-            return;
+            return parsePOSTLogin(params, res, userName, cookieSessionToken);
         } else if (enableGoogleWithToken && params["glogin"] && params["id"]) {
-            parsePOSTGoogleLogin(params, res, userName, cookieSessionToken);
-            return;
+            return parsePOSTGoogleLogin(params, res, userName, cookieSessionToken);
         }
     }
     if (params["logout"]) {
-        parsePOSTLogout(params, res, userName, cookieSessionToken);
-        return;
+        return parsePOSTLogout(params, res, userName, cookieSessionToken);
     } else if (params["remind"] && params["token1"] && params["token2"]) {
-        parsePOSTRemind(params, res, userName);
-        return;
+        return parsePOSTRemind(params, res, userName);
     } else if (params["changepass"] && params["hash"] && params["token"]) {
-        parsePOSTChangePass(params, res, userName);
-        return;
+        return parsePOSTChangePass(params, res, userName);
     } else if (params["verify"] && params["token"]) {
-        parsePOSTVerifyMail(params, res, userName);
-        return;
+        return parsePOSTVerifyMail(params, res, userName);
     } else if (params["new_user"] && params["username"] && params["typ"] && params["mail"]) {
-        parsePOSTCreateUser(params, res, userName);
-        return;
+        return parsePOSTCreateUser(params, res, userName);
     }
 
     directToOKFileNotFound(res, '', false);
@@ -2094,79 +2083,66 @@ function addToCallback(req, res, id, callback, userName, other, token) {
     setRefreshSession(token, true);
 }
 
+// return values from sub functions are ignored.
 function parseGETWithQParam(req, res, params, userName) {
     //must be before opowiadania/dodaj i opowiadania/zmien/1
     if (params["q"] == "profil/dodaj") {
-        showAddChangeProfilePage(req, res, params, null, userName, getUserLevelUserName(userName));
-        return;
+        return showAddChangeProfilePage(req, res, params, null, userName, getUserLevelUserName(userName));
     } else if (params["q"] == "haslo/zmien/1") {
-        showPassReminderPage(req, res, params, userName);
-        return;
+        return showPassReminderPage(req, res, params, userName);
     }
     if (userName != "") {
         if (params["q"] == "chat/dodaj") {
-            showAddChatPage(req, res, params, userName);
-            return;
+            return showAddChatPage(req, res, params, userName);
         }
         let id = params["q"].match(/^profil\/zmien\/([0-9]+)$/);
         if (id) {
-            showAddChangeProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
-            return;
+            return showAddChangeProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
         }
         id = params["q"].match(/^chat\/pokaz\/([0-9]+)$/);
         if (id) {
-            showChatPage(req, res, params, id, userName);
-            return;
+            return showChatPage(req, res, params, id, userName);
         }
         // for example opowiadania/dodaj
         id = params["q"].match(/^([a-ząż]+)\/dodaj$/);
         if (id) {
-            showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-            return;
+            return showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
         }
         // for example opowiadania/zmien/1
         id = params["q"].match(/^([a-ząż]+)\/zmien\/([0-9]+)$/);
         if (id) {
-            showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-            return;
+            return showAddChangeTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
         }
     } else if (params["q"] == "logingoogle") { // userName==""
-        showLoginGooglePage(req, res, userName);
-        return;
+        return showLoginGooglePage(req, res, userName);
     }
     let id = params["q"].match(/^changepass\/([A-Za-z0-9+\/=]+)$/);
     if (id) {
-        showChangePasswordPage(req, res, params, id, userName);
-        return;
+        return showChangePasswordPage(req, res, params, id, userName);
     }
     id = params["q"].match(/^verifymail\/([A-Za-z0-9+\/=]+)$/);
     if (id) {
-        showMailVerifyPage(req, res, params, id, userName);
-        return;
+        return showMailVerifyPage(req, res, params, id, userName);
     }
     // must be before opowiadania/pokaz/1
     id = params["q"].match(/^profil\/pokaz\/([0-9]+)$/);
     if (id) {
-        showProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
-        return;
+        return showProfilePage(req, res, params, id, userName, getUserLevelUserName(userName));
     }
     // for example opowiadania/pokaz/1
     id = params["q"].match(/^([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
     if (id) {
-        showTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
-        return;
+        return showTextPage(req, res, params, id, userName, getUserLevelUserName(userName));
     }
     // lista - for example opowiadania//biblioteka/1
     id = params["q"].match(/^([a-ząż]+)\/([a-złąż]+)?\/([a-z]+)?(\/{1,1}[0-9]*)?$/);
     if (id) {
-        showListPage(req, res, params, id, userName, getUserLevelUserName(userName));
-        return;
+        return showListPage(req, res, params, id, userName, getUserLevelUserName(userName));
     }
     // main page with page number
     id = params["q"].match(/^(\/{1,1}[0-9]*)?$/);
     if (id) {
-        showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
-        return;
+        return showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
     }
     directToMain(res);
 }
@@ -2194,13 +2170,11 @@ function parseGETWithSseParam(req, res, userName, token) {
     //fixme - we need checking URL beginning
     let id = req.headers['referer'].match(/.*chat\/pokaz\/([0-9]+)$/);
     if (id && fs.existsSync(__dirname + "//chat//" + id[1] + ".txt")) {
-        addToCallback(req, res, id[1], callbackChat, userName, false, token);
-        return;
+        return addToCallback(req, res, id[1], callbackChat, userName, false, token);
     }
     id = req.headers['referer'].match(/.*([a-ząż]+)\/pokaz\/([0-9]+)(\/ver{1,1}[0-9]*)?$/);
     if (id && fs.existsSync(__dirname + "//texts//" + id[2] + ".txt")) {
-        addToCallback(req, res, id[2], callbackText, userName, false, token);
-        return;
+        return addToCallback(req, res, id[2], callbackText, userName, false, token);
     }
     const params = url.parse(req.headers['referer'], true).query;
     addToCallback(req, res, params["q"] ? params["q"] : "", callbackOther, userName, true, token);
@@ -2215,18 +2189,16 @@ function processExternalFiles(req, res) {
         res.setHeader('Cache-Control', 'must-revalidate');
         const stats = fs.statSync(path.normalize(__dirname + req.url));
         res.setHeader('Last-Modified', stats.mtime.toUTCString());
-        if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('br')) {
-            res.setHeader('Content-Encoding', 'br');
-            res.end(getCacheFileSync(req.url + "_br"));
-        } else if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('gzip')) {
-            res.setHeader('Content-Encoding', 'gzip');
-            res.end(getCacheFileSync(req.url + "_gzip"));
-        } else if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes('deflate')) {
-            res.setHeader('Content-Encoding', 'deflate');
-            res.end(getCacheFileSync(req.url + "_deflate"));
-        } else {
-            res.end(getCacheFileSync(req.url));
-        }
+        let found = false;
+        ["br", "gzip", "deflate"].forEach(function(method) {
+            if (found) return;
+            if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes(method)) {
+                found = true;
+                res.setHeader('Content-Encoding', method);
+                res.end(getCacheFileSync(req.url + "_" + method));
+            }
+        });
+        if (!found) res.end(getCacheFileSync(req.url));
         return true;
     } else if (req.url == "/favicon.ico") {
         directToOKFileNotFound(res, '', false);

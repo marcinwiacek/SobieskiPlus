@@ -39,7 +39,7 @@
   function doit() {
          window.location.href = document.location.href.split('/ver')[0]+'/ver'+getListValues('versions');
   }
-function sendPoint() {
+  function sendPoint() {
    http = createPOST();
    http.onload = function() {
      if (http.status != 200) {
@@ -48,13 +48,13 @@ function sendPoint() {
      }
    };
    http.onerror = function() {
-	alert('error');
+    alert('error');
    };
    http.send("point_text=1&tekst=<!--PAGEID-->&point="+getRadio('point')+"&version=<!--VERSION-->");
    return false;
-};
+ };
 
-document.addEventListener("DOMContentLoaded", function(event) {
+ document.addEventListener("DOMContentLoaded", function(event) {
   /* Versions */
   var e = document.getElementsByTagName("option");
   for (var i = 0; i < e.length; i++) {
@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
   for (var i = 0; i < e.length; i++) {
    e[i].addEventListener("change", sendPoint);
   }
-})
+ })
 
  </script>
  <meta charset='utf-8'>

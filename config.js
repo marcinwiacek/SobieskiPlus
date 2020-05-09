@@ -29,4 +29,4 @@ const mailSupport = true;
 const sessionValidity = 60 * 1000; // 60 seconds; session validity setup after creation or using
 const sessionRefreshValidity = 30 * 1000; // 30 seconds; refreshing token
 
-const compressInternal = false; // kompresja plików wewnętrznych
+const compressInternal = false; // kompresja plików wewnętrznych; works only partially now

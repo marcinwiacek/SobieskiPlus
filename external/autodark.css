@@ -1,10 +1,10 @@
 /* (c) by Marcin Wiacek */
 
 @media (prefers-color-scheme: dark) {
-	html {
-		background-color: black; filter: invert(100%);
-	}
-	img, iframe {
-		filter: invert(100%);
-	}
+    html {
+        background-color: black; filter: invert(100%);
+    }
+    img, iframe {
+        filter: invert(100%);
+    }
 }

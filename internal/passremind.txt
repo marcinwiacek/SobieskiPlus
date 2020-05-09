@@ -8,8 +8,8 @@
   var hash = '<!--HASH-->';
 
   function sprawdzlogin() {
-    document.getElementById('confirmsub').disabled = 
-     (document.getElementById("confirmuser").value == "" || 
+    document.getElementById('confirmsub').disabled =
+     (document.getElementById("confirmuser").value == "" ||
        document.getElementById("confirmemail").value == "");
   }
 
@@ -41,7 +41,7 @@
    <tr>
     <td>
      <div class=ramki> Zapomniane hasło </div>
-     <div class=ramki> Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br> 
+     <div class=ramki> Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br>
         (dla kont używających Google trzeba skorzystać z odpowiedniej funkcji Google!)
       <hr>
       <form onsubmit="return sendF()">

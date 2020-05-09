@@ -1,23 +1,23 @@
 ﻿<link type="text/css" rel="stylesheet" href="external/suneditor.min.css">
 <script src="external/suneditor.min.js"></script>
 <script async>
-var suneditor = null;
-document.addEventListener("DOMContentLoaded", function(event) {
- suneditor = SUNEDITOR.create('editor-container', {
-  height: '100%',
-  width: 'auto',
-  showPathLabel: false,
-  charCounter: true,
-  maxCharCount: 10000,
-  placeholder: 'Poproszę o ładny komentarz'
- });
- function sprawdz() {
+ var suneditor = null;
+ document.addEventListener("DOMContentLoaded", function(event) {
+  suneditor = SUNEDITOR.create('editor-container', {
+   height: '100%',
+   width: 'auto',
+   showPathLabel: false,
+   charCounter: true,
+   maxCharCount: 10000,
+   placeholder: 'Poproszę o ładny komentarz'
+  });
+  function sprawdz() {
    document.getElementById('sub').disabled = (suneditor.getContents(true).trim().length == 0);
- }
- suneditor.onChange = function(contents, core) {
-  sprawdz()
- }
-});
+  }
+  suneditor.onChange = function(contents, core) {
+   sprawdz()
+  }
+ });
 
  function sendComment() {
   var progressBar = document.getElementById("progress");

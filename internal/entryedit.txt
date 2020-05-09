@@ -39,17 +39,17 @@
    } else {
      document.getElementById("betausersdiv").style='display:none';
    }
-   if (suneditor.getContents(true).trim().length == 0 || 
+   if (suneditor.getContents(true).trim().length == 0 ||
        document.getElementById("title").value == "") {
     document.getElementById('sub').disabled = true;
    } else {
-    if (type0 != getRadio("type") || 
-        state0 != getRadio("state") || 
-        beta0 != getRadio("betausers") || 
-        title0 != document.getElementById("title").value || 
-        tag0 != getListValues("tag") || 
-        (document.getElementById("special")!=null && 
-         special0 != getListValues("special")) || 
+    if (type0 != getRadio("type") ||
+        state0 != getRadio("state") ||
+        beta0 != getRadio("betausers") ||
+        title0 != document.getElementById("title").value ||
+        tag0 != getListValues("tag") ||
+        (document.getElementById("special")!=null &&
+         special0 != getListValues("special")) ||
         text0 != suneditor.getContents(true) || teaser0 != teasersuneditor.getContents(true)) {
      document.getElementById('sub').disabled = false;
     } else {
@@ -62,7 +62,7 @@
    if (!document.getElementById('sub').disabled) return 'Tekst jest niezapisany. Czy na pewno chcesz opuścić edytor?';
   };
 
-document.addEventListener("DOMContentLoaded", function(event) {
+ document.addEventListener("DOMContentLoaded", function(event) {
   teasersuneditor = SUNEDITOR.create('teaser-editor-container', {
    height: '100%',
    width: 'auto',
@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
   for (var i = 0; i < e.length; i++) {
    e[i].addEventListener("click", sprawdz);
   }
-});
+ });
 
   function getListValues(name) {
    var result = "";

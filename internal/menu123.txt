@@ -42,7 +42,7 @@
   <div class="menu-option menu-option-right">
     <div class=menu-option-text>Użytkownik ▼</div>
     <div class="menu-option-content menu-option-content-right">
-	<!--LOGIN-LOGOUT-->
+        <!--LOGIN-LOGOUT-->
         <hr>
         <a href="?q=profil/pokaz/<!--ID-USER-->">Moja strona</a><p>
         <a href="?q=profil/dodaj">Nowe konto</a><p>

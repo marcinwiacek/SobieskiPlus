@@ -1,3 +1,5 @@
+Full working concept of file-based CMS. For license ask marcin@mwiacek.com - for example all OSS licenses (like MIT, Apache and GPL2) can be discussed.
+
 # Artykuły
 * Milestone 1 (22.3.2020)
   * http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
@@ -19,12 +21,10 @@
 
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)
-* Edge: nie chowa pasków postępu
-* przejęcie autora (pole Who) przy dodaniu specialtaxonomy (ciagle prawda ?)
-* drobne poprawki wymagane przy zmianie pola beta (ciagle prawda ?)
+* Edge: nie chowa pasków postępu (do sprawdzenie, czy jeszcze występuje)
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 * błędy przy parsowaniu plików są średnio jasne
-* subskrypcje do chatów czasem się nie włączają jak należy
+* sygnaturka ma być poprawnie pokazywana, jak się zaczyna od <p>
 
 # Obecne funkcjonalności
 * chat: pokazywanie popup przy otrzymaniu wiadomości (można zapisać się tylko do określonych chatów)

@@ -10,7 +10,7 @@
 
   function sprawdzlogin() {
     document.getElementById('confirmsub').disabled =
-     (document.getElementById("confirmpass").value == "" || 
+     (document.getElementById("confirmpass").value == "" ||
        document.getElementById("confirmpass2").value == "");
   }
 
@@ -48,7 +48,7 @@
   <table width=100% border=0>
    <tr>
     <td>
-     <div class=ramki> Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br> 
+     <div class=ramki> Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br>
          (działa to tylko dla kont nie używających logowania Google!)
       <hr>
       <form onsubmit="return sendF()">

@@ -29,13 +29,13 @@
 
   function sprawdz() {
    if ("<!--OPERATION-->" == "new_user") {
-    document.getElementById('sub').disabled = 
-      (document.getElementById("username").value == "" || 
-        document.getElementById("mail").value == "" || 
-        (getRadio("type") == "wlasne" && (document.getElementById("pass").value == "" || 
+    document.getElementById('sub').disabled =
+      (document.getElementById("username").value == "" ||
+        document.getElementById("mail").value == "" ||
+        (getRadio("type") == "wlasne" && (document.getElementById("pass").value == "" ||
            document.getElementById("pass2").value == "")));
    } else {
-     document.getElementById('sub').disabled = 
+     document.getElementById('sub').disabled =
        !(document.getElementById("mail").value != "" ||
     sig0 != suneditorsig.getContents(true) ||
     note0 != suneditornote.getContents(true) ||

@@ -15,16 +15,16 @@
   }
 
   function sprawdz() {
-   document.getElementById('sub').disabled = 
+   document.getElementById('sub').disabled =
       (document.getElementById("title").value == "" || getListValues('users') == "");
   }
 
-document.addEventListener("DOMContentLoaded", function(event) {
-  var e = document.getElementsByTagName("option");
-  for (var i = 0; i < e.length; i++) {
-   e[i].addEventListener("click", sprawdz);
-  }
-});
+  document.addEventListener("DOMContentLoaded", function(event) {
+    var e = document.getElementsByTagName("option");
+    for (var i = 0; i < e.length; i++) {
+     e[i].addEventListener("click", sprawdz);
+    }
+  });
 
   function sendChat() {
    http = createPOST();
@@ -47,13 +47,13 @@ document.addEventListener("DOMContentLoaded", function(event) {
  <div class=content>
   <div class=ramki> Nowy chat </div>
   <div class=ramki>
-   <form onsubmit="return sendChat()" autocomplete="off"> 
+   <form onsubmit="return sendChat()" autocomplete="off">
     Tytuł: <input oninput="sprawdz()" id="title" type="text" value="tytul" placeholder="Bez tytułu się nie obędzie" size=50>
     <p> Inni użytkownicy
     <p>
-<select id="users" size=5 multiple>
-     <!--USERS-LIST-->
-</select>
+      <select id="users" size=5 multiple>
+        <!--USERS-LIST-->
+      </select>
     <p>
      <button disabled type="submit" id=sub>Zapisz</button>
    </form>

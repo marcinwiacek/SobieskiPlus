@@ -1,8 +1,8 @@
 /* (c) by Marcin Wiacek */
 
 html {
-	background-color: black; filter: invert(100%);
+    background-color: black; filter: invert(100%);
 }
 img, iframe {
-	filter: invert(100%);
+    filter: invert(100%);
 }

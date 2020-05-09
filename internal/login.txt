@@ -22,8 +22,6 @@ function sendLogin() {
   http.onload = function() {
    if (http.status != 200) {
      alert(http.response);
-/*   } else {
-    window.location.reload(); */
    }
   };
   http.onerror = function() {
@@ -36,8 +34,8 @@ function sendLogin() {
 <table width=100% border=0>
  <tr>
   <td>
-   <form onsubmit="return sendLogin()" autocomplete="off"> 
-    Użytkownik: <input oninput="checkLogin()" type="text" id="loginuser"><br> 
+   <form onsubmit="return sendLogin()" autocomplete="off">
+    Użytkownik: <input oninput="checkLogin()" type="text" id="loginuser"><br>
     Hasło: <input oninput="checkLogin()" type="password" id="loginpassword">
     <button disabled type="submit" id="loginsub" style='cursor: pointer;'>Login</button>
    </form>

@@ -4,8 +4,6 @@
   http.onload = function() {
    if (http.status != 200) {
     alert('logout error');
-   } else {
-/*    window.location.reload(); */
    }
   };
   http.onerror = function() {

@@ -53,10 +53,10 @@
       <!--USER-EDIT-->
      </td>
     </tr>
-<tr><td colspan=2>
-<!--NOTE-->
-<!--SIG-->
-</td></tr>
+    <tr><td colspan=2>
+      <!--NOTE-->
+      <!--SIG-->
+    </td></tr>
    </table>
   </div>
    <!--CHAT-LIST-->
