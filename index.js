@@ -605,7 +605,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
     comment["Who"] = userName;
     comment["When"] = Date.now(); // FIXME: do we need conversion here?;
     comment["Text"] = params["comment"] + (cacheUsers[userName]["sig"] && cacheUsers[userName]["sig"] != '' ?
-        "<p class=\"sygnaturka\" />" + cacheUsers[userName]["sig"] : "");
+        "<p class=\"sygnaturka\" />" + cacheUsers[userName]["sig"].replace(/^<p>/,"") : "");
 
     appendToSourceFile(folder, params["tekst"],
         "<!--comment-->\n" +

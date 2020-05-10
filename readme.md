@@ -1,4 +1,4 @@
-Full working concept of file-based CMS. For license ask marcin@mwiacek.com - for example all OSS licenses (like MIT, Apache and GPL2) can be discussed.
+Full working minimalistic file-based CMS using nodeJS, SSE and many modern technologies. For license ask marcin@mwiacek.com - for example all OSS licenses (like MIT, Apache and GPL2) can be discussed.
 
 # Artykuły
 * Milestone 1 (22.3.2020)
@@ -24,7 +24,6 @@ Full working concept of file-based CMS. For license ask marcin@mwiacek.com - for
 * Edge: nie chowa pasków postępu (do sprawdzenie, czy jeszcze występuje)
 * suneditor -> zamiana https przy pisaniu, dobre wykrywanie pustej zawartosci text.striphtml.trim....
 * błędy przy parsowaniu plików są średnio jasne
-* sygnaturka ma być poprawnie pokazywana, jak się zaczyna od <p>
 
 # Obecne funkcjonalności
 * chat: pokazywanie popup przy otrzymaniu wiadomości (można zapisać się tylko do określonych chatów)
