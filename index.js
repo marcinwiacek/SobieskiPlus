@@ -104,6 +104,7 @@ function Mutex() {
 function addToTextCache(fileID, tekst) {
     cacheTexts[fileID] = decodeSourceFile(tekst, true);
     cacheTexts[fileID]["filename"] = fileID;
+    cacheTexts[fileID]["points"] = getPointsForText(cacheTexts[fileID]);
     callbackText[fileID] = [];
     mutexText[fileID] = new Mutex();
 }
@@ -151,6 +152,15 @@ function getPointsForText(arr) {
     let points = 0;
     arr["Point"].split(',').forEach(function(usr) {
         points += parseInt(usr.substring(usr.indexOf("#") + 1));
+    });
+    return points;
+}
+
+function getPointsForTextForUser(arr, user) {
+    if (!arr["Point"]) return 0;
+    let points = 0;
+    arr["Point"].split(',').forEach(function(usr) {
+        if (usr.substring(0, usr.indexOf("#")) == user) points += parseInt(usr.substring(usr.indexOf("#") + 1));
     });
     return points;
 }
@@ -427,8 +437,8 @@ function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminu
         });
     } else if (sortLevel == "punkty") {
         result.sort(function(a, b) {
-            let aa = getPointsForText(a);
-            let bb = getPointsForText(b);
+            let aa = a["points"];
+            let bb = b["points"];
             if (aa > bb) return -1;
             if (aa < bb) return 1;
             return (a["When"] > b["When"] ? -1 : 1);
@@ -466,13 +476,13 @@ function sendHTML(req, res, text) {
     sendHTMLBody(req, res, text);
 }
 
-function directToMain(res) {
+function directToMainNoRet(res) {
     res.statusCode = 302;
     res.setHeader('Location', '/');
     res.end();
 }
 
-function directToOKFileNotFound(res, txt, ok) {
+function directToOKFileNotFoundNoRet(res, txt, ok) {
     res.statusCode = ok ? 200 : 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end(txt);
@@ -588,8 +598,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
     //checking for login
     //checking for correct filename protection
     if (!fs.existsSync(__dirname + "//" + folder + "//" + params["tekst"] + ".txt")) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
 
     comment = [];
@@ -632,14 +641,13 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
             sendCommentToPage(callbackText[params["tekst"]][index][CallbackField.ResponseCallback], comment);
         }
     }
-    directToOKFileNotFound(res, '', true);
+    directToOKFileNotFoundNoRet(res, '', true);
 }
 
 // FIXME: do we need mutex here?
 function parsePOSTUploadNewText(params, res, userName) {
     if (!params["text"] || !params["state"] || !params["type"] || !params["title"]) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
 
     let txt = "Title:" + params["title"] + "\n" +
@@ -675,7 +683,7 @@ async function updateTextInTextFile(params, res, userName) {
     if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
         mutexText[params["tekst"]].release();
 
-        directToOKFileNotFound(res, 'Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!', false);
+        directToOKFileNotFoundNoRet(res, 'Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!', false);
         return null;
     }
 
@@ -726,8 +734,7 @@ async function parsePOSTUploadUpdatedText(params, res, userName) {
             !(params["beta"] || params["beta"] == '') &&
             !(params["tag"] || params["tag"] == '') &&
             !(params["special"] || params["special"] == ''))) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
 
     const ret = await updateTextInTextFile(params, res, userName);
@@ -736,7 +743,7 @@ async function parsePOSTUploadUpdatedText(params, res, userName) {
 
     sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
-    directToOKFileNotFound(res, ret.toString(), true);
+    directToOKFileNotFoundNoRet(res, ret.toString(), true);
 }
 
 async function updatePointInTextFile(params, res, userName) {
@@ -747,7 +754,7 @@ async function updatePointInTextFile(params, res, userName) {
     if (cacheTexts[params["tekst"]]["When"] != params["version"]) {
         mutexText[params["tekst"]].release();
 
-        directToOKFileNotFound(res, 'Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!', false);
+        directToOKFileNotFoundNoRet(res, 'Tekst był zmieniany w międzyczasie. Twoja wersja nie została zapisana!', false);
         return null;
     }
     let txt = "";
@@ -765,8 +772,8 @@ async function updatePointInTextFile(params, res, userName) {
         wrong = true;
     }
     if (wrong) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        directToOKFileNotFoundNoRet(res, '', false);
+        return null;
     }
 
     const updateTime = Date.parse(formatDate(Date.now())); // to avoid small diff for 4 last digits int -> date -> int
@@ -780,6 +787,7 @@ async function updatePointInTextFile(params, res, userName) {
     //update cache
     cacheTexts[params["tekst"]]["When"] = updateTime;
     cacheTexts[params["tekst"]]["Point"] = txt;
+    cacheTexts[params["tekst"]]["points"] = getPointsForText(cacheTexts[params["tekst"]]);
 
     mutexText[params["tekst"]].release();
 
@@ -788,8 +796,7 @@ async function updatePointInTextFile(params, res, userName) {
 
 async function parsePOSTUploadPointText(params, res, userName) {
     if (!params["tekst"] || !params["point"] || !params["version"]) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
 
     const ret = await updatePointInTextFile(params, res, userName);
@@ -798,7 +805,7 @@ async function parsePOSTUploadPointText(params, res, userName) {
 
     sendAllReloadsAfterTextChangeToPage(cacheTexts[params["tekst"]]);
 
-    directToOKFileNotFound(res, ret.toString(), true);
+    directToOKFileNotFoundNoRet(res, ret.toString(), true);
 }
 
 function parsePOSTCreateChat(params, res, userName) {
@@ -807,8 +814,7 @@ function parsePOSTCreateChat(params, res, userName) {
         if (!cacheUsers[user]) wrong = true;
     });
     if (wrong) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
 
     const txt = "Title:" + params["title"] + "\n" +
@@ -829,7 +835,7 @@ function parsePOSTCreateChat(params, res, userName) {
         cacheUsers[entry]["CSub"] = txt;
     });
 
-    directToOKFileNotFound(res, id.toString(), true);
+    directToOKFileNotFoundNoRet(res, id.toString(), true);
 }
 
 function parsePOSTSubscribeChatTextEntry(params, res, userName, textEntry) {
@@ -870,26 +876,20 @@ function parsePOSTSubscribeChatTextEntry(params, res, userName, textEntry) {
             "When:" + formatDate(Date.now()) + "\n" +
             (textEntry ? "ESub:" : "CSub:") + txt + "\n"
         );
-        if (textEntry) {
-            cacheUsers[userName]["ESub"] = txt;
-        } else {
-            cacheUsers[userName]["CSub"] = txt;
-        }
+        cacheUsers[userName][textEntry ? "ESub" : "CSub"] = txt;
     }
 
-    directToOKFileNotFound(res, '', !wrong);
+    directToOKFileNotFoundNoRet(res, '', !wrong);
 }
 
 function parsePOSTCreateUser(params, res, userName) {
     if (!params["level"] || (params["level"] != "1" && params["level"] != "2" && params["level"] != "3") ||
         (Object.keys(cacheUsers).length != 0 && params["level"] == "3" && getUserLevelUserName(userName) != "3") ||
         (params["typ"] != "g" && params["typ"] != "w") || (params["typ"] == "w" && !params["pass"])) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
     if (cacheUsers[params["username"]]) {
-        directToOKFileNotFound(res, 'Użytkownik o podanym nicku już istnieje', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, 'Użytkownik o podanym nicku już istnieje', false);
     }
 
     let txt = "Who:" + params["username"] + "\n" +
@@ -912,7 +912,7 @@ function parsePOSTCreateUser(params, res, userName) {
 
     if (params["typ"] != "g" && mailSupport) sendVerificationMail(params["mail"], params["username"]);
 
-    directToOKFileNotFound(res, (params["typ"] == "g" ?
+    directToOKFileNotFoundNoRet(res, (params["typ"] == "g" ?
         "Konto założone. Adres musi być zweryfikowany przez Google." :
         "Konto założone. Konieczna jest jeszcze weryfikacja adresu email. Kliknij na link w mailu."), true);
 }
@@ -920,8 +920,7 @@ function parsePOSTCreateUser(params, res, userName) {
 // FIXME: semaphore?
 function parsePOSTEditUser(params, res, userName) {
     if (params["typ"] && (params["typ"] != "g" && params["typ"] != "w")) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
     let user = null;
     if (params["id"]) {
@@ -933,8 +932,7 @@ function parsePOSTEditUser(params, res, userName) {
         }
         if (user == null || (params["ban"] && getUserLevelUserName(userName) != "3") ||
             (getUserLevelUserName(userName) != "3" && userName != user)) {
-            directToOKFileNotFound(res, '', false);
-            return;
+            return directToOKFileNotFoundNoRet(res, '', false);
         }
     } else {
         user = userName;
@@ -991,8 +989,8 @@ function parsePOSTEditUser(params, res, userName) {
     if (params["mail"] || params["ban"]) {
         // logout from all sessions
         // it should be done with SSE
-        for (let index2 in sessions) {
-            session = sessions[index2];
+        for (let index in sessions) {
+            session = sessions[index];
             if (session[SessionField.Expiry] < Date.now()) {
                 if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
                 sessions.splice(index, 1);
@@ -1006,7 +1004,7 @@ function parsePOSTEditUser(params, res, userName) {
     }
 
     // NOTE: info about mail verification is not sent here - after logging out we normally reload sessions
-    directToOKFileNotFound(res, "Konto zmienione", true);
+    directToOKFileNotFoundNoRet(res, "Konto zmienione", true);
 }
 
 function tryOwnLogin(params, googleMail, cookieSessionToken) {
@@ -1055,7 +1053,7 @@ function tryOwnLogin(params, googleMail, cookieSessionToken) {
 
 async function parsePOSTLogin(params, res, userName, cookieSessionToken) {
     const found = tryOwnLogin(params, "", cookieSessionToken);
-    directToOKFileNotFound(res, found, (found == ""));
+    directToOKFileNotFoundNoRet(res, found, (found == ""));
 }
 
 async function parsePOSTGoogleLogin(params, res, userName, cookieSessionToken) {
@@ -1071,17 +1069,16 @@ async function parsePOSTGoogleLogin(params, res, userName, cookieSessionToken) {
     const json = JSON.parse(txt);
 
     if (json.azp != GoogleSignInToken || json.aud != GoogleSignInToken) {
-        directToOKFileNotFound(res, '', false);
-        return;
+        return directToOKFileNotFoundNoRet(res, '', false);
     }
 
     const found = tryOwnLogin(params, json.email, cookieSessionToken);
-    directToOKFileNotFound(res, found, (found == ""));
+    directToOKFileNotFoundNoRet(res, found, (found == ""));
 }
 
 function parsePOSTLogout(params, res, userName, cookieSessionToken) {
-    for (let index2 in sessions) {
-        session = sessions[index2];
+    for (let index in sessions) {
+        session = sessions[index];
         if (session[SessionField.Expiry] < Date.now()) {
             if (session[SessionField.RefreshCallback] != null) clearTimeout(session[SessionField.RefreshCallback]);
             sessions.splice(index, 1);
@@ -1094,7 +1091,7 @@ function parsePOSTLogout(params, res, userName, cookieSessionToken) {
         }
     };
 
-    directToOKFileNotFound(res, '', true);
+    directToOKFileNotFoundNoRet(res, '', true);
 }
 
 async function parsePOSTRemind(params, res, userName) {
@@ -1104,21 +1101,21 @@ async function parsePOSTRemind(params, res, userName) {
             remindToken.splice(index1, 1);
             continue;
         }
-        for (let index in cacheUsers) {
+        for (let index2 in cacheUsers) {
             if (params["token1"] != crypto.createHash('sha256').update(
-                    tokenEntry[TokenField.Token] + cacheUsers[index]["Who"]).digest("hex")) continue;
+                    tokenEntry[TokenField.Token] + cacheUsers[index2]["Who"]).digest("hex")) continue;
             if (params["token2"] != crypto.createHash('sha256').update(
-                    tokenEntry[TokenField.Token] + cacheUsers[index]["Mail"]).digest("hex")) continue;
+                    tokenEntry[TokenField.Token] + cacheUsers[index2]["Mail"]).digest("hex")) continue;
 
             tokenEntry[TokenField.Token2FromMail] = encodeURIComponent(crypto.randomBytes(32).toString('base64'));
-            tokenEntry[TokenField.UserName] = cacheUsers[index]["Who"];
-            sendRemindPasswordMail(cacheUsers[index]["Mail"], tokenEntry[TokenField.Token2FromMail]);
-            directToOKFileNotFound(res, '', true);
+            tokenEntry[TokenField.UserName] = cacheUsers[index2]["Who"];
+            sendRemindPasswordMail(cacheUsers[index2]["Mail"], tokenEntry[TokenField.Token2FromMail]);
+            directToOKFileNotFoundNoRet(res, '', true);
             return;
         }
     }
 
-    directToOKFileNotFound(res, '', false);
+    directToOKFileNotFoundNoRet(res, '', false);
 }
 
 function parsePOSTChangePass(params, res, userName) {
@@ -1136,10 +1133,10 @@ function parsePOSTChangePass(params, res, userName) {
         );
         cacheUsers[tokenEntry[TokenField.UserName]]["Pass"] = params["token"];
         remindToken.splice(index, 1);
-        directToOKFileNotFound(res, '', true);
+        directToOKFileNotFoundNoRet(res, '', true);
         return;
     }
-    directToOKFileNotFound(res, '', false);
+    directToOKFileNotFoundNoRet(res, '', false);
 }
 
 function parsePOSTVerifyMail(params, res, userName) {
@@ -1163,10 +1160,10 @@ function parsePOSTVerifyMail(params, res, userName) {
         );
         cacheUsers[tokenEntry[TokenField.UserName]]["ConfirmMail"] = "1";
         verifyToken.splice(index, 1);
-        directToOKFileNotFound(res, '', true);
+        directToOKFileNotFoundNoRet(res, '', true);
         return;
     }
-    directToOKFileNotFound(res, '', false);
+    directToOKFileNotFoundNoRet(res, '', false);
 }
 
 // return values from sub functions are ignored.
@@ -1210,7 +1207,7 @@ async function parsePOSTforms(params, res, userName, cookieSessionToken) {
         return parsePOSTCreateUser(params, res, userName);
     }
 
-    directToOKFileNotFound(res, '', false);
+    directToOKFileNotFoundNoRet(res, '', false);
 }
 
 function isMobile(req) {
@@ -1292,8 +1289,7 @@ function showChangePasswordPage(req, res, params, id, userName) {
         }
     }
     if (token == "") {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
 
     sendHTML(req, res, genericReplace(req, res, getCacheFileSync('//internal//passchange.txt'), userName)
@@ -1317,8 +1313,7 @@ function showMailVerifyPage(req, res, params, id, userName) {
         }
     }
     if (token == '') {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
     sendHTML(req, res, genericReplace(req, res, getCacheFileSync('//internal//verifymail.txt'), userName)
         .replace("<!--HASH-->", token));
@@ -1331,8 +1326,7 @@ function showLoginGooglePage(req, res, userName) {
 
 function showAddChatPage(req, res, params, userName) {
     if (userName == "") {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
 
     let txt = "";
@@ -1349,21 +1343,18 @@ function showAddChatPage(req, res, params, userName) {
 
 function showChatPage(req, res, params, id, userName) {
     if (userName == "") {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
 
     getSourceFile("chat", id[1], (data) => {
         if (data == "") {
-            directToMain(res);
-            return;
+            return directToMainNoRet(res);
         }
 
         let arr = decodeSourceFile(data, false);
 
         if (arr["Who"] && !arr["Who"].split(",").includes(userName)) {
-            directToMain(res);
-            return;
+            return directToMainNoRet(res);
         }
 
         sendHTMLHead(res);
@@ -1461,8 +1452,7 @@ function showAddChangeProfilePage(req, res, params, id, userName, userLevel) {
         }
         console.log('editing user ' + user + ' ' + userName + " " + id[1]);
         if (userLevel == "0" || (userLevel != "3" && user != userName)) {
-            directToMain(res);
-            return;
+            return directToMainNoRet(res);
         }
     }
 
@@ -1614,24 +1604,21 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
             }
         });
 
-        sendHTMLBody(req, res, text.replace("<!--TEXT-LIST-->", txt));
-        return;
+        return sendHTMLBody(req, res, text.replace("<!--TEXT-LIST-->", txt));
     }
-    directToMain(res);
+    directToMainNoRet(res);
 }
 
 // for example opowiadania/dodaj
 // for example opowiadania/zmien/1
 function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     if (userLevel == "0" || !podstronyType[id[1]]) {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
     const arr = id[2] ? decodeSourceFile(getSourceFile("texts", id[2]), false) : null;
     if (id[2]) { //edit
         if (!podstronyType[id[1]].includes(arr["Type"]) || (userLevel != "3" && userName != arr["Who"])) {
-            directToMain(res);
-            return;
+            return directToMainNoRet(res);
         }
     }
 
@@ -1706,15 +1693,13 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
 // for example opowiadania/pokaz/1
 function showTextPage(req, res, params, id, userName, userLevel) {
     if (!podstronyType[id[1]]) {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
 
     getSourceFile("texts", id[2], (data) => {
         const arr = decodeSourceFile(data, false);
         if (!podstronyType[id[1]].includes(arr["Type"]) || (arr["State"] == "szkic" && userName != arr["Who"])) {
-            directToMain(res);
-            return;
+            return directToMainNoRet(res);
         }
 
         let teaser_text = "";
@@ -1742,8 +1727,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
             versions = "<br>Wersje tekstu i wstępu<br><select id=\"versions\"  name=\"versions\" size=5>" + versions;
 
             if (!sel) {
-                directToMain(res);
-                return;
+                return directToMainNoRet(res);
             }
             versions += "</select>";
             sendHTMLHead(res);
@@ -1799,7 +1783,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
         if (userName != "") {
             if (arr["Who"] != userName) {
                 let txt = "";
-                const points = getPointsForText(arr);
+                const points = getPointsForTextForUser(arr, userName);
                 for (let i = 1; i < 11; i++) {
                     txt += addRadio("point", i, i, points == i, points != 0);
                 }
@@ -1852,6 +1836,7 @@ function formatListEntry(template, arr, userName) {
 
     return template.replace("<!--TAG-->", txt)
         .replace("<!--USER-->", addUserLink(arr["Who"]))
+        .replace("<!--POINTS-->", arr["points"] + " punktów")
         .replace("<!--TYPE-->", arr["Type"])
         .replace("<!--COMMENTSNUM-->", arr["commentsnum"])
         .replace("<!--WHEN-->", formatDate(arr["When"]));
@@ -1924,8 +1909,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         (typ && !podstronyType[rodzaj].includes(typ)) ||
         (status && !podstronyState[rodzaj].includes(status)) || (userLevel == "0" && status == "szkic") ||
         (sortLevel && !sortParam.includes(sortLevel))) {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
 
     const pageNum = id[4] ? parseInt(id[4].substring(1)) : 0;
@@ -1939,8 +1923,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         null);
 
     if (pageNum * onThePage > list[1]) {
-        directToMain(res);
-        return;
+        return directToMainNoRet(res);
     }
 
     sendHTMLHead(res);
@@ -2144,7 +2127,7 @@ function parseGETWithQParam(req, res, params, userName) {
     if (id) {
         return showMainPage(req, res, parseInt(id[1].substring(1)), params, userName);
     }
-    directToMain(res);
+    directToMainNoRet(res);
 }
 
 function parseGETWithSetParam(req, res, params) {
@@ -2201,7 +2184,7 @@ function processExternalFiles(req, res) {
         if (!found) res.end(getCacheFileSync(req.url));
         return true;
     } else if (req.url == "/favicon.ico") {
-        directToOKFileNotFound(res, '', false);
+        directToOKFileNotFoundNoRet(res, '', false);
         return true;
     }
     return false;
