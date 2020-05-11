@@ -8,7 +8,7 @@ Full working minimalistic file-based CMS using nodeJS, SSE and many modern techn
   * http://mwiacek.com/www/?q=node/394 albo https://www.dobreprogramy.pl/marcinw2/Jeden-uparty-kaleczy-JavaScript-czyli-Sobieski-MileStone,107488.html
   * http://mwiacek.com/www/?q=node/396 albo https://www.dobreprogramy.pl/marcinw2/Hey-Joe-Potrzymaj-mi-piwo-dlaczego-w-Polsce-nie-ma-wlasnych-OS-ani-przegladarek-ani-wiekszych-pakietow,107517.html
 * Milestone 3 (11.5.2020)
-  * https://www.dobreprogramy.pl/marcinw2/Raport-z-postepu-prac-czyli-Sobieski-MileStone,107845.html
+  * http://mwiacek.com/www/?q=node/401 albo https://www.dobreprogramy.pl/marcinw2/Raport-z-postepu-prac-czyli-Sobieski-MileStone,107845.html
 
 # todo z node.JS:
 * facebook
