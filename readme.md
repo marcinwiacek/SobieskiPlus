@@ -5,8 +5,8 @@ Full working minimalistic file-based CMS using nodeJS, SSE and many modern techn
   * http://mwiacek.com/www/?q=node/393 albo https://www.dobreprogramy.pl/marcinw2/Jak-napisac-kompaktowego-CMS-runda-druga-czyli-Sobieski-z-Plusem-Milestone,106946.html
   * https://www.fantastyka.pl/hydepark/pokaz/24257
 * Milestone 2 (18.4.2020)
-  * https://www.dobreprogramy.pl/marcinw2/Jeden-uparty-kaleczy-JavaScript-czyli-Sobieski-MileStone,107488.html
-  * https://www.dobreprogramy.pl/marcinw2/Hey-Joe-Potrzymaj-mi-piwo-dlaczego-w-Polsce-nie-ma-wlasnych-OS-ani-przegladarek-ani-wiekszych-pakietow,107517.html
+  * http://mwiacek.com/www/?q=node/394 albo https://www.dobreprogramy.pl/marcinw2/Jeden-uparty-kaleczy-JavaScript-czyli-Sobieski-MileStone,107488.html
+  * http://mwiacek.com/www/?q=node/396 albo https://www.dobreprogramy.pl/marcinw2/Hey-Joe-Potrzymaj-mi-piwo-dlaczego-w-Polsce-nie-ma-wlasnych-OS-ani-przegladarek-ani-wiekszych-pakietow,107517.html
 * Milestone 3 (11.5.2020)
   * https://www.dobreprogramy.pl/marcinw2/Raport-z-postepu-prac-czyli-Sobieski-MileStone,107845.html
 
