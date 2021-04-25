@@ -46,8 +46,8 @@
   <div class=ramki>
    <table width=100%>
     <tr>
-     <td>Użytkownik
-      <!--USER-->
+     <td><div class=title>Użytkownik
+      <!--USER--></div>
      </td>
      <td align=right>
       <!--USER-EDIT-->

@@ -8,7 +8,9 @@
   source.addEventListener("c", function(event) {
    if (event.data != '') {
     /*parsing*/
-    document.getElementById("newcomments").innerHTML += decodeURIComponent(event.data);
+    document.getElementById("newcomments").innerHTML =
+      decodeURIComponent(event.data)+
+      document.getElementById("newcomments").innerHTML;
     if (document.hidden && window.document.title.substring(0, 2) != "* ") {
      window.document.title = "* " + window.document.title;
     }
@@ -76,12 +78,13 @@
 
 <body>
  <!--MENU-->
- <div class=content>
-  <div class=ramki>
+ <div class="content">
+  <div class="ramki">
    <table width=100%>
     <tr>
-     <td>Tekst
+     <td><div class=title>Tekst
       <!--TITLE-->
+     </div>
      </td>
      <td>
       <!--LOGIN-EDIT-->
@@ -110,9 +113,9 @@
    <hr>
    <center>KONIEC</center>
   </div>
-  <!--COMMENTS-->
-  <div id=newcomments></div>
   <!--COMMENTEDIT-->
+  <div id=newcomments></div>
+  <!--COMMENTS-->
  </div>
 </body>
 

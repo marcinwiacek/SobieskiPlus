@@ -1,25 +1,39 @@
 /* (c) by Marcin Wiacek */
 
+body {
+    background-color: #3d3d3d;
+    margin:0 0 0 0;
+    font-size:14px;
+}
+@font-face{font-family:OpenSans;src:url(/external/font/OpenSans-Regular.ttf)format('truetype')}
 * {
-    font-family: Verdana, Roboto, sans-serif;
-}
-div.ramki {
-    color:rgb(0, 0, 0);
-}
-h1, h2, h3, h4 {
-    color:black;
+    font-family: OpenSans, sans-serif, Verdana, Roboto;
 }
 pre {
     font-family: Courier, FreeMono;
 }
+pre {
+    white-space:pre-wrap;
+}
+h1, h2, h3, h4 {
+    color:black;
+}
+hr {
+  border-top: 1px dashed red;
+}
 a {
-    color:rgb(255, 140, 0);
+    color:red;
+    font-weight:600;
+    text-decoration: none;
+}
+a.menu-option-link {
+    color:black;
     font-weight:600;
     text-decoration: none;
 }
 a:hover {
     text-decoration: underline;
-    color:red;
+    color:#ff8811;
 }
 a.ext {
     color:blue;
@@ -27,27 +41,43 @@ a.ext {
 iframe, img {
     max-width: 100%;
 }
-pre {
-    white-space:pre-wrap;
+.menu_ramki {
+    box-shadow: 1px 1px 1px black;
+    border: 2px solid black;
+    border-radius: 3px;
+    max-width:1000px;
+    margin:0 auto;
+    background-color: black;
+}
+.content {
+    box-shadow: 1px 1px 1px black;
+    border: 2px solid black;
+    border-radius: 3px;
+    max-width:1000px;
+    margin:0 auto;
+    background-color: black;
+    padding-top: 60px;
+    width:100%;
 }
 .ramki {
-    box-shadow: 1px 1px 3px black;
-    border: 1px solid black;
+    box-shadow: 1px 1px 1px black;
+    border: 2px solid black;
     border-radius: 3px;
-    padding: 5px; 
-    margin-top: 5px; 
-    margin-bottom: 5px;
+    margin: 0px;
+    background-color:#d9d9d9;
+    padding:10px 10px 10px 10px;
 }
 .menu {
-    left: 0; top: 0;
-    width: 100%; height:43px;
-    background-color: black;
-    position: fixed;
+    top: 0;
     z-index: 99999;
-    width: 100%;
+    max-width:1000px;
+    margin:0 auto;
+    position:fixed;
+    left: 0;
+    right: 0;
 }
 .menu-option {
-    color:white;
+    color:black;
     float: left;
     overflow: hidden;
     z-index: 99999;
@@ -58,15 +88,10 @@ pre {
 }
 .menu-option-text {
     padding: 12px 16px;
-    z-index: 99999;
-}
-.menu-option-link:hover {
-    color:white;
-    font-weight: normal;
+    font-weight: bold;
 }
 .menu-option-link {
-    color:white;
-    font-weight: normal;
+    font-weight: bold;
 }
 .menu-option-content {
     color:black;
@@ -76,20 +101,25 @@ pre {
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     padding: 12px 16px;
     z-index: 99999;
-    position: fixed;
+    position: absolute;
 }
 .menu-option-content-right {
-    right:0;
+    right:10px;
+    left:auto;
+}
+.menu-option-link:hover {
+    color:white;
+    font-weight: bold;
 }
 .menu-option:hover {
+    color:white;
     background-color: red;
+    font-weight: bold;
 }
 .menu-option:hover .menu-option-content {
     display: inline-block;
 }
-.content {
-    padding-top:43px;
-}
-.sygnaturka {
-    font-size:10px;
+.title {
+    font-size:18px;
+    font-weight: bold;
 }

@@ -37,21 +37,22 @@
 <body>
  <!--MENU-->
  <div class=content>
+     <div class=ramki><div class=title>Zapomniane hasło</div></div>
+     <div class=ramki> 
   <table width=100% border=0>
    <tr>
     <td>
-     <div class=ramki> Zapomniane hasło </div>
-     <div class=ramki> Proszę podać nazwę konta i mail konta użytkownika, którego hasło chcesz zmienić.<br>
+Proszę podać nazwę i mail użytkownika, którego hasło chcesz zmienić.<br>
         (dla kont używających Google trzeba skorzystać z odpowiedniej funkcji Google!)
       <hr>
       <form onsubmit="return sendF()">
        <table>
         <tr>
-         <td>Nazwa konta:</td>
+         <td><b>Nazwa użytkownika</b></td>
          <td><input type="text" id="confirmuser" oninput="sprawdzlogin()"></td>
         </tr>
         <tr>
-         <td>Adres email konta:</td>
+         <td><b>Adres email</b></td>
          <td><input type="text" id="confirmemail" oninput="sprawdzlogin()"></td>
         </tr>
         <tr>
@@ -59,10 +60,10 @@
         </tr>
        </table>
       </form>
-     </div>
     </td>
    </tr>
   </table>
+     </div>
  </div>
 </body>
 

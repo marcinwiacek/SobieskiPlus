@@ -35,12 +35,11 @@ function sendLogin() {
  <tr>
   <td>
    <form onsubmit="return sendLogin()" autocomplete="off">
-    Użytkownik: <input oninput="checkLogin()" type="text" id="loginuser"><br>
-    Hasło: <input oninput="checkLogin()" type="password" id="loginpassword">
+    Użytkownik <input oninput="checkLogin()" type="text" id="loginuser"><br>
+    Hasło <input oninput="checkLogin()" type="password" id="loginpassword">
     <button disabled type="submit" id="loginsub" style='cursor: pointer;'>Login</button>
    </form>
-   <br>albo<p>
-    <a href="?q=logingoogle">Loguj przez Google</a>
+    <br><a href="?q=logingoogle">Loguj przez Google</a>
   </td>
  </tr>
 </table>

@@ -22,7 +22,7 @@ const enableGoogleWithToken = true;
 
 const GoogleSignInToken = "YOUR_CLIENT_ID.apps.googleusercontent.com";
 
-const sortParam = ["ostatni", "ileKomentarzy", "autor", "ostatniKomentarz", "punkty"];
+const sortParam = ["data", "ilość komentarzy", "autor", "data komentarzy", "punkty"];
 
 const mailSupport = true;
 

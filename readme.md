@@ -9,6 +9,7 @@ Full working minimalistic file-based CMS using nodeJS, SSE and many modern techn
   * http://mwiacek.com/www/?q=node/396 albo https://www.dobreprogramy.pl/marcinw2/Hey-Joe-Potrzymaj-mi-piwo-dlaczego-w-Polsce-nie-ma-wlasnych-OS-ani-przegladarek-ani-wiekszych-pakietow,107517.html
 * Milestone 3 (11.5.2020)
   * http://mwiacek.com/www/?q=node/401 albo https://www.dobreprogramy.pl/marcinw2/Raport-z-postepu-prac-czyli-Sobieski-MileStone,107845.html
+* Milestone 4 (April 2021)
 
 # todo z node.JS:
 * facebook
@@ -20,6 +21,9 @@ Full working minimalistic file-based CMS using nodeJS, SSE and many modern techn
 * dodawanie tagów przez www
 * dodawanie konkursów przez www
 * notyfikacje o nowych wiadomościach w menu (potrzebne pole, kiedy user ostatni raz oglądał swoją stronę)
+* wybór pól do tagów
+* fonty binarne
+* dzielenie dużych stron z wieloma komentarzami (seek przy czytaniu plików z danymi)
 
 # Znane rzeczy z node.JS:
 * Firefox: menu przewija się z ciemnym motywem (błąd FF?)

@@ -1,6 +1,8 @@
 <div class=ramki>
+<table width=100%><tr><td width=200px align=right>
  <!--USER--><br>
  <!--WHEN--><!--EDITED-->
- <hr>
+</td><td width=20px>&nbsp;</td><td align=left>
  <!--TEXT-->
+</td></tr></table>
 </div>

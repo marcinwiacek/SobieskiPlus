@@ -28,12 +28,12 @@
 
 <body>
  <!--MENU-->
- <div class=content>
-  <div class=ramki>
+ <div class="content">
+  <div class="ramki">
    <table width=100%>
     <tr>
      <td>
-      <!--RODZAJ-->
+      <div class=title><!--RODZAJ--></div>
      </td>
      <td>
       <!--LOGIN-NEW-->
@@ -41,7 +41,7 @@
     </tr>
    </table>
   </div>
-  <div class=ramki>
+  <div class="ramki">
    <!--CRITERIA-->
   </div>
   <!--LIST-GLUE-->
@@ -50,5 +50,4 @@
   <!--NEXTLINK-->
  </div>
 </body>
-
 </html>

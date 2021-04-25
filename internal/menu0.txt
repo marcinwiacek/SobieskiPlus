@@ -1,4 +1,4 @@
-﻿<div class=menu>
+﻿<div class="menu ramki">
   <div class="menu-option">
     <div class=menu-option-text><a href="." class=menu-option-link>Start</a></div>
   </div>

@@ -1,4 +1,4 @@
-﻿<div class=menu>
+﻿<div class="menu ramki">
   <div class="menu-option">
     <div class=menu-option-text><a href="." class=menu-option-link>Start</a></div>
   </div>
@@ -39,8 +39,11 @@
       <p><a href="?q=hydepark//szkic">Własne szkice</a></p>
     </div>
   </div>
+  <div class="menu-option">
+    <div class=menu-option-text><a href="?q=chat/pokaz/0" class=menu-option-link>Shoutbox</a></div>
+  </div>
   <div class="menu-option menu-option-right">
-    <div class=menu-option-text>Użytkownik ▼</div>
+    <div class=menu-option-text><!--USERNAME--> ▼</div>
     <div class="menu-option-content menu-option-content-right">
         <!--LOGIN-LOGOUT-->
         <hr>

@@ -120,7 +120,13 @@
     showPathLabel: false,
     charCounter: true,
     maxCharCount: 10000,
-    placeholder: 'Wykaż się kunsztem'
+    placeholder: 'Wykaż się kunsztem',
+    buttonList : [
+        ['undo', 'redo', 'font', 'fontSize', 'formatBlock'],
+        ['bold', 'underline', 'italic', 'strike', 'subscript', 'superscript', 'removeFormat'],
+        ['fontColor', 'hiliteColor', 'outdent', 'indent', 'align', 'horizontalRule', 'list', 'table'],
+        ['link', 'image', 'video', 'fullScreen', 'showBlocks', 'codeView']
+    ]
    });
    suneditorsig = SUNEDITOR.create('editor-container-sig', {
     height: '100%',
@@ -128,7 +134,13 @@
     showPathLabel: false,
     charCounter: true,
     maxCharCount: 10000,
-    placeholder: 'Niechaj narodowie żadni nam się nie dziwujom, jak Polacy pięknie siem tu podpisujom'
+    placeholder: 'Niechaj narodowie żadni nam się nie dziwujom, jak Polacy pięknie siem tu podpisujom',
+    buttonList : [
+        ['undo', 'redo', 'font', 'fontSize', 'formatBlock'],
+        ['bold', 'underline', 'italic', 'strike', 'subscript', 'superscript', 'removeFormat'],
+        ['fontColor', 'hiliteColor', 'outdent', 'indent', 'align', 'horizontalRule', 'list', 'table'],
+        ['link', 'image', 'video', 'fullScreen', 'showBlocks', 'codeView']
+    ]
    });
     sig0 = suneditorsig.getContents(true);
     note0 = suneditornote.getContents(true);
@@ -144,7 +156,7 @@
 <body>
  <!--MENU-->
  <div class=content>
-  <div class=ramki> Nowy użytkownik/edycja użytkownika </div>
+  <div class=ramki><div class=title>Nowy użytkownik/edycja użytkownika</div></div>
   <div class=ramki>
    <form onsubmit="return sendF()" autocomplete="off">
     <table width=100%>
@@ -155,13 +167,13 @@
      </tr>
      <tr>
       <td colspan=2>
-       Poziom dostępu<br>
+       <b>Poziom dostępu</b><br>
        <!--LEVEL-->
       </td>
      </tr>
      <tr>
       <td colspan=2>
-       <br>Rodzaj konta<br>
+       <br><b>Rodzaj konta</b><br>
        <input name=type id=w type="radio" <!--CHECKED-WLASNE--> value="wlasne" onClick="setWlasne()">
        <label for=w>Konto z własnym hasłem (wymaga weryfikacji email)</label>
        <p>
@@ -170,27 +182,27 @@
       </td>
      </tr>
      <tr>
-      <td>Unikalny nick w serwisie:</td>
+      <td><b>Unikalna nazwa użytkownika w serwisie</b></td>
       <td><input oninput="sprawdz()" id=username type="text" size=50 <!--USER-PARAMS--> ></td>
      </tr>
      <tr>
-      <td>Unikalny mail w serwisie:</td>
+      <td><b>Unikalny adres email w serwisie</b></td>
       <td><input oninput="sprawdz()" id=mail type="text" value='<!--MAIL-->' placeholder='Nie może być pusty' size=50></td>
      </tr>
      <tr id=wlasne>
-      <td>Hasło:</td>
+      <td><b>Hasło</b></td>
       <td><input oninput="sprawdz()" id=pass type="password" value="" <!--PASS-PARAMS--> size=50><br></td>
      </tr>
      <tr id=wlasne2>
-      <td>Powtórz hasło:</td>
+      <td><b>Powtórz hasło</b></td>
       <td><input oninput="sprawdz()" id=pass2 type="password" value="" <!--PASS-PARAMS--> size=50></td>
      </tr>
      <tr><td colspan=2>
-       <p>Notka na stronie (opcjonalna)<br>
+       <p><b>Notka na stronie</b><br>
        <textarea id="editor-container-note"><!--NOTE--></textarea>
      </td></tr>
      <tr><td colspan=2>
-       Stopka do komentarzy (opcjonalna)<br>
+       <b>Stopka do komentarzy</b><br>
        <textarea id="editor-container-sig"><!--SIG--></textarea>
      </td></tr>
      <tr>

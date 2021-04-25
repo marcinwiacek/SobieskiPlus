@@ -9,11 +9,10 @@
  </tr>
  <tr>
   <td align=right>
-   <p>Sortowanie:
+   Sortowanie:
   </td>
   <td>
-   <p>
-    <!--SORTBY-->
+   <!--SORTBY-->
   </td>
  </tr>
 </table>

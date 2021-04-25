@@ -225,23 +225,34 @@ function getSourceFile(path, ID, callback) {
     return readFileContentSync('//' + path + "//" + ID + '.txt', callback);
 }
 
-function getCacheFileSync(fileName) {
+// some problems with binary files
+function getCacheFileSync0(fileName, binary) {
     if (!cacheFiles[fileName]) {
         let t = readFileContentSync(fileName.replace("_gzip", "").replace("_deflate", "").replace("_br", ""));
-        // CAN'T USE // comments in JS !!!! Use /* */ instead.
-        if (compressInternal) t = t.replace(/(\r\n|\n|\r)/gm, "");
-        if (fileName.includes("_br")) {
-            cacheFiles[fileName] = zlib.brotliCompressSync(t);
-        } else if (fileName.includes("_gzip")) {
-            cacheFiles[fileName] = zlib.gzipSync(t);
-        } else if (fileName.includes("_deflate")) {
-            cacheFiles[fileName] = zlib.deflateSync(t);
+        console.log(fileName + " size " + t.length);
+        if (!binary) {
+            // CAN'T USE // comments in JS !!!! Use /* */ instead.
+            if (compressInternal) t = t.replace(/(\r\n|\n|\r)/gm, "");
+            if (fileName.includes("_br")) {
+                cacheFiles[fileName] = zlib.brotliCompressSync(t);
+            } else if (fileName.includes("_gzip")) {
+                cacheFiles[fileName] = zlib.gzipSync(t);
+            } else if (fileName.includes("_deflate")) {
+                cacheFiles[fileName] = zlib.deflateSync(t);
+            } else {
+                cacheFiles[fileName] = t;
+            }
         } else {
             cacheFiles[fileName] = t;
         }
     }
     return cacheFiles[fileName];
 }
+
+function getCacheFileSync(fileName) {
+    return getCacheFileSync0(fileName, false);
+}
+
 
 const DecodingLevel = {
     MainHeaders: 1,
@@ -415,15 +426,15 @@ function getPageList(pageNum, typeList, stateList, tag, specialplus, specialminu
 
     //    console.log(Date.now() - t);
 
-    if (sortLevel == "ostatni") {
+    if (sortLevel == "data") {
         result.sort(function(a, b) {
             return (a["When"] == b["When"]) ? 0 : (a["When"] > b["When"] ? -1 : 1);
         });
-    } else if (sortLevel == "ostatniKomentarz") {
+    } else if (sortLevel == "data komentarzy") {
         result.sort(function(a, b) {
             return (a["commentswhen"] == b["commentswhen"]) ? 0 : (a["commentswhen"] > b["commentswhen"] ? -1 : 1);
         });
-    } else if (sortLevel == "ileKomentarzy") {
+    } else if (sortLevel == "ilość komentarzy") {
         result.sort(function(a, b) {
             if (a["commentsnum"] == b["commentsnum"]) {
                 return (a["When"] == b["When"]) ? 0 : (a["When"] > b["When"] ? -1 : 1);
@@ -605,7 +616,7 @@ function parsePOSTUploadComment(params, res, userName, isChat) {
     comment["Who"] = userName;
     comment["When"] = Date.now(); // FIXME: do we need conversion here?;
     comment["Text"] = params["comment"] + (cacheUsers[userName]["sig"] && cacheUsers[userName]["sig"] != '' ?
-        "<p class=\"sygnaturka\" />" + cacheUsers[userName]["sig"].replace(/^<p>/,"") : "");
+        "<p class=\"sygnaturka\" />" + cacheUsers[userName]["sig"].replace(/^<p>/, "") : "");
 
     appendToSourceFile(folder, params["tekst"],
         "<!--comment-->\n" +
@@ -889,7 +900,7 @@ function parsePOSTCreateUser(params, res, userName) {
         return directToOKFileNotFoundNoRet(res, '', false);
     }
     if (cacheUsers[params["username"]]) {
-        return directToOKFileNotFoundNoRet(res, 'Użytkownik o podanym nicku już istnieje', false);
+        return directToOKFileNotFoundNoRet(res, 'Użytkownik o podanej nazwie już istnieje', false);
     }
 
     let txt = "Who:" + params["username"] + "\n" +
@@ -1245,6 +1256,7 @@ function genericReplace(req, res, text, userName) {
         return text.replace("<!--LOGIN-LOGOUT-->", getCacheFileSync('//internal//login.txt'));
     }
     return text.replace("<!--ID-USER-->", cacheUsers[userName]["filename"])
+        .replace("<!--USERNAME-->", userName)
         .replace("<!--LOGIN-LOGOUT-->", getCacheFileSync('//internal//logout' +
                 (cacheUsers[userName]["Type"] == "google" ? "google" : "") + '.txt')
             .replace(/<!--SIGN-IN-TOKEN-->/g, GoogleSignInToken));
@@ -1552,7 +1564,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 });
             }
             text = text.replace("<!--CHAT-LIST-->", "<div class=ramki><table width=100%><tr><td>" +
-                (txt != "" ? (userName == arr["Who"] ? "Ostatnie chaty" : "Ostatnie chaty z Tobą") : "Chat") +
+                (txt != "" ? (userName == arr["Who"] ? "<div class=title>Ostatnie chaty</div>" : "<div class=title>Ostatnie chaty z Tobą</div>") : "Chat") +
                 "</td><td align=right><a href=\"?q=chat/dodaj\">Dodaj</a></td></tr></table><hr>" + txt + "</div>");
 
             if (userName == arr["Who"]) {
@@ -1586,7 +1598,7 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 allTypes, state,
                 null,
                 null, null,
-                "ostatni",
+                "data",
                 userName,
                 arr["Who"]);
             let t = "";
@@ -1596,11 +1608,11 @@ function showProfilePage(req, res, params, id, userName, userLevel) {
                 });
             }
             if (t != "") {
-                txt += "<div class=ramki>Ostatnie teksty (";
+                txt += "<div class=ramki><div class=title>Ostatnie teksty (";
                 state.forEach(function(s, index) {
                     txt += s + (index != state.length - 1 ? " " : "")
                 });
-                txt += ")<hr>" + t + "</div>";
+                txt += ")</div><hr>" + t + "</div>";
             }
         });
 
@@ -1673,18 +1685,33 @@ function showAddChangeTextPage(req, res, params, id, userName, userLevel) {
     });
     text = text.replace("<!--TYPE-->", txt + "<p>");
 
-    txt = "<select id=\"tag\" name=\"tag\" size=5 multiple>";
+    txt1 = "";
+    txt2 = "";
     tag.forEach(function(tax) {
-        txt += addOption(tax, tax, (id[2] && arr["Tag"] && arr["Tag"].split(",").includes(tax)));
+        if (txt1 != "") txt1 += ",";
+        txt1 += "'" + tax + "'";
+        if (id[2] && arr["Tag"] && arr["Tag"].split(",").includes(tax)) {
+            if (txt2 != "") txt2 += ",";
+            txt2 += tax;
+        }
     });
-    text = text.replace("<!--TAG-->", txt + "</select><p>");
+    text = text.replace(/<!--TAG-LIST-->/g, txt1); //many entries
+    text = text.replace("<!--TAG-LIST-DEFAULT-->", txt2);
 
     if (userLevel == "3") {
-        txt = "<select id=\"special\" name=\"special\" size=5 multiple>";
+        txt1 = "";
+        txt2 = "";
         special.forEach(function(tax) {
-            txt += addOption(tax, tax, (id[2] && arr["Special"] && arr["Special"].split(",").includes(tax)));
+            if (txt1 != "") txt1 += ",";
+            txt1 += "'" + tax + "'";
+            if (id[2] && arr["Special"] && arr["Special"].split(",").includes(tax)) {
+                if (txt2 != "") txt2 += ",";
+                txt2 += tax;
+            }
         });
-        text = text.replace("<!--SPECIAL-->", txt + "</select><p>");
+        text = text.replace("<!--SPECIAL-->",
+                "<input type=text value=\"" + txt2 + "\" id=\"special_edit\" />")
+            .replace(/<!--SPECIAL-LIST-->/g, txt1); //many entries
     }
 
     sendHTMLBody(req, res, text);
@@ -1768,7 +1795,7 @@ function showTextPage(req, res, params, id, userName, userLevel) {
         if (arr["Comments"]) {
             const template0 = getCacheFileSync('//internal//comment0123.txt');
             let txt = "";
-            arr["Comments"].forEach(function(comment) {
+            arr["Comments"].reverse().forEach(function(comment) {
                 if (cacheUsers[comment["Who"]]["Active"] && cacheUsers[comment["Who"]]["Active"] == "0") return;
                 txt += template0.replace("<!--USER-->", addUserLink(comment["Who"]))
                     .replace("<!--WHEN-->", formatDate(comment["When"]))
@@ -1854,7 +1881,7 @@ function showMainPage(req, res, page, params, userName) {
         null, ["biblioteka"],
         null,
         "przyklejonegłówna", null,
-        "ostatni",
+        "data",
         userName,
         null);
 
@@ -1870,7 +1897,7 @@ function showMainPage(req, res, page, params, userName) {
         null,
         ["biblioteka"], null,
         "główna", "przyklejonegłówna",
-        "ostatni",
+        "data",
         userName,
         null);
 
@@ -1918,7 +1945,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         typ ? [typ] : podstronyType[rodzaj], status ? [status] : podstronyState[rodzaj],
         tax,
         null, "przyklejone",
-        sortLevel == "" ? "ostatni" : sortLevel,
+        sortLevel == "" ? "data" : sortLevel,
         userName,
         null);
 
@@ -1970,7 +1997,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
     txt = "";
     sortParam.forEach(function(s) {
         txt += (txt != "" ? " | " : "") +
-            ((!sortLevel && s == "ostatni") || (sortLevel == s) ?
+            ((!sortLevel && s == "data") || (sortLevel == s) ?
                 "<b>" + s + "</b>" : buildURLForListPage(s, rodzaj, typ, status, pageNum, s, tax));
     });
     text = text.replace("<!--SORTBY-->", txt);
@@ -1981,7 +2008,7 @@ function showListPage(req, res, params, id, userName, userLevel) {
         podstronyType[rodzaj], status ? [status] : podstronyState[rodzaj],
         null,
         "przyklejone", null,
-        "ostatni",
+        "data",
         userName,
         null);
 
@@ -2165,7 +2192,8 @@ function parseGETWithSseParam(req, res, userName, token) {
 
 function processExternalFiles(req, res) {
     if (req.url == "/external/styles.css" || req.url == "/external/dark.css" || req.url == "/external/sha256.js" ||
-        req.url == "/external/suneditor.min.css" || req.url == "/external/suneditor.min.js") {
+        req.url == "/external/suneditor.min.css" || req.url == "/external/suneditor.min.js" ||
+        req.url == "/external/tagger.css" || req.url == "/external/tagger.js") {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/' +
             (req.url.includes('.js') ? 'javascript' : 'css') + '; charset=UTF-8');
@@ -2173,7 +2201,7 @@ function processExternalFiles(req, res) {
         const stats = fs.statSync(path.normalize(__dirname + req.url));
         res.setHeader('Last-Modified', stats.mtime.toUTCString());
         let found = false;
-        ["br", "gzip", "deflate"].forEach(function(method) {
+        ["br", "gzip", "deflate", ""].forEach(function(method) {
             if (found) return;
             if (req.headers['accept-encoding'] && req.headers['accept-encoding'].includes(method)) {
                 found = true;
@@ -2182,6 +2210,20 @@ function processExternalFiles(req, res) {
             }
         });
         if (!found) res.end(getCacheFileSync(req.url));
+        return true;
+    } else if (req.url == "/external/font/OpenSans-Regular.ttf") {
+        //fixme: still something doesn't work here
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Cache-Control', 'must-revalidate');
+        const stats = fs.statSync(path.normalize(__dirname + req.url));
+        res.setHeader('Last-Modified', stats.mtime.toUTCString());
+        let found = false;
+        [""].forEach(function(method) {
+            if (found) return;
+            found = true;
+            res.end(getCacheFileSync0(req.url, true), 'binary');
+        });
         return true;
     } else if (req.url == "/favicon.ico") {
         directToOKFileNotFoundNoRet(res, '', false);

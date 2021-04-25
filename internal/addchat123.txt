@@ -45,7 +45,7 @@
 <body>
  <!--MENU-->
  <div class=content>
-  <div class=ramki> Nowy chat </div>
+  <div class=ramki><div class=title>Nowy chat</div></div>
   <div class=ramki>
    <form onsubmit="return sendChat()" autocomplete="off">
     Tytuł: <input oninput="sprawdz()" id="title" type="text" value="tytul" placeholder="Bez tytułu się nie obędzie" size=50>

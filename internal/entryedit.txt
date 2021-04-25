@@ -4,7 +4,9 @@
 <head>
  <!--STYLES-->
  <link type="text/css" rel="stylesheet" href="external/suneditor.min.css">
+ <link type="text/css" rel="stylesheet" href="external/tagger.css">
  <script src="external/suneditor.min.js"></script>
+ <script src="external/tagger.js"></script>
  <script async>
  <!--JSASYNC-->
   var teasersuneditor = null;
@@ -47,9 +49,9 @@
         state0 != getRadio("state") ||
         beta0 != getRadio("betausers") ||
         title0 != document.getElementById("title").value ||
-        tag0 != getListValues("tag") ||
-        (document.getElementById("special")!=null &&
-         special0 != getListValues("special")) ||
+        tag0 != getTagListValues(document.getElementById("tag_edit").value) ||
+        (document.getElementById("special_edit")!=null &&
+         special0 != getSpecialListValues(document.getElementById("special_edit").value)) ||
         text0 != suneditor.getContents(true) || teaser0 != teasersuneditor.getContents(true)) {
      document.getElementById('sub').disabled = false;
     } else {
@@ -68,15 +70,48 @@
    width: 'auto',
    showPathLabel: false,
    charCounter: true,
-   placeholder: 'Może być pusty'
+   placeholder: 'Może być pusty',
+   buttonList : [
+        ['undo', 'redo', 'font', 'fontSize', 'formatBlock'],
+        ['bold', 'underline', 'italic', 'strike', 'subscript', 'superscript', 'removeFormat'],
+        ['fontColor', 'hiliteColor', 'outdent', 'indent', 'align', 'horizontalRule', 'list', 'table'],
+        ['link', 'image', 'video', 'showBlocks', 'codeView']
+    ]
   });
   suneditor = SUNEDITOR.create('editor-container', {
    height: '100%',
    width: 'auto',
    showPathLabel: false,
    charCounter: true,
-   placeholder: 'Poproszę o ładny tekst'
+   placeholder: 'Poproszę o ładny tekst',
+   buttonList : [
+        ['undo', 'redo', 'font', 'fontSize', 'formatBlock'],
+        ['bold', 'underline', 'italic', 'strike', 'subscript', 'superscript', 'removeFormat'],
+        ['fontColor', 'hiliteColor', 'outdent', 'indent', 'align', 'horizontalRule', 'list', 'table'],
+        ['link', 'image', 'video', 'fullScreen', 'showBlocks', 'codeView']
+    ]
   });
+
+  tagger(document.getElementById("tag_edit"), {
+     allow_duplicates: false,
+     allow_spaces: true,
+     wrap: true,
+     completion: {
+         list: [<!--TAG-LIST-->]
+     }
+ });
+
+  if(document.getElementById("special_edit")!=null) {
+  tagger(document.getElementById("special_edit"), {
+     allow_duplicates: false,
+     allow_spaces: true,
+     wrap: true,
+     completion: {
+         list: [<!--SPECIAL-LIST-->]
+     }
+ });
+}
+
   type0 = getRadio("type");
   state0 = getRadio("state");
   title0 = document.getElementById("title").value;
@@ -86,9 +121,9 @@
    } else {
      document.getElementById("betausersdiv").style='display:none';
    }
-  tag0 = getListValues("tag");
-  if (document.getElementById("special")!=null) {
-    special0 = getListValues("special");
+  tag0 = getTagListValues(document.getElementById("tag_edit").value);
+  if (document.getElementById("special_edit")!=null) {
+    special0 = getSpecialListValues(document.getElementById("special_edit").value);
   }
   text0 = suneditor.getContents(true);
   teaser0 = teasersuneditor.getContents(true);
@@ -109,6 +144,36 @@
   }
  });
 
+  function getTagListValues(val) {
+    var def = [<!--TAG-LIST-->];
+    var result = "";
+    var valuetab = val.split(",");
+    for (var i = 0, len = valuetab.length; i < len; i++) {
+	for (var j = 0, len2 = def.length; j < len2; j++) {
+	    if (valuetab[i] == def[j]) {
+		if (result!="") result+=",";
+		result+=valuetab[i];
+	    }
+	}
+    }
+    return result;
+  }
+
+  function getSpecialListValues(val) {
+    var def = [<!--SPECIAL-LIST-->];
+    var result = "";
+    var valuetab = val.split(",");
+    for (var i = 0, len = valuetab.length; i < len; i++) {
+	for (var j = 0, len2 = def.length; j < len2; j++) {
+	    if (valuetab[i] == def[j]) {
+		if (result!="") result+=",";
+		result+=valuetab[i];
+	    }
+	}
+    }
+    return result;
+  }
+
   function getListValues(name) {
    var result = "";
    for (var i = 0, len = document.getElementById(name).options.length; i < len; i++) {
@@ -125,10 +190,10 @@
    }
    var state = getRadio("state");
    var title = document.getElementById("title").value;
-   var tag = getListValues("tag");
+   var tag = getTagListValues(document.getElementById("tag_edit").value);
    var beta = getListValues("betausers");
-   if (document.getElementById("special")!=null) {
-    var special = getListValues("special");
+   if (document.getElementById("special_edit")!=null) {
+    var special = getSpecialListValues(document.getElementById("special_edit").value);
    }
    var progressBar = document.getElementById("progress");
    var params = 'upload_text=1&tekst=<!--PAGEID-->';
@@ -171,8 +236,8 @@
      type0 = getRadio("type");
      state0 = getRadio("state");
      title0 = document.getElementById("title").value;
-     tag0 = getListValues("tag");
-     if (document.getElementById("special") != null) special0 = getListValues("special");
+     tag0 = getTagListValues(document.getElementById("tag_edit").value);
+     if (document.getElementById("special_edit") != null) special0 = getSpecialListValues(document.getElementById("special_edit").value);
      text0 = suneditor.getContents(true);
      teaser0 = teasersuneditor.getContents(true);
      version = http.response;
@@ -197,8 +262,9 @@
   <div class=ramki>
    <table width=100%>
     <tr>
-     <td> Edycja tekstu w dziale
+     <td><div class=title>Edycja tekstu w dziale
    <!--RODZAJ-->
+</div>
      </td>
      <td>
       <!--BACK-TO-VIEW-->
@@ -207,14 +273,16 @@
    </table>
   </div>
   <div class=ramki>
-   <form onsubmit="return sendText()"> Status:
-    <!--STATE--> Typ:
-    <!--TYPE--> Tagi (opcjonalne)<p>
-     <!--TAG-->
-     <!--SPECIAL--> 
+   <form onsubmit="return sendText()">
+     <b>Tytuł</b><br><input id=title oninput="sprawdz()" type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50><br>
+<br><b>Status:</b><br><!--STATE-->
+<b>Typ:</b><br><!--TYPE-->
+<b>Tagi</b><br>
+     <input type=text value="<!--TAG-LIST-DEFAULT-->" id="tag_edit" />
+     <!--SPECIAL-->
       <div id=betausersdiv style='display:none'>
         <table width=100%><tr><td>
-          Użytkownicy zaproszeni do bety (bez zaznaczenia beta jest publiczna)<br>
+          <b>Użytkownicy zaproszeni do bety (bez zaznaczenia beta jest publiczna)</b><br>
           <select id="betausers" name="betausers" size=5 multiple>
             <!--BETAUSERS--> 
           </select>
@@ -222,10 +290,8 @@
          <td><div id=betausersinfo></div></td>
         </tr></table>
       </div>
-     <br>
-     Tytuł: <input id=title oninput="sprawdz()" type="text" value="<!--TITLE-->" placeholder="Bez tytułu się nie obędzie" size=50>
-    <p> Informacja dla czytających <textarea id="teaser-editor-container"><!--TEASER--></textarea>
-    <p> Tekst <textarea id="editor-container"><!--TEXT--></textarea>
+    <br><b>Przedmowa</b><textarea id="teaser-editor-container"><!--TEASER--></textarea>
+    <br><b>Tekst</b><textarea id="editor-container"><!--TEXT--></textarea>
     <p>
      <button type="submit" disabled id=sub>Zapisz</button>
    </form>

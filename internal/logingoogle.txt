@@ -3,7 +3,7 @@
 
 <head>
  <!--STYLES-->
- <script src="https://apis.google.com/js/platform.js" async defer onError="alert('Loading Google scripts blocked');"></script>
+ <script src="https://apis.google.com/js/platform.js" async defer></script>
  <script async>
   <!--JSASYNC-->
   function onSignIn(googleUser) {
@@ -30,7 +30,7 @@
 <body>
  <!--MENU-->
  <div class=content>
-  <div class=ramki>Logowanie do konta Google</div>
+  <div class=ramki><div class=title>Logowanie do konta Google</div></div>
   <div class=ramki>
    <ul>
     <li>Wymaga założenia konta w serwisie z używanym przez Ciebie adresem email i typem logowania przez Google!<p>

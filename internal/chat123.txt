@@ -25,10 +25,9 @@
 <body>
  <!--MENU-->
  <div class=content>
-  <div class=ramki> Chat </div>
-  <div class=ramki> Autor:
-   <!--USERS--><br> Tytuł:
-   <!--TITLE-->
+  <div class=ramki><div class=title>Chat <!--TITLE--></div></div>
+  <div class=ramki> Użytkownicy:
+   <!--USERS-->
   </div>
   <!--COMMENTEDIT-->
   <div id=newcomments></div>
